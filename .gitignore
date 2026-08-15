@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.*
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# 環境変数・秘密情報（絶対にコミットしない）
+.env
+.env.local
+
+# ログ
+*.log
+
+# エディタ
+.vscode/*
+!.vscode/extensions.json
