@@ -6,6 +6,9 @@
 
 ## 事前準備1：Google Maps APIキー（地図を表示する場合）
 
+**Android用の設定。iOSは`react-native-maps`が標準でApple純正の地図を使うため、
+このAPIキーは不要。**
+
 1. https://console.cloud.google.com/ でプロジェクトを作成
 2. 「APIとサービス」→「ライブラリ」→「Maps SDK for Android」を有効化
 3. 「認証情報」→「認証情報を作成」→「APIキー」を発行
@@ -70,11 +73,20 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=Supabaseのanon public key
 npx expo start
 ```
 
-QRコードを各自のAndroid実機の Expo Go アプリで読み取る。
+QRコードを各自の実機の Expo Go アプリで読み取る（Android・iOSどちらでも参加可能）。
+
+### 開発者本人の動作確認（iOS実機なしのため）
+
+開発者はiOS実機を持っていないため、自分の確認はAndroid実機 + iOSシミュレータで行う。
+`npx expo start`実行後、ターミナルで`i`キーを押すとiOSシミュレータが起動する
+（Xcodeのインストールが必要。Macのみ対応）。
 
 ### 配布にストアの開発者アカウントは不要
 
-参加者がインストールするのは、Expo社が公開済みの汎用アプリ「Expo Go」（Play Storeから無料インストール可能）。あなたのコードは`npx expo start`でその場で配信され、Expo Goがそれを読み込んで実行する仕組みなので、Google Play・App Storeへの公開もアカウント取得も不要。
+参加者がインストールするのは、Expo社が公開済みの汎用アプリ「Expo Go」
+（AndroidはPlay Store、iOSはApp Storeからそれぞれ無料インストール可能）。
+あなたのコードは`npx expo start`でその場で配信され、Expo Goがそれを読み込んで
+実行する仕組みなので、Google Play・App Storeへの公開もアカウント取得も不要。
 
 - 全員が合宿会場の同じWi-Fiに繋がっていれば、上記の`npx expo start`だけで動く
 - 参加者の一部が別ネットワーク（モバイル回線など）にいる場合は、代わりに以下を使う
@@ -87,5 +99,8 @@ npx expo start --tunnel
 
 ## 動作確認のポイント
 
-- 地図が真っ白：Google Maps APIキーを確認。間に合わなければ`SHOW_MAP`を`false`に
+- 地図が真っ白（Android）：Google Maps APIキーを確認。間に合わなければ
+  `SHOW_MAP`を`false`に
+- 地図が真っ白（iOS）：位置情報の使用許可（設定アプリ or 初回起動時のダイアログ）
+  が許可されているか確認
 - 人数が増えない：`SUPABASE_URL`・`SUPABASE_ANON_KEY`が全員同じ値か確認
