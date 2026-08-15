@@ -17,17 +17,15 @@ oruca/
 │   ├── architecture.md           システム構成・ライフサイクル設計
 │   ├── ai-collaboration-plan.md  User Story単位のAI/自分の役割分担
 │   └── decisions/                技術選定・設計判断の記録（ADR）
-├── demo/             合宿デモ用の緊急モック（本番実装ではない）
-└── app/              本開発用の本番アプリ（これから作成）
+└── app/              本開発用の本番アプリ（Expo + TypeScript）
 ```
 
 ## 開発の進め方
 
 1. 設計・方針は必ず `docs/` を参照してから着手する
 2. AIと実装する際の役割分担は `docs/ai-collaboration-plan.md` を確認する
-3. 本開発用のアプリは `app/` に作成する（`npx create-expo-app app` を想定）
+3. 実装は `app/`（Expo + TypeScript）で行う
 
 ## セットアップ
 
 本番アプリのセットアップ手順は `app/README.md`（作成後）を参照。
-合宿デモ版のセットアップは `demo/README.md` を参照。
