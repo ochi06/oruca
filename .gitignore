@@ -13,6 +13,9 @@ web-build/
 # 環境変数・秘密情報（絶対にコミットしない）
 .env
 .env.local
+.env.development
+.env.production
+.env*.local
 
 # ログ
 *.log
