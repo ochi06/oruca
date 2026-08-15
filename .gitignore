@@ -20,3 +20,6 @@ web-build/
 # エディタ
 .vscode/*
 !.vscode/extensions.json
+
+# その他
+.note.md
