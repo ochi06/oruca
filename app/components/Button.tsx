@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, StyleSheet, PressableProps } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { radius, spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 type Props = PressableProps & {
   label: string;
@@ -43,7 +44,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontFamily: typography.heading.fontFamily,
+    fontSize: typography.body.fontSize,
   },
 });

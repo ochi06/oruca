@@ -1,9 +1,9 @@
-// フォントファミリーは Noto Sans JP に統一する（docs/design-system.md 参照）。
-// 実際にNoto Sans JPを読み込む設定は別途 expo-font 導入時に fontFamily を追加する。
+// フォントは Noto Sans JP に統一する（docs/design-system.md 参照）。
+// App.tsx の useFonts({ NotoSansJP_400Regular, NotoSansJP_700Bold }) で読み込み済み。
 
 export const typography = {
-  title: { fontSize: 22, fontWeight: '700' as const },
-  heading: { fontSize: 18, fontWeight: '700' as const },
-  body: { fontSize: 16, fontWeight: '400' as const },
-  caption: { fontSize: 13, fontWeight: '400' as const },
+  title: { fontSize: 22, fontFamily: 'NotoSansJP_700Bold' },
+  heading: { fontSize: 18, fontFamily: 'NotoSansJP_700Bold' },
+  body: { fontSize: 16, fontFamily: 'NotoSansJP_400Regular' },
+  caption: { fontSize: 13, fontFamily: 'NotoSansJP_400Regular' },
 };

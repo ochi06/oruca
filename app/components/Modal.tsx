@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.heading.fontSize,
-    fontWeight: typography.heading.fontWeight,
+    fontFamily: typography.heading.fontFamily,
     marginBottom: spacing.md,
   },
 });
