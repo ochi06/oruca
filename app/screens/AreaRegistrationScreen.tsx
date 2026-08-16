@@ -38,7 +38,7 @@ const defaultCenter: LatLng = mockAreas[0]
   : { latitude: 34.6937, longitude: 135.5023 };
 
 function clampRadius(m: number): number {
-  return Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, m));
+  return Math.round(Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, m)));
 }
 
 type Props = {

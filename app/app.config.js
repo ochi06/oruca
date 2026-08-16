@@ -8,6 +8,7 @@ module.exports = {
     userInterfaceStyle: 'light',
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.example.oruca', // 仮の識別子。Must完了後に再検討する
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
