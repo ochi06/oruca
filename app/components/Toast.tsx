@@ -31,10 +31,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [message, setMessage] = useState<string | null>(null);
-  const [opacity] = useState(() => new Animated.Value(0));
+  const [ opacity ] = useState(() => new Animated.Value(0));
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback(
+  const showToast =    useCallback(
     (msg: string) => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       setMessage(msg);
