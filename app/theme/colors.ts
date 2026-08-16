@@ -22,7 +22,7 @@ export const darkColors = {
   textSub: '#7C93A8',
   bg: '#050B14',
   surface: '#0E1C30',
-  green: '#5C8F63',
+  green: '#48A156',
   coral: '#B86868',
   sand: '#B99458',
   sandTint: '#7A5C2E',
