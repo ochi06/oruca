@@ -1,21 +1,12 @@
 import { Area } from './mocks/areas';
-
-type Coordinate = {
-  lat: number;
-  lng: number;
-};
-
-// TODO: US-018のapp/utils/geo.tsがmainにマージされたら、
-// distanceInMeters(a, b) をそちらのimportに差し替える
-function distanceInMeters(a: Coordinate, b: Coordinate): number {
-  return 0; // 仮実装
-}
+import { LatLng, distanceInMeters } from './utils/geo';
 
 export function isInsideArea(
-  current: Coordinate,
+  current: LatLng,
   area: Area,
-  calcDistance: (a: Coordinate, b: Coordinate) => number = distanceInMeters
+  calcDistance: (a: LatLng, b: LatLng) => number = distanceInMeters
 ): boolean {
-  const distance = calcDistance(current, { lat: area.center_lat, lng: area.center_lng });
+  const areaCenter: LatLng = { latitude: area.center_lat, longitude: area.center_lng };
+  const distance = calcDistance(current, areaCenter);
   return distance <= area.radius_m;
 }
