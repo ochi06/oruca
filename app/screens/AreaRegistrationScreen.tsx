@@ -30,7 +30,7 @@ import {
   bearingDegrees,
   destinationPoint,
   distanceInMeters,
-} from '../lib/geo';
+} from '../utils/geo';
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
