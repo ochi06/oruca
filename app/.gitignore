@@ -30,7 +30,11 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files（demo/dev/prod環境切り替え用、docs/decisions/0003参照）
+.env
+.env.local
+.env.development
+.env.production
 .env*.local
 
 # typescript
