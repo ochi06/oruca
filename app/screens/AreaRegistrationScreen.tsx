@@ -64,6 +64,8 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
   const handleMapPress = (event: MapPressEvent) => {
     setPin(event.nativeEvent.coordinate);
+    setRadiusM(RADIUS_MIN_M);
+    setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
 
   const searchResults = mockAreas.filter(
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
   },
   searchPanel: {
     position: 'absolute',
-    top: 8,
+    top: 56,
     left: 16,
     right: 16,
     padding: 12,
