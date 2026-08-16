@@ -29,8 +29,8 @@ erDiagram
     uuid id PK
     uuid owner_user_id FK
     string name
-    float center_lat
-    float center_lng
+    float8 center_lat
+    float8 center_lng
     int radius_m
     boolean is_public
     timestamp created_at
@@ -80,7 +80,11 @@ erDiagram
 ## 各テーブルの役割
 
 - **USERS**：利用者本体
-- **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）
+- **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
+  `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
+  保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
+  上限はオフィス・部室規模を想定。学校のような広い敷地は複数エリアに分けて
+  登録する前提。値は最も近い整数に丸める）
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
   `notify_enabled`（US-007）・`muted`（US-008）を関係ごとに個別管理できる

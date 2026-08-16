@@ -43,3 +43,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# 環境変数（demo/dev/prod切り替え用、docs/decisions/0003参照）
+.env
+.env.development
+.env.production
