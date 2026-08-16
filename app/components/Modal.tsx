@@ -7,6 +7,8 @@ import {
   ModalProps,
 } from 'react-native';
 import { useTheme } from '../theme/useTheme';
+import { radius, spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 type Props = ModalProps & {
   visible: boolean;
@@ -47,12 +49,12 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '85%',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    fontSize: typography.heading.fontSize,
+    fontWeight: typography.heading.fontWeight,
+    marginBottom: spacing.md,
   },
 });

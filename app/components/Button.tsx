@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, PressableProps } from 'react-native';
 import { useTheme } from '../theme/useTheme';
+import { radius, spacing } from '../theme/spacing';
 
 type Props = PressableProps & {
   label: string;
@@ -36,9 +37,9 @@ export function Button({ label, variant = 'primary', style, ...rest }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   label: {
