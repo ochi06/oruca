@@ -13,6 +13,7 @@ import MapView, {
   Marker,
   MapMarker,
   MapPressEvent,
+  MapStyleElement,
   MarkerDragStartEndEvent,
 } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
@@ -32,10 +33,12 @@ import {
 } from '../lib/geo';
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
+const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
-const defaultCenter: LatLng = mockAreas[0]
-  ? { latitude: mockAreas[0].center_lat, longitude: mockAreas[0].center_lng }
-  : { latitude: 34.6937, longitude: 135.5023 };
+const defaultCenter: LatLng = {
+  latitude: mockAreas[0].center_lat,
+  longitude: mockAreas[0].center_lng,
+};
 
 function clampRadius(m: number): number {
   return Math.round(Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, m)));
@@ -128,7 +131,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
           longitudeDelta: 0.01,
         }}
         onPress={handleMapPress}
-        customMapStyle={isDark ? darkMapStyle : []}
+        customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
       >
         {pin && <Marker coordinate={pin} pinColor={colors.navy} />}
         {pin && (
