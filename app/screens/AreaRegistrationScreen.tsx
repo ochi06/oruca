@@ -85,7 +85,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const handleSelectArea = (area: Area) => {
     const center = { latitude: area.center_lat, longitude: area.center_lng };
     setPin(center);
-    setRadiusM(area.radius_m);
+    setRadiusM(clampRadius(area.radius_m));
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
     closeSearch();
     mapRef.current?.animateToRegion(

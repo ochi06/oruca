@@ -29,8 +29,8 @@ erDiagram
     uuid id PK
     uuid owner_user_id FK
     string name
-    double center_lat
-    double center_lng
+    float8 center_lat
+    float8 center_lng
     int radius_m
     boolean is_public
     timestamp created_at

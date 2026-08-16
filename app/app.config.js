@@ -5,7 +5,7 @@ module.exports = {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'light',
+    userInterfaceStyle: 'automatic',
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.example.oruca', // 仮の識別子。Must完了後に再検討する
