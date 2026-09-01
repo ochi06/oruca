@@ -74,6 +74,8 @@ erDiagram
     uuid area_id FK
     timestamp entered_at
     timestamp exited_at
+    double lat
+    double lng
   }
 ```
 
@@ -91,7 +93,10 @@ erDiagram
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
-- **PRESENCE_LOGS**：入退室記録。`exited_at`がnullの間は在席中を意味する
+- **PRESENCE_LOGS**：入退室記録。`exited_at`がnullの間は在席中を意味する。
+  `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
+  正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
+  精度・退室後の削除ポリシーは未決定（別途検討）
 
 ## 設計上の重要な原則
 
