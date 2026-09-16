@@ -17,6 +17,8 @@ jobs:
               working-directory: app
             - run: npm run lint
               working-directory: app
+            - run: npm run typecheck
+              working-directory: app
             - run: npm test
               working-directory: app
 
