@@ -31,6 +31,15 @@ module.exports = {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-font'],
+    plugins: [
+      'expo-font',
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'oruca は、登録したエリアに入った時だけ位置情報を取得します。エリア外では取得しません。',
+        },
+      ],
+    ],
   },
 };

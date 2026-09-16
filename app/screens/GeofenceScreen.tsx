@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
+import * as Location from 'expo-location';
 
-import { Button } from '../components/Button';
+import { ErrorState } from '../components/ErrorState';
 import { ListItem } from '../components/ListItem';
+import { LoadingIndicator } from '../components/LoadingIndicator';
 import { Screen } from '../components/Screen';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
@@ -12,10 +14,9 @@ import { Area, mockAreas, mockUserAreas } from '../mocks/areas';
 import { PresenceLog, mockPresenceLogs } from '../mocks/presenceLogs';
 import { LatLng } from '../utils/geo';
 
-// バックエンド未接続の段階では、GPSの代わりに「今どこにいることにするか」を
-// ボタンで選ぶことで、ジオフェンス判定・PRESENCE_LOGS更新の動きを確認する。
 const CURRENT_USER_ID = 'user-1';
-const OUTSIDE_LOCATION: LatLng = { latitude: 0, longitude: 0 };
+
+type PermissionState = 'checking' | 'granted' | 'denied';
 
 export default function GeofenceScreen() {
   const { colors } = useTheme();
@@ -24,20 +25,50 @@ export default function GeofenceScreen() {
     .map((userArea) => userArea.area_id);
   const areas = mockAreas.filter((area) => monitoredAreaIds.includes(area.id));
 
-  const [current, setCurrent] = useState<LatLng>(OUTSIDE_LOCATION);
+  const [permission, setPermission] = useState<PermissionState>('checking');
   const [logs, setLogs] = useState<PresenceLog[]>(mockPresenceLogs);
+  const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
-  function simulateLocation(location: LatLng) {
-    setCurrent(location);
+  function handleLocation(location: LatLng) {
     const now = new Date().toISOString();
-
-    let updatedLogs = logs;
-    for (const area of areas) {
-      const inside = isInsideArea(location, area);
-      updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
-    }
-    setLogs(updatedLogs);
+    setLogs((prevLogs) => {
+      let updatedLogs = prevLogs;
+      for (const area of areas) {
+        const inside = isInsideArea(location, area);
+        updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
+      }
+      return updatedLogs;
+    });
   }
+
+  async function requestPermissionAndWatch() {
+    setPermission('checking');
+    const { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== 'granted') {
+      setPermission('denied');
+      return;
+    }
+
+    setPermission('granted');
+    subscriptionRef.current = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
+      (result) => {
+        handleLocation({
+          latitude: result.coords.latitude,
+          longitude: result.coords.longitude,
+        });
+      }
+    );
+  }
+
+  useEffect(() => {
+    requestPermissionAndWatch();
+    return () => {
+      subscriptionRef.current?.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function isPresent(area: Area): boolean {
     return logs.some(
@@ -48,9 +79,28 @@ export default function GeofenceScreen() {
     );
   }
 
+  if (permission === 'checking') {
+    return (
+      <Screen style={styles.container}>
+        <LoadingIndicator />
+      </Screen>
+    );
+  }
+
+  if (permission === 'denied') {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState
+          message="位置情報の利用が許可されていません。エリア内にいるかどうかの判定に位置情報の許可が必要です。"
+          onRetry={requestPermissionAndWatch}
+        />
+      </Screen>
+    );
+  }
+
   return (
     <Screen style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>ジオフェンス判定（モック）</Text>
+      <Text style={[styles.title, { color: colors.text }]}>ジオフェンス判定</Text>
 
       <FlatList
         data={areas}
@@ -70,25 +120,6 @@ export default function GeofenceScreen() {
           />
         )}
       />
-
-      <View style={styles.buttons}>
-        {areas.map((area) => (
-          <Button
-            key={area.id}
-            label={`${area.name}にいることにする`}
-            variant="secondary"
-            onPress={() =>
-              simulateLocation({ latitude: area.center_lat, longitude: area.center_lng })
-            }
-            style={styles.button}
-          />
-        ))}
-        <Button
-          label="エリア外にいることにする"
-          onPress={() => simulateLocation(OUTSIDE_LOCATION)}
-          style={styles.button}
-        />
-      </View>
     </Screen>
   );
 }
@@ -105,12 +136,5 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  buttons: {
-    marginTop: spacing.lg,
-    gap: spacing.sm,
-  },
-  button: {
-    marginBottom: spacing.xs,
   },
 });
