@@ -1,0 +1,61 @@
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+
+import { Avatar } from '../components/Avatar';
+import { ListItem } from '../components/ListItem';
+import { Screen } from '../components/Screen';
+import { useTheme } from '../theme/useTheme';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
+import { formatPresenceCount } from '../utils/format';
+import { usePresenceStore } from '../store/usePresenceStore';
+
+export default function PresenceScreen() {
+  const { colors } = useTheme();
+  const { areaName, friends, presentCount } = usePresenceStore();
+
+  return (
+    <Screen style={styles.container}>
+      <Text style={[styles.title, { color: colors.text }]}>{areaName}</Text>
+      <Text style={[styles.count, { color: colors.textSub }]}>
+        {formatPresenceCount(presentCount)}
+      </Text>
+
+      <FlatList
+        data={friends}
+        keyExtractor={(friend) => friend.userId}
+        renderItem={({ item: friend }) => (
+          <ListItem
+            title={friend.displayName ?? '非公開'}
+            leading={<Avatar name={friend.displayName ?? '?'} />}
+            trailing={
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: friend.isPresent ? colors.green : colors.textSub },
+                ]}
+              />
+            }
+          />
+        )}
+      />
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: spacing.md,
+  },
+  title: {
+    ...typography.title,
+  },
+  count: {
+    ...typography.body,
+    marginBottom: spacing.md,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+});
