@@ -3,7 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, NotoSansJP_400Regular, NotoSansJP_700Bold } from '@expo-google-fonts/noto-sans-jp';
 import { ToastProvider } from './components/Toast';
 
-import GeofenceScreen from './screens/GeofenceScreen';
+import PresenceScreen from './screens/PresenceScreen';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -18,7 +18,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ToastProvider>
-        <GeofenceScreen />
+        <PresenceScreen />
         <StatusBar style="auto" />
       </ToastProvider>
     </SafeAreaProvider>
