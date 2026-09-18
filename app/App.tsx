@@ -52,6 +52,7 @@ export default function App() {
           setIsSignedIn(true);
         }
       } catch (error) {
+        console.error('signIn failed:', error);
         if (!cancelled) {
           setSignInError(error instanceof Error ? error : new Error('匿名ログインに失敗しました'));
         }
