@@ -41,9 +41,10 @@ export default function GeofenceScreen() {
     });
   }
 
-  async function requestPermissionAndWatch() {
+  async function requestPermissionAndWatch(isCancelled: () => boolean) {
     setPermission('checking');
     const { status } = await Location.requestForegroundPermissionsAsync();
+    if (isCancelled()) return;
 
     if (status !== 'granted') {
       setPermission('denied');
@@ -51,7 +52,7 @@ export default function GeofenceScreen() {
     }
 
     setPermission('granted');
-    subscriptionRef.current = await Location.watchPositionAsync(
+    const subscription = await Location.watchPositionAsync(
       { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
       (result) => {
         handleLocation({
@@ -60,11 +61,19 @@ export default function GeofenceScreen() {
         });
       }
     );
+
+    if (isCancelled()) {
+      subscription.remove();
+      return;
+    }
+    subscriptionRef.current = subscription;
   }
 
   useEffect(() => {
-    requestPermissionAndWatch();
+    let cancelled = false;
+    requestPermissionAndWatch(() => cancelled);
     return () => {
+      cancelled = true;
       subscriptionRef.current?.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,7 +101,7 @@ export default function GeofenceScreen() {
       <Screen style={styles.container}>
         <ErrorState
           message="位置情報の利用が許可されていません。エリア内にいるかどうかの判定に位置情報の許可が必要です。"
-          onRetry={requestPermissionAndWatch}
+          onRetry={() => requestPermissionAndWatch(() => false)}
         />
       </Screen>
     );
