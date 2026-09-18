@@ -4,7 +4,7 @@
 
 oruca は、大学やオフィスなどの特定エリアに入った時だけ位置情報を検知し、
 それ以外の場所・時間のデータは保存・送信しない、エリア限定・関係限定の
-在席可視化アプリ。詳細は `docs/prd.md` を参照。
+在席可視化アプリ。詳細は `docs/oruca_PRD.md` を参照。
 
 コンペティブプログラムへの提出を目標に、2月まで開発を継続する。
 
@@ -209,14 +209,18 @@ User Story用ディレクトリに埋め込まず、共通の場所に切り出�
 ## ディレクトリ構成の方針
 
 ```
-/README.md             プロジェクト概要（人間向け）
-/CLAUDE.md             このファイル（AI向け）
-/docs/prd.md           PRD要約版
-/docs/schema.md        DB設計（ER図・テーブル定義）
-/docs/architecture.md  システム構成・ライフサイクル設計
+/README.md                      プロジェクト概要（人間向け）
+/CLAUDE.md                      このファイル（AI向け）
+/docs/oruca_PRD.md              PRD
+/docs/schema.md                 DB設計（ER図・テーブル定義）
+/docs/architecture.md           システム構成・ライフサイクル設計
 /docs/ai-collaboration-plan.md  User Story単位の役割分担
-/docs/decisions/       技術選定・設計判断の記録（ADR）
-/app/                  本開発用の本番アプリ（Expoプロジェクト本体）
+/docs/design-system.md          配色・フォント・spacing等のデザインシステム
+/docs/glossary.md               UI用語集
+/docs/decisions/                技術選定・設計判断の記録（ADR）
+/.github/workflows/             CI（Lint・型チェック・テスト）
+/.github/ISSUE_TEMPLATE/        User Story用Issueテンプレート
+/app/                           本開発用の本番アプリ（Expoプロジェクト本体）
 ```
 
 `docs/`は`app/`開発時に参照する、リポジトリ直下の共有ドキュメントである。
@@ -242,7 +246,7 @@ Supabaseプロジェクトは`demo`（合宿デモ専用・凍結）・`dev`（�
 
 ## User Story優先順位（MoSCoW）
 
-詳細は `docs/prd.md` の該当セクション、または以下の要約を参照。
+詳細は `docs/oruca_PRD.md` の該当セクション、または以下の要約を参照。
 
 - **Must**: US-001, 002, 004, 005, 018（US-003はUS-001に統合）
 - **Should**: US-006, 007, 008, 010, 014, 019

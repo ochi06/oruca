@@ -34,6 +34,18 @@
   必要になった場合は改めて新しくworktree・ブランチを作ればよい
 - worktreeを閉じる前には`git status`でコミット漏れがないか必ず確認する
 
+## US横断：Tab/Stack Navigatorの統合（2026-08-17、担当未定だったため追加）
+
+各USの画面（`PresenceScreen`・`GeofenceScreen`・`AreaRegistrationScreen`等）は
+現在それぞれのworktreeの`App.tsx`から単体で確認しているだけで、
+`docs/architecture.md`「3. 画面構成・ナビゲーション」で定義したTab
+Navigator（ホーム／友達）＋各タブ内のStack Navigatorへの実際の組み込みは
+まだ誰も着手していない。
+
+| タスク | 区分 | 備考 |
+|---|---|---|
+| `react-navigation`のセットアップ・Tab/Stack構成の組み込み | 🖊️ | US横断のため、Must系User Storyが揃った段階（US-002完了後）で着手する。画面遷移の設計判断を伴うため一緒に書く |
+
 ## US-018：エリアの登録と紐づけ
 
 | タスク | 区分 | 備考 |
