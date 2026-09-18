@@ -16,7 +16,6 @@ import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { Area, mockAreas, mockUserAreas } from '../mocks/areas';
 import { CURRENT_USER_ID, PresenceLog } from '../mocks/presence';
-import { usePresenceStore } from '../store/usePresenceStore';
 import { LatLng } from '../utils/geo';
 
 type PermissionState = 'checking' | 'granted' | 'denied';
@@ -74,9 +73,14 @@ export default function GeofenceScreen() {
 
   const [permission, setPermission] = useState<PermissionState>('checking');
   const [joining, setJoining] = useState(false);
-  // 在席ログはUS-001（app/store/usePresenceStore.ts）と共有する。
-  // ここで検知した入退室が、在席一覧画面にもそのまま反映されるようにするため
-  const logs = usePresenceStore((state) => state.presenceLogs);
+  // このリストはこの画面専用のローカル状態（モックのCURRENT_USER_ID・エリアID
+  // を使っている）。以前はUS-001のusePresenceStoreと共有していたが、US-001が
+  // 実際のSupabaseデータ（実UUIDのarea_id/user_id）で動くようになったため、
+  // モックIDのログをそのままstoreに書き込むと実データと混ざって壊れてしまう。
+  // 実際のバックエンドへの反映はrecordEntryInBackend/recordExitInBackendが
+  // presence_logsに書き込み、usePresenceStore側はそのRealtime購読で
+  // 独立して最新化される（詳細はusePresenceStore.tsのinitialize参照）
+  const [logs, setLogs] = useState<PresenceLog[]>([]);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
   function hasOpenLog(logs: PresenceLog[], areaId: string): boolean {
@@ -87,25 +91,24 @@ export default function GeofenceScreen() {
 
   async function handleLocation(location: LatLng) {
     const now = new Date().toISOString();
-    // watchPositionAsyncのコールバックはuseEffect実行時点のクロージャなので、
-    // storeから最新のpresenceLogsを都度取得する（レンダー時のlogsは古い可能性がある）
-    const prevLogs = usePresenceStore.getState().presenceLogs;
-    let updatedLogs = prevLogs;
+    let updatedLogs: PresenceLog[] = [];
     const transitions: { areaId: string; entered: boolean }[] = [];
 
-    for (const area of areas) {
-      const inside = isInsideArea(location, area);
-      const wasOpen = hasOpenLog(updatedLogs, area.id);
-      updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
-      const isOpenNow = hasOpenLog(updatedLogs, area.id);
-      if (wasOpen !== isOpenNow) {
-        transitions.push({ areaId: area.id, entered: isOpenNow });
+    // setLogsのコールバックはuseEffect実行時点のクロージャではなく、常に
+    // 最新のstateを受け取れるため、ここで最新のlogsを基準に計算する
+    setLogs((prevLogs) => {
+      updatedLogs = prevLogs;
+      for (const area of areas) {
+        const inside = isInsideArea(location, area);
+        const wasOpen = hasOpenLog(updatedLogs, area.id);
+        updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
+        const isOpenNow = hasOpenLog(updatedLogs, area.id);
+        if (wasOpen !== isOpenNow) {
+          transitions.push({ areaId: area.id, entered: isOpenNow });
+        }
       }
-    }
-
-    if (updatedLogs !== prevLogs) {
-      usePresenceStore.getState().setPresenceLogs(updatedLogs);
-    }
+      return updatedLogs;
+    });
 
     for (const { areaId, entered } of transitions) {
       const backendAreaId = BACKEND_AREA_IDS[areaId];
