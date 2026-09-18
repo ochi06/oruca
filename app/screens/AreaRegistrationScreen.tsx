@@ -82,7 +82,6 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     setPin(event.nativeEvent.coordinate);
     setAreaName('');
     setSelectedExistingArea(null);
-    setRadiusM(RADIUS_MIN_M);
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
 
