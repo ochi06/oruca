@@ -1,6 +1,6 @@
 import { isInsideArea, recordPresence } from './geofence';
 import { mockAreas } from './mocks/areas';
-import { PresenceLog } from './mocks/presenceLogs';
+import { PresenceLog } from './mocks/presence';
 
 test('距離が半径以内ならエリア内と判定される', () => {
   const current = { latitude: 0, longitude: 0 };

@@ -1,5 +1,5 @@
 import { Area } from './mocks/areas';
-import { PresenceLog } from './mocks/presenceLogs';
+import { PresenceLog } from './mocks/presence';
 import { LatLng, distanceInMeters } from './utils/geo';
 
 export function isInsideArea(

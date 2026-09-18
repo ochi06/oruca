@@ -11,10 +11,9 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { isInsideArea, recordPresence } from '../geofence';
 import { Area, mockAreas, mockUserAreas } from '../mocks/areas';
-import { PresenceLog, mockPresenceLogs } from '../mocks/presenceLogs';
+import { CURRENT_USER_ID } from '../mocks/presence';
+import { usePresenceStore } from '../store/usePresenceStore';
 import { LatLng } from '../utils/geo';
-
-const CURRENT_USER_ID = 'user-1';
 
 type PermissionState = 'checking' | 'granted' | 'denied';
 
@@ -26,19 +25,24 @@ export default function GeofenceScreen() {
   const areas = mockAreas.filter((area) => monitoredAreaIds.includes(area.id));
 
   const [permission, setPermission] = useState<PermissionState>('checking');
-  const [logs, setLogs] = useState<PresenceLog[]>(mockPresenceLogs);
+  // 在席ログはUS-001（app/store/usePresenceStore.ts）と共有する。
+  // ここで検知した入退室が、在席一覧画面にもそのまま反映されるようにするため
+  const logs = usePresenceStore((state) => state.presenceLogs);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
   function handleLocation(location: LatLng) {
     const now = new Date().toISOString();
-    setLogs((prevLogs) => {
-      let updatedLogs = prevLogs;
-      for (const area of areas) {
-        const inside = isInsideArea(location, area);
-        updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
-      }
-      return updatedLogs;
-    });
+    // watchPositionAsyncのコールバックはuseEffect実行時点のクロージャなので、
+    // storeから最新のpresenceLogsを都度取得する（レンダー時のlogsは古い可能性がある）
+    const prevLogs = usePresenceStore.getState().presenceLogs;
+    let updatedLogs = prevLogs;
+    for (const area of areas) {
+      const inside = isInsideArea(location, area);
+      updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
+    }
+    if (updatedLogs !== prevLogs) {
+      usePresenceStore.getState().setPresenceLogs(updatedLogs);
+    }
   }
 
   async function requestPermissionAndWatch(isCancelled: () => boolean) {
