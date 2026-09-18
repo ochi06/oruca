@@ -1,4 +1,4 @@
-import { resolveDisplayName, buildInitialState } from './usePresenceStore';
+import { resolveDisplayName, buildInitialState, buildPresenceMarkers, PresenceLocation } from './usePresenceStore';
 import { Friendship, FriendAreaLink, PresenceLog, User } from '../mocks/presence';
 import { Area } from '../mocks/areas';
 
@@ -108,5 +108,54 @@ describe('buildInitialState', () => {
 
     expect(result.friends).toEqual([]);
     expect(result.presentCount).toBe(0);
+  });
+});
+
+describe('buildPresenceMarkers', () => {
+  test('visibleUserIdsに含まれるユーザーは名前・アイコンつきで返す', () => {
+    const locations: PresenceLocation[] = [
+      { user_id: 'user-a', lat: 35.0, lng: 135.0 },
+    ];
+
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
+
+    expect(result).toEqual([
+      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: '田中', iconUrl: 'https://example.com/a.png' },
+    ]);
+  });
+
+  test('visibleUserIdsに含まれないユーザーはdisplayName・iconUrlともnullにする', () => {
+    const locations: PresenceLocation[] = [
+      { user_id: 'user-a', lat: 35.0, lng: 135.0 },
+    ];
+
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(), users);
+
+    expect(result).toEqual([
+      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: null, iconUrl: null },
+    ]);
+  });
+
+  test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, created_at: now, updated_at: now };
+    const locations: PresenceLocation[] = [
+      { user_id: CURRENT_USER_ID, lat: 35.0, lng: 135.0 },
+    ];
+
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(), [selfUser]);
+
+    expect(result).toEqual([
+      { userId: CURRENT_USER_ID, latitude: 35.0, longitude: 135.0, displayName: '自分', iconUrl: null },
+    ]);
+  });
+
+  test('lat/lngがnullの行はマーカーの対象から除外する', () => {
+    const locations: PresenceLocation[] = [
+      { user_id: 'user-a', lat: null, lng: null },
+    ];
+
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
+
+    expect(result).toEqual([]);
   });
 });

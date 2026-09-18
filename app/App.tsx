@@ -13,6 +13,7 @@ import PresenceScreen from './screens/PresenceScreen';
 import GeofenceScreen from './screens/GeofenceScreen';
 import AreaRegistrationScreen from './screens/AreaRegistrationScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
+import PresenceMapScreen from './screens/PresenceMapScreen';
 
 // react-navigation導入前のデモ用画面切り替え（Issue #45）。
 // US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
@@ -21,6 +22,7 @@ const DEMO_TABS: DemoTab[] = [
   { key: 'geofence', label: 'ジオフェンス', icon: 'location-outline' },
   { key: 'area', label: 'エリア登録', icon: 'map-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
+  { key: 'map', label: 'マップ', icon: 'navigate-outline' },
 ];
 
 // プロフィール編集画面ができるまでの仮の初期表示名（別タスクで変更可能にする想定）。
@@ -52,6 +54,7 @@ export default function App() {
           setIsSignedIn(true);
         }
       } catch (error) {
+        console.error('signIn failed:', error);
         if (!cancelled) {
           setSignInError(error instanceof Error ? error : new Error('匿名ログインに失敗しました'));
         }
@@ -96,6 +99,7 @@ export default function App() {
           {activeTab === 'geofence' && <GeofenceScreen />}
           {activeTab === 'area' && <AreaRegistrationScreen />}
           {activeTab === 'friends' && <FriendsScreen />}
+          {activeTab === 'map' && <PresenceMapScreen />}
         </View>
         <DemoTabBar tabs={DEMO_TABS} activeKey={activeTab} onSelect={setActiveTab} />
         <StatusBar style="auto" />

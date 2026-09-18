@@ -4,9 +4,9 @@ import { PresenceLog } from './mocks/presence';
 
 test('距離が半径以内ならエリア内と判定される', () => {
   const current = { latitude: 0, longitude: 0 };
-  const area = mockAreas[0]; // radius_m: 30
+  const area = mockAreas[0];
 
-  const result = isInsideArea(current, area, () => 20);
+  const result = isInsideArea(current, area, () => area.radius_m - 10);
 
   expect(result).toBe(true);
 });
@@ -15,7 +15,7 @@ test('距離が半径ちょうどの時ならエリア内', () => {
   const current = { latitude: 0, longitude: 0 };
   const area = mockAreas[0];
 
-  const result = isInsideArea(current, area, () => 30);
+  const result = isInsideArea(current, area, () => area.radius_m);
 
   expect(result).toBe(true);
 })
@@ -24,7 +24,7 @@ test('距離が半径よりも大きい時ならエリア外', () => {
   const current = { latitude: 0, longitude: 0 };
   const area = mockAreas[0];
 
-  const result = isInsideArea(current, area, () => 50);
+  const result = isInsideArea(current, area, () => area.radius_m + 20);
 
   expect(result).toBe(false);
 })
