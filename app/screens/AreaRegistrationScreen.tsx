@@ -57,6 +57,11 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const { showToast } = useToast();
   const [pin, setPin] = useState<LatLng | null>(null);
   const [areaName, setAreaName] = useState('');
+  // 検索から既存エリアを選んだ場合はここに入る。新規作成せず、既存エリアの
+  // 監視登録（mockUserAreas）のみ追加する対象として扱うため。
+  const [selectedExistingArea, setSelectedExistingArea] = useState<Area | null>(
+    null
+  );
   const [radiusM, setRadiusM] = useState(RADIUS_MIN_M);
   const [handleBearingDeg, setHandleBearingDeg] = useState(
     INITIAL_HANDLE_BEARING_DEG
@@ -68,6 +73,8 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
   const handleMapPress = (event: MapPressEvent) => {
     setPin(event.nativeEvent.coordinate);
+    setAreaName('');
+    setSelectedExistingArea(null);
     setRadiusM(RADIUS_MIN_M);
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
@@ -91,6 +98,8 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const handleSelectArea = (area: Area) => {
     const center = { latitude: area.center_lat, longitude: area.center_lng };
     setPin(center);
+    setAreaName(area.name);
+    setSelectedExistingArea(area);
     setRadiusM(clampRadius(area.radius_m));
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
     closeSearch();
@@ -109,8 +118,37 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       return;
     }
 
-    // TODO: Supabaseへのinsert処理（US-018の🖊️タスク、バックエンド接続後に実装）
     const nowIso = new Date().toISOString();
+
+    // 検索で既存の公開エリアを選んでいる場合は、新規エリアを作らず、
+    // そのエリアを自分の監視対象に追加するだけにする（重複作成を避けるため）
+    if (selectedExistingArea) {
+      const alreadyMonitored = mockUserAreas.some(
+        (userArea) =>
+          userArea.user_id === CURRENT_USER_ID &&
+          userArea.area_id === selectedExistingArea.id
+      );
+      if (alreadyMonitored) {
+        showToast(`「${selectedExistingArea.name}」は既に登録済みです`);
+      } else {
+        const newUserArea: UserArea = {
+          id: `user-area-mock-${mockUserAreas.length + 1}`,
+          user_id: CURRENT_USER_ID,
+          area_id: selectedExistingArea.id,
+          created_at: nowIso,
+        };
+        mockUserAreas.push(newUserArea);
+        showToast(`「${selectedExistingArea.name}」を登録しました`);
+      }
+
+      setPin(null);
+      setAreaName('');
+      setSelectedExistingArea(null);
+      setRadiusM(RADIUS_MIN_M);
+      return;
+    }
+
+    // TODO: Supabaseへのinsert処理（US-018の🖊️タスク、バックエンド接続後に実装）
     const newArea: Area = {
       id: `area-mock-${mockAreas.length + 1}`,
       owner_user_id: CURRENT_USER_ID,
