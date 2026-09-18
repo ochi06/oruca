@@ -102,6 +102,12 @@ export default function GeofenceScreen() {
         .from('user_areas')
         .insert({ user_id: userId, area_id: DEMO_AREA_ID });
       if (error) {
+        // 23505 = unique_violation。unique(user_id, area_id)により、
+        // 参加済みエリアへの再insertはこのエラーになる（失敗ではなく想定内の状態）
+        if (error.code === '23505') {
+          showToast('すでに参加しています');
+          return;
+        }
         throw error;
       }
       showToast('エリアに参加しました');
