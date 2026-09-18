@@ -24,6 +24,8 @@ import { IconButton } from '../components/IconButton';
 import { Screen } from '../components/Screen';
 import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
+import { ensureSignedIn } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 import { Area, UserArea, mockAreas, mockUserAreas } from '../mocks/areas';
 import { CURRENT_USER_ID } from '../mocks/presence';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
@@ -47,6 +49,39 @@ function clampRadius(m: number): number {
   return Math.round(Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, m)));
 }
 
+// 新規エリアをareasにinsertし、そのまま自分をuser_areasにも登録する
+// （登録＝即監視対象にする仕様。docs/schema.md参照）
+async function createAreaInBackend(
+  name: string,
+  center: LatLng,
+  radiusM: number
+): Promise<void> {
+  const userId = await ensureSignedIn();
+
+  const { data: newArea, error: areaError } = await supabase
+    .from('areas')
+    .insert({
+      owner_user_id: userId,
+      name,
+      center_lat: center.latitude,
+      center_lng: center.longitude,
+      radius_m: radiusM,
+      is_public: false,
+    })
+    .select('id')
+    .single();
+  if (areaError) {
+    throw areaError;
+  }
+
+  const { error: userAreaError } = await supabase
+    .from('user_areas')
+    .insert({ user_id: userId, area_id: newArea.id });
+  if (userAreaError) {
+    throw userAreaError;
+  }
+}
+
 type Props = {
   // ホーム画面統合時に、通常モードへ戻るための呼び出し元コールバック。
   // 単体動作確認の間は未指定でもよい。
@@ -67,6 +102,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const [handleBearingDeg, setHandleBearingDeg] = useState(
     INITIAL_HANDLE_BEARING_DEG
   );
+  const [registering, setRegistering] = useState(false);
   const handleMarkerRef = useRef<MapMarker>(null);
   const mapRef = useRef<MapView>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -123,7 +159,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     );
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!pin) return;
 
     const trimmedName = areaName.trim();
@@ -136,6 +172,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
     // 検索で既存の公開エリアを選んでいる場合は、新規エリアを作らず、
     // そのエリアを自分の監視対象に追加するだけにする（重複作成を避けるため）
+    // 検索自体がまだモックデータのままのため、こちらはSupabase接続の対象外
     if (selectedExistingArea) {
       const alreadyMonitored = mockUserAreas.some(
         (userArea) =>
@@ -159,31 +196,16 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       return;
     }
 
-    // TODO: Supabaseへのinsert処理（US-018の🖊️タスク、バックエンド接続後に実装）
-    const newArea: Area = {
-      id: `area-mock-${mockAreas.length + 1}`,
-      owner_user_id: CURRENT_USER_ID,
-      name: trimmedName,
-      center_lat: pin.latitude,
-      center_lng: pin.longitude,
-      radius_m: radiusM,
-      is_public: false,
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-    mockAreas.push(newArea);
-
-    // 登録＝即このエリアを監視対象にする仕様（デモで「登録→検知」の流れを見せるため）
-    const newUserArea: UserArea = {
-      id: `user-area-mock-${mockUserAreas.length + 1}`,
-      user_id: CURRENT_USER_ID,
-      area_id: newArea.id,
-      created_at: nowIso,
-    };
-    mockUserAreas.push(newUserArea);
-
-    showToast(`「${trimmedName}」を登録しました`);
-    resetForm();
+    setRegistering(true);
+    try {
+      await createAreaInBackend(trimmedName, pin, radiusM);
+      showToast(`「${trimmedName}」を登録しました`);
+      resetForm();
+    } catch {
+      showToast('エリアの登録に失敗しました');
+    } finally {
+      setRegistering(false);
+    }
   };
 
   const handleHandleDrag = (event: MarkerDragStartEndEvent) => {
@@ -322,7 +344,11 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             onValueChange={setRadiusM}
             disabled={!!selectedExistingArea}
           />
-          <Button label="このエリアを登録する" onPress={handleRegister} />
+          <Button
+            label={registering ? '登録中…' : 'このエリアを登録する'}
+            onPress={handleRegister}
+            disabled={registering}
+          />
         </View>
       )}
     </Screen>
