@@ -15,6 +15,7 @@ import MapView, {
   MapPressEvent,
   MapStyleElement,
   MarkerDragStartEndEvent,
+  PoiClickEvent,
 } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 
@@ -63,6 +64,13 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleMapPress = (event: MapPressEvent) => {
+    setPin(event.nativeEvent.coordinate);
+    setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
+  };
+
+  // Google Maps標準のPOI（店舗・施設アイコン）をタップした場合はonPressが
+  // 発火せずonPoiClickが発火するため、こちらでもピンを置けるようにする
+  const handlePoiClick = (event: PoiClickEvent) => {
     setPin(event.nativeEvent.coordinate);
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
@@ -132,6 +140,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
           longitudeDelta: 0.01,
         }}
         onPress={handleMapPress}
+        onPoiClick={handlePoiClick}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
       >
         {pin && <Marker coordinate={pin} pinColor={colors.navy} />}
