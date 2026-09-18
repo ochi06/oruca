@@ -15,7 +15,7 @@ import { isInsideArea, recordPresence } from '../geofence';
 import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { Area, mockAreas, mockUserAreas } from '../mocks/areas';
-import { CURRENT_USER_ID } from '../mocks/presence';
+import { CURRENT_USER_ID, PresenceLog } from '../mocks/presence';
 import { usePresenceStore } from '../store/usePresenceStore';
 import { LatLng } from '../utils/geo';
 
@@ -25,6 +25,43 @@ type PermissionState = 'checking' | 'granted' | 'denied';
 // 検索・QRコード読み取りなどで見つける想定だが、今回は時間の都合で
 // このIDに固定している（本格的な導線はUS-018の後続タスクで整備）。
 const DEMO_AREA_ID = 'c06fe2ac-fff3-42a8-b5ea-00756b9396e4';
+
+// モックのエリアID（geofence判定に使っている app/mocks/areas.ts 側のID）と、
+// 実際にSupabaseへ投入済みのエリアIDの対応。今はデモ用の1件のみ実データが
+// あるため、area-1（部室）だけを対応させている。エリア登録機能（US-018）が
+// 一通り繋がった後は、この対応表自体が不要になる想定
+const BACKEND_AREA_IDS: Record<string, string> = {
+  'area-1': DEMO_AREA_ID,
+};
+
+// 入室時：presence_logsに新しい行をinsertする
+async function recordEntryInBackend(areaId: string, location: LatLng, enteredAt: string): Promise<void> {
+  const userId = await ensureSignedIn();
+  const { error } = await supabase.from('presence_logs').insert({
+    user_id: userId,
+    area_id: areaId,
+    lat: location.latitude,
+    lng: location.longitude,
+    entered_at: enteredAt,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+// 退室時：入室中（exited_atがnull）の行を探してexited_atを更新する
+async function recordExitInBackend(areaId: string, exitedAt: string): Promise<void> {
+  const userId = await ensureSignedIn();
+  const { error } = await supabase
+    .from('presence_logs')
+    .update({ exited_at: exitedAt })
+    .eq('user_id', userId)
+    .eq('area_id', areaId)
+    .is('exited_at', null);
+  if (error) {
+    throw error;
+  }
+}
 
 export default function GeofenceScreen() {
   const { colors } = useTheme();
@@ -41,18 +78,47 @@ export default function GeofenceScreen() {
   const logs = usePresenceStore((state) => state.presenceLogs);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
-  function handleLocation(location: LatLng) {
+  function hasOpenLog(logs: PresenceLog[], areaId: string): boolean {
+    return logs.some(
+      (log) => log.user_id === CURRENT_USER_ID && log.area_id === areaId && log.exited_at === null
+    );
+  }
+
+  async function handleLocation(location: LatLng) {
     const now = new Date().toISOString();
     // watchPositionAsyncのコールバックはuseEffect実行時点のクロージャなので、
     // storeから最新のpresenceLogsを都度取得する（レンダー時のlogsは古い可能性がある）
     const prevLogs = usePresenceStore.getState().presenceLogs;
     let updatedLogs = prevLogs;
+    const transitions: { areaId: string; entered: boolean }[] = [];
+
     for (const area of areas) {
       const inside = isInsideArea(location, area);
+      const wasOpen = hasOpenLog(updatedLogs, area.id);
       updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
+      const isOpenNow = hasOpenLog(updatedLogs, area.id);
+      if (wasOpen !== isOpenNow) {
+        transitions.push({ areaId: area.id, entered: isOpenNow });
+      }
     }
+
     if (updatedLogs !== prevLogs) {
       usePresenceStore.getState().setPresenceLogs(updatedLogs);
+    }
+
+    for (const { areaId, entered } of transitions) {
+      const backendAreaId = BACKEND_AREA_IDS[areaId];
+      if (!backendAreaId) continue;
+      try {
+        if (entered) {
+          await recordEntryInBackend(backendAreaId, location, now);
+        } else {
+          await recordExitInBackend(backendAreaId, now);
+        }
+      } catch {
+        // バックエンドへの書き込みが失敗しても、モック側の在席表示（画面）は
+        // そのまま継続させる（オフライン等で失敗しても画面が壊れないように）
+      }
     }
   }
 
