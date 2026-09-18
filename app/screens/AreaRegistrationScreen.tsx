@@ -64,7 +64,6 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
   const handleMapPress = (event: MapPressEvent) => {
     setPin(event.nativeEvent.coordinate);
-    setRadiusM(RADIUS_MIN_M);
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
 
