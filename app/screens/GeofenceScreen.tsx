@@ -25,6 +25,7 @@ type PermissionState = 'checking' | 'granted' | 'denied';
 // 検索・QRコード読み取りなどで見つける想定だが、今回は時間の都合で
 // このIDに固定している（本格的な導線はUS-018の後続タスクで整備）。
 const DEMO_AREA_ID = 'c06fe2ac-fff3-42a8-b5ea-00756b9396e4';
+const DEMO_AREA_NAME = '神戸市産業振興センター';
 
 // モックのエリアID（geofence判定に使っている app/mocks/areas.ts 側のID）と、
 // 実際にSupabaseへ投入済みのエリアIDの対応。今はデモ用の1件のみ実データが
@@ -218,7 +219,7 @@ export default function GeofenceScreen() {
 
       <View style={styles.joinButton}>
         <Button
-          label={joining ? '参加中…' : 'このエリアに参加する'}
+          label={joining ? '参加中…' : `「${DEMO_AREA_NAME}」に参加する`}
           onPress={handleJoinDemoArea}
           disabled={joining}
         />
