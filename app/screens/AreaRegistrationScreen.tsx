@@ -22,8 +22,10 @@ import Slider from '@react-native-community/slider';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { Screen } from '../components/Screen';
+import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
-import { Area, mockAreas } from '../mocks/areas';
+import { Area, UserArea, mockAreas, mockUserAreas } from '../mocks/areas';
+import { CURRENT_USER_ID } from '../mocks/presence';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
 import { darkMapStyle } from '../constants/mapStyle';
 import {
@@ -53,7 +55,14 @@ type Props = {
 
 export default function AreaRegistrationScreen({ onClose }: Props) {
   const { colors, isDark } = useTheme();
+  const { showToast } = useToast();
   const [pin, setPin] = useState<LatLng | null>(null);
+  const [areaName, setAreaName] = useState('');
+  // 検索から既存エリアを選んだ場合はここに入る。新規作成せず、既存エリアの
+  // 監視登録（mockUserAreas）のみ追加する対象として扱うため。
+  const [selectedExistingArea, setSelectedExistingArea] = useState<Area | null>(
+    null
+  );
   const [radiusM, setRadiusM] = useState(RADIUS_MIN_M);
   const [handleBearingDeg, setHandleBearingDeg] = useState(
     INITIAL_HANDLE_BEARING_DEG
@@ -63,8 +72,17 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const resetForm = () => {
+    setPin(null);
+    setAreaName('');
+    setSelectedExistingArea(null);
+    setRadiusM(RADIUS_MIN_M);
+  };
+
   const handleMapPress = (event: MapPressEvent) => {
     setPin(event.nativeEvent.coordinate);
+    setAreaName('');
+    setSelectedExistingArea(null);
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
 
@@ -94,6 +112,8 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const handleSelectArea = (area: Area) => {
     const center = { latitude: area.center_lat, longitude: area.center_lng };
     setPin(center);
+    setAreaName(area.name);
+    setSelectedExistingArea(area);
     setRadiusM(clampRadius(area.radius_m));
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
     closeSearch();
@@ -105,8 +125,65 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
   const handleRegister = () => {
     if (!pin) return;
+
+    const trimmedName = areaName.trim();
+    if (!trimmedName) {
+      showToast('エリア名を入力してください');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 検索で既存の公開エリアを選んでいる場合は、新規エリアを作らず、
+    // そのエリアを自分の監視対象に追加するだけにする（重複作成を避けるため）
+    if (selectedExistingArea) {
+      const alreadyMonitored = mockUserAreas.some(
+        (userArea) =>
+          userArea.user_id === CURRENT_USER_ID &&
+          userArea.area_id === selectedExistingArea.id
+      );
+      if (alreadyMonitored) {
+        showToast(`「${selectedExistingArea.name}」は既に登録済みです`);
+      } else {
+        const newUserArea: UserArea = {
+          id: `user-area-mock-${mockUserAreas.length + 1}`,
+          user_id: CURRENT_USER_ID,
+          area_id: selectedExistingArea.id,
+          created_at: nowIso,
+        };
+        mockUserAreas.push(newUserArea);
+        showToast(`「${selectedExistingArea.name}」を登録しました`);
+      }
+
+      resetForm();
+      return;
+    }
+
     // TODO: Supabaseへのinsert処理（US-018の🖊️タスク、バックエンド接続後に実装）
-    console.log('register area (mock)', { pin, radiusM });
+    const newArea: Area = {
+      id: `area-mock-${mockAreas.length + 1}`,
+      owner_user_id: CURRENT_USER_ID,
+      name: trimmedName,
+      center_lat: pin.latitude,
+      center_lng: pin.longitude,
+      radius_m: radiusM,
+      is_public: false,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    mockAreas.push(newArea);
+
+    // 登録＝即このエリアを監視対象にする仕様（デモで「登録→検知」の流れを見せるため）
+    const newUserArea: UserArea = {
+      id: `user-area-mock-${mockUserAreas.length + 1}`,
+      user_id: CURRENT_USER_ID,
+      area_id: newArea.id,
+      created_at: nowIso,
+    };
+    mockUserAreas.push(newUserArea);
+
+    showToast(`「${trimmedName}」を登録しました`);
+    resetForm();
   };
 
   const handleHandleDrag = (event: MarkerDragStartEndEvent) => {
@@ -130,7 +207,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     : null;
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} avoidKeyboard>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -152,7 +229,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             fillColor={`${colors.blue}33`}
           />
         )}
-        {handlePosition && (
+        {handlePosition && !selectedExistingArea && (
           <Marker
             ref={handleMarkerRef}
             coordinate={handlePosition}
@@ -222,6 +299,18 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       )}
       {pin && (
         <View style={[styles.sliderContainer, { backgroundColor: colors.surface }]}>
+          <TextInput
+            style={[
+              styles.nameInput,
+              { borderColor: colors.textSub, color: colors.text },
+              selectedExistingArea && { color: colors.textSub },
+            ]}
+            placeholder="エリア名（例：部室）"
+            placeholderTextColor={colors.textSub}
+            value={areaName}
+            onChangeText={setAreaName}
+            editable={!selectedExistingArea}
+          />
           <Text style={{ color: colors.text }}>
             半径: {Math.round(radiusM)}m
           </Text>
@@ -231,6 +320,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             step={1}
             value={radiusM}
             onValueChange={setRadiusM}
+            disabled={!!selectedExistingArea}
           />
           <Button label="このエリアを登録する" onPress={handleRegister} />
         </View>
@@ -302,5 +392,10 @@ const styles = StyleSheet.create({
   searchResultRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 8,
   },
 });
