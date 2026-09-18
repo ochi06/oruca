@@ -20,10 +20,17 @@ export type FriendPresence = {
   isPresent: boolean;
 };
 
-type PresenceState = {
+type DerivedPresenceState = {
   areaName: string;
   friends: FriendPresence[];
   presentCount: number; // エリア内の在席者全体の人数（友達に限らない、docs/oruca_PRD.md「在席可視化」参照）
+};
+
+type PresenceState = DerivedPresenceState & {
+  presenceLogs: PresenceLog[];
+  // US-004（ジオフェンス判定）が入退室を検知した際に呼ぶ想定のaction。
+  // 渡されたlogsからfriends・presentCountを再計算し、この画面（US-001）にも反映する
+  setPresenceLogs: (logs: PresenceLog[]) => void;
 };
 
 // TODO(開発者): 「友達が対象エリアで名前つき表示してよいか」を判定する関数。
@@ -85,7 +92,7 @@ export function buildInitialState(
   friendAreaLinks: FriendAreaLink[],
   users: User[],
   area: Area
-): PresenceState {
+): DerivedPresenceState {
   
   const friendIds = friendships
     .filter((f) => f.user_id === currentUserId && f.status === 'active')
@@ -113,13 +120,26 @@ export function buildInitialState(
   return { areaName: area.name, friends, presentCount };
 }
 
-export const usePresenceStore = create<PresenceState>(() =>
-  buildInitialState(
+export const usePresenceStore = create<PresenceState>((set) => ({
+  ...buildInitialState(
     CURRENT_USER_ID,
     mockFriendships,
     mockPresenceLogs,
     mockFriendAreaLinks,
     mockUsers,
     presenceArea
-  )
-);
+  ),
+  presenceLogs: mockPresenceLogs,
+  setPresenceLogs: (logs) =>
+    set({
+      ...buildInitialState(
+        CURRENT_USER_ID,
+        mockFriendships,
+        logs,
+        mockFriendAreaLinks,
+        mockUsers,
+        presenceArea
+      ),
+      presenceLogs: logs,
+    }),
+}));
