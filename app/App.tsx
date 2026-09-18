@@ -11,16 +11,16 @@ import { ensureSignedIn, ensureUserRow } from './lib/auth';
 
 import PresenceScreen from './screens/PresenceScreen';
 import GeofenceScreen from './screens/GeofenceScreen';
-import AreaRegistrationScreen from './screens/AreaRegistrationScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
 
 // react-navigation導入前のデモ用画面切り替え（Issue #45）。
 // US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
+// 「エリア登録」はマップタブ内のモード切り替えに統合したため、独立タブとしては
+// 持たない（docs/architecture.md「3. 画面構成・ナビゲーション」参照、Issue #64）。
 const DEMO_TABS: DemoTab[] = [
   { key: 'presence', label: '在席一覧', icon: 'people-outline' },
   { key: 'geofence', label: 'ジオフェンス', icon: 'location-outline' },
-  { key: 'area', label: 'エリア登録', icon: 'map-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
 ];
@@ -97,7 +97,6 @@ export default function App() {
         <View style={styles.content}>
           {activeTab === 'presence' && <PresenceScreen />}
           {activeTab === 'geofence' && <GeofenceScreen />}
-          {activeTab === 'area' && <AreaRegistrationScreen />}
           {activeTab === 'friends' && <FriendsScreen />}
           {activeTab === 'map' && <PresenceMapScreen />}
         </View>

@@ -3,8 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, MapStyleElement, Marker } from 'react-native-maps';
 
 import { Avatar } from '../components/Avatar';
+import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
+import { IconButton } from '../components/IconButton';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { Screen } from '../components/Screen';
 import { useTheme } from '../theme/useTheme';
@@ -14,8 +16,11 @@ import { darkMapStyle } from '../constants/mapStyle';
 import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
+import AreaRegistrationScreen from './AreaRegistrationScreen';
 import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../store/usePresenceStore';
 import { computeRegionForAreas, Region } from '../utils/mapRegion';
+
+type ScreenMode = 'presence' | 'register';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
@@ -75,6 +80,7 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
 export default function PresenceMapScreen() {
   const { colors, isDark } = useTheme();
+  const [mode, setMode] = useState<ScreenMode>('presence');
   const [state, setState] = useState<LoadState>('loading');
   const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [] });
 
@@ -93,6 +99,16 @@ export default function PresenceMapScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const closeRegisterMode = () => {
+    setMode('presence');
+    // 新規エリア登録・既存エリアへの参加登録の直後なので、地図の表示も最新化する
+    load();
+  };
+
+  if (mode === 'register') {
+    return <AreaRegistrationScreen onClose={closeRegisterMode} />;
+  }
 
   if (state === 'loading') {
     return (
@@ -115,6 +131,7 @@ export default function PresenceMapScreen() {
       <Screen style={styles.container}>
         <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
         <EmptyState icon="map-outline" message="参加しているエリアがまだありません" />
+        <Button label="新規エリア登録" onPress={() => setMode('register')} />
       </Screen>
     );
   }
@@ -160,6 +177,12 @@ export default function PresenceMapScreen() {
           </Marker>
         ))}
       </MapView>
+      <IconButton
+        name="add-outline"
+        accessibilityLabel="新規エリア登録"
+        style={styles.addAreaButton}
+        onPress={() => setMode('register')}
+      />
     </Screen>
   );
 }
@@ -192,5 +215,10 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
+  },
+  addAreaButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
   },
 });
