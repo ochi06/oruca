@@ -229,7 +229,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             fillColor={`${colors.blue}33`}
           />
         )}
-        {handlePosition && (
+        {handlePosition && !selectedExistingArea && (
           <Marker
             ref={handleMarkerRef}
             coordinate={handlePosition}
@@ -320,6 +320,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             step={1}
             value={radiusM}
             onValueChange={setRadiusM}
+            disabled={!!selectedExistingArea}
           />
           <Button label="このエリアを登録する" onPress={handleRegister} />
         </View>
