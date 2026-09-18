@@ -16,13 +16,14 @@ import {
 export type FriendPresence = {
   userId: string;
   displayName: string | null; // 承認済みでなければ null（画面側で「非公開」表示）
+  iconUrl: string | null; // 承認済みでなければ null（名前と同じ理由で非表示にする）
   isPresent: boolean;
 };
 
 type PresenceState = {
   areaName: string;
   friends: FriendPresence[];
-  presentCount: number; // friends のうち isPresent===true の人数（友達のみが対象）
+  presentCount: number; // エリア内の在席者全体の人数（友達に限らない、docs/oruca_PRD.md「在席可視化」参照）
 };
 
 // TODO(開発者): 「友達が対象エリアで名前つき表示してよいか」を判定する関数。
@@ -41,14 +42,22 @@ type PresenceState = {
 // 本番実装（Supabase接続後）でもこの関数はそのまま使う想定なので、
 // 「モックだから省略」にしない。
 export function resolveDisplayName(
+  currentUserId: string,
   friendId: string,
   areaId: string,
   friendAreaLinks: FriendAreaLink[],
   users: User[]
 ): string | null {
-  
-  const approvedFriends = friendAreaLinks.find((area) => area.status === 'approved' && area.area_id === areaId && area.friend_id === friendId )
-  if(approvedFriends === undefined){
+  // FRIEND_AREA_LINKSはinitiator_id/friend_idを持つ方向付きの行なので、
+  // 自分が提案した場合・友達が提案した場合の両方を確認する必要がある
+  const approvedLink = friendAreaLinks.find(
+    (link) =>
+      link.status === 'approved' &&
+      link.area_id === areaId &&
+      ((link.initiator_id === currentUserId && link.friend_id === friendId) ||
+        (link.initiator_id === friendId && link.friend_id === currentUserId))
+  );
+  if (approvedLink === undefined) {
     return null;
   }
   const friend = users.find((user) => user.id === friendId);
@@ -86,11 +95,20 @@ export function buildInitialState(
     const isPresent = presenceLogs.some(
       (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
     );
-    const displayName = resolveDisplayName(friendId, area.id, friendAreaLinks, users);
-    return { userId: friendId, displayName, isPresent };
+    const displayName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
+    const iconUrl =
+      displayName === null ? null : users.find((user) => user.id === friendId)?.icon_url ?? null;
+    return { userId: friendId, displayName, iconUrl, isPresent };
   });
 
-  const presentCount = friends.filter((f) => f.isPresent).length;
+  // 在席人数はエリア内の在席者全体が対象（友達に限らない）。
+  // 同じ人が複数のPRESENCE_LOGSを持つことは無い前提だが、念のためuser_idで重複排除する
+  const presentUserIds = new Set(
+    presenceLogs
+      .filter((log) => log.area_id === area.id && log.exited_at === null)
+      .map((log) => log.user_id)
+  );
+  const presentCount = presentUserIds.size;
 
   return { areaName: area.name, friends, presentCount };
 }

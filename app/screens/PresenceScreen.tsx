@@ -26,7 +26,7 @@ export default function PresenceScreen() {
         renderItem={({ item: friend }) => (
           <ListItem
             title={friend.displayName ?? '非公開'}
-            leading={<Avatar name={friend.displayName ?? '?'} />}
+            leading={<Avatar name={friend.displayName ?? '?'} iconUrl={friend.iconUrl} />}
             trailing={
               <View
                 style={[
