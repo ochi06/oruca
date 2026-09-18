@@ -23,7 +23,7 @@ import { IconButton } from '../components/IconButton';
 import { Screen } from '../components/Screen';
 import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
-import { Area, mockAreas } from '../mocks/areas';
+import { Area, UserArea, mockAreas, mockUserAreas } from '../mocks/areas';
 import { CURRENT_USER_ID } from '../mocks/presence';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
 import { darkMapStyle } from '../constants/mapStyle';
@@ -123,6 +123,15 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       updated_at: nowIso,
     };
     mockAreas.push(newArea);
+
+    // 登録＝即このエリアを監視対象にする仕様（デモで「登録→検知」の流れを見せるため）
+    const newUserArea: UserArea = {
+      id: `user-area-mock-${mockUserAreas.length + 1}`,
+      user_id: CURRENT_USER_ID,
+      area_id: newArea.id,
+      created_at: nowIso,
+    };
+    mockUserAreas.push(newUserArea);
 
     showToast(`「${trimmedName}」を登録しました`);
     setPin(null);
