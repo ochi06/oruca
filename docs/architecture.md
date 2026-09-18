@@ -145,9 +145,15 @@ Tab Navigator（最上位）
 | US-002 | 8082 |
 | US-004 | 8083 |
 | US-005 | 8084 |
-| US-018 | 8085 |
+| US-018 | 8085（※Expo Goでは動作しない、下記注記参照） |
 | 以降のUS | 8086, 8087...と割り当てる |
 
 起動コマンド例：`npx expo start --port 8083`（US-004の場合）。スマホの
 Expo Goアプリで表示されたQRコードを読み込むと、実機で動作確認できる
 （Macとスマホが同じWi-Fiに接続されている必要がある）。
+
+**注意（US-018）**：`react-native-maps`・`@react-native-community/slider`は
+ネイティブモジュールを含むため、Expo Goでは動作しない
+（`docs/decisions/0006-map-library.md`参照）。US-018を実機・エミュレータで
+確認する場合は、`npx expo run:android`/`npx expo run:ios`でdevビルドを
+作成する必要がある（`npx expo start --port`だけでは動かない）。
