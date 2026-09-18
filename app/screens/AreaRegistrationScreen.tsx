@@ -24,6 +24,7 @@ import { Screen } from '../components/Screen';
 import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
 import { Area, mockAreas } from '../mocks/areas';
+import { CURRENT_USER_ID } from '../mocks/presence';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
 import { darkMapStyle } from '../constants/mapStyle';
 import {
@@ -35,8 +36,6 @@ import {
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
-// Supabase未接続の間の仮の自分ユーザーID。mocks/areas.tsの既存データに合わせる。
-const CURRENT_USER_ID = 'user-1';
 
 const defaultCenter: LatLng = {
   latitude: mockAreas[0].center_lat,
@@ -152,7 +151,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     : null;
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} avoidKeyboard>
       <MapView
         ref={mapRef}
         style={styles.map}
