@@ -1,17 +1,7 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
-import {
-  CURRENT_USER_ID,
-  Friendship,
-  FriendAreaLink,
-  PresenceLog,
-  User,
-  mockFriendAreaLinks,
-  mockFriendships,
-  mockPresenceLogs,
-  mockUsers,
-  presenceArea,
-} from '../mocks/presence';
+import { Friendship, FriendAreaLink, PresenceLog, User } from '../mocks/presence';
 
 export type FriendPresence = {
   userId: string;
@@ -26,14 +16,20 @@ type DerivedPresenceState = {
   presentCount: number; // エリア内の在席者全体の人数（友達に限らない、docs/oruca_PRD.md「在席可視化」参照）
 };
 
+type PresenceStatus = 'idle' | 'loading' | 'ready' | 'error';
+
 type PresenceState = DerivedPresenceState & {
   presenceLogs: PresenceLog[];
+  status: PresenceStatus;
+  errorMessage: string | null;
   // US-004（ジオフェンス判定）が入退室を検知した際に呼ぶ想定のaction。
   // 渡されたlogsからfriends・presentCountを再計算し、この画面（US-001）にも反映する
   setPresenceLogs: (logs: PresenceLog[]) => void;
+  // Supabaseから自分の監視エリア・友達・在席ログを取得し、Realtime購読を開始する
+  initialize: () => Promise<void>;
 };
 
-// TODO(開発者): 「友達が対象エリアで名前つき表示してよいか」を判定する関数。
+// 「友達が対象エリアで名前つき表示してよいか」を判定する関数。
 //
 // 守るべき条件（docs/schema.md「設計上の重要な原則」2. を参照）：
 // - PRESENCE_LOGS だけを見て名前を出してはいけない
@@ -43,11 +39,8 @@ type PresenceState = DerivedPresenceState & {
 // - 承認されていない場合は null を返す（呼び出し側は null なら「非公開」と表示する）
 //
 // friendAreaLinks・users を引数で受け取る形にしているのは、単体テストで
-// 好きなデータを渡して検証できるようにするため（本番実装でも、Supabaseから
-// 取得したデータをそのまま渡す形に置き換えられる）。
-//
-// 本番実装（Supabase接続後）でもこの関数はそのまま使う想定なので、
-// 「モックだから省略」にしない。
+// 好きなデータを渡して検証できるようにするため（Supabaseから取得した
+// データをそのまま渡す形で本番実装でも使う）。
 export function resolveDisplayName(
   currentUserId: string,
   friendId: string,
@@ -71,13 +64,10 @@ export function resolveDisplayName(
   return friend === undefined ? null : friend.name;
 }
 
-// TODO(開発者): モックデータから PresenceState を組み立てる。
+// 取得したデータ（friendships・presenceLogs・friendAreaLinks・users・area）から
+// PresenceState を組み立てる。
 //
-// currentUserId・friendships・presenceLogs・friendAreaLinks・users・area を
-// 引数で受け取る形にしているのは resolveDisplayName と同じ理由（単体テストで
-// 好きなデータパターンを渡して検証できるようにするため）。
-//
-// 手順の目安：
+// 手順：
 // 1. friendships から、自分（currentUserId）を起点とする友達の friend_id
 //    一覧を取り出す（status === 'active' のもののみ）
 // 2. その友達それぞれについて、presenceLogs から area.id に紐づく行を探し、
@@ -91,9 +81,13 @@ export function buildInitialState(
   presenceLogs: PresenceLog[],
   friendAreaLinks: FriendAreaLink[],
   users: User[],
-  area: Area
+  area: Area,
+  // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
+  // 同じエリアに参加している（USER_AREASに行がある）ユーザーのuser_id一覧を渡すと、
+  // 承認リンクが無くても名前・アイコンを表示する。デモ終了後はこの引数を削除し、
+  // resolveDisplayNameのみに一本化する（docs/decisions/0008参照）。
+  areaParticipantUserIds: string[] = []
 ): DerivedPresenceState {
-  
   const friendIds = friendships
     .filter((f) => f.user_id === currentUserId && f.status === 'active')
     .map((f) => f.friend_id);
@@ -102,7 +96,14 @@ export function buildInitialState(
     const isPresent = presenceLogs.some(
       (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
     );
-    const displayName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
+    const approvedName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
+    // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
+    // 承認が無くても、同じエリアに参加している友達なら名前を表示する
+    const displayName =
+      approvedName ??
+      (areaParticipantUserIds.includes(friendId)
+        ? users.find((user) => user.id === friendId)?.name ?? null
+        : null);
     const iconUrl =
       displayName === null ? null : users.find((user) => user.id === friendId)?.icon_url ?? null;
     return { userId: friendId, displayName, iconUrl, isPresent };
@@ -162,26 +163,179 @@ export function buildPresenceMarkers(
     });
 }
 
-export const usePresenceStore = create<PresenceState>((set) => ({
-  ...buildInitialState(
-    CURRENT_USER_ID,
-    mockFriendships,
-    mockPresenceLogs,
-    mockFriendAreaLinks,
-    mockUsers,
-    presenceArea
-  ),
-  presenceLogs: mockPresenceLogs,
-  setPresenceLogs: (logs) =>
+// initialize()で取得したデータのうち、setPresenceLogs・Realtime更新のたびに
+// buildInitialStateへ渡し直す必要があるものを保持しておく（Zustandの状態には含めない。
+// 画面には不要な内部データのため）
+type FetchedContext = {
+  currentUserId: string;
+  area: Area;
+  friendships: Friendship[];
+  friendAreaLinks: FriendAreaLink[];
+  users: User[];
+  // DEMO SHORTCUT (ADR-0008): 上記buildInitialStateの注釈を参照
+  areaParticipantUserIds: string[];
+};
+
+let context: FetchedContext | null = null;
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+async function fetchMonitoredArea(userId: string): Promise<Area | null> {
+  // 現状は画面が単一エリアの表示にしか対応していないため、最初に参加した
+  // エリア（USER_AREAS.created_atが最も古い行）のみを対象とする
+  const { data: userAreas, error: userAreasError } = await supabase
+    .from('user_areas')
+    .select('area_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (userAreasError) throw userAreasError;
+
+  const areaId = userAreas?.[0]?.area_id;
+  if (!areaId) return null;
+
+  const { data: area, error: areaError } = await supabase
+    .from('areas')
+    .select('*')
+    .eq('id', areaId)
+    .single();
+  if (areaError) throw areaError;
+  return area as Area;
+}
+
+async function fetchFriendships(userId: string): Promise<Friendship[]> {
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (error) throw error;
+  return (data ?? []) as Friendship[];
+}
+
+async function fetchFriendAreaLinks(areaId: string): Promise<FriendAreaLink[]> {
+  const { data, error } = await supabase
+    .from('friend_area_links')
+    .select('*')
+    .eq('area_id', areaId)
+    .eq('status', 'approved');
+  if (error) throw error;
+  return (data ?? []) as FriendAreaLink[];
+}
+
+// friendIdsのうち、RLS上読めるusers行だけが返る。
+// DEMO SHORTCUT (ADR-0008): 「demo: same-area users are readable」ポリシーにより、
+// 承認リンクが無くても同じエリアの参加者ならここに含まれる。そのため、この結果に
+// 含まれるfriendIdをそのままareaParticipantUserIdsとして扱う（docs/decisions/0008参照）
+async function fetchUsers(userIds: string[]): Promise<User[]> {
+  if (userIds.length === 0) return [];
+  const { data, error } = await supabase.from('users').select('*').in('id', userIds);
+  if (error) throw error;
+  return (data ?? []) as User[];
+}
+
+async function fetchOpenPresenceLogs(areaId: string): Promise<PresenceLog[]> {
+  const { data, error } = await supabase
+    .from('presence_logs')
+    .select('*')
+    .eq('area_id', areaId)
+    .is('exited_at', null);
+  if (error) throw error;
+  return (data ?? []) as PresenceLog[];
+}
+
+export const usePresenceStore = create<PresenceState>((set, get) => ({
+  areaName: '',
+  friends: [],
+  presentCount: 0,
+  presenceLogs: [],
+  status: 'idle',
+  errorMessage: null,
+
+  setPresenceLogs: (logs) => {
+    if (!context) {
+      set({ presenceLogs: logs });
+      return;
+    }
     set({
       ...buildInitialState(
-        CURRENT_USER_ID,
-        mockFriendships,
+        context.currentUserId,
+        context.friendships,
         logs,
-        mockFriendAreaLinks,
-        mockUsers,
-        presenceArea
+        context.friendAreaLinks,
+        context.users,
+        context.area,
+        context.areaParticipantUserIds
       ),
       presenceLogs: logs,
-    }),
+    });
+  },
+
+  initialize: async () => {
+    if (get().status === 'loading') return;
+    set({ status: 'loading', errorMessage: null });
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData.session?.user.id;
+      if (!currentUserId) {
+        throw new Error('ログインが完了していません');
+      }
+
+      const area = await fetchMonitoredArea(currentUserId);
+      if (!area) {
+        context = null;
+        set({ areaName: '', friends: [], presentCount: 0, presenceLogs: [], status: 'ready' });
+        return;
+      }
+
+      const [friendships, friendAreaLinks, presenceLogs] = await Promise.all([
+        fetchFriendships(currentUserId),
+        fetchFriendAreaLinks(area.id),
+        fetchOpenPresenceLogs(area.id),
+      ]);
+
+      const friendIds = friendships.map((f) => f.friend_id);
+      const users = await fetchUsers(friendIds);
+      // DEMO SHORTCUT (ADR-0008): fetchUsersのコメント参照
+      const areaParticipantUserIds = users.map((user) => user.id);
+
+      context = { currentUserId, area, friendships, friendAreaLinks, users, areaParticipantUserIds };
+
+      set({
+        ...buildInitialState(
+          currentUserId,
+          friendships,
+          presenceLogs,
+          friendAreaLinks,
+          users,
+          area,
+          areaParticipantUserIds
+        ),
+        presenceLogs,
+        status: 'ready',
+      });
+
+      realtimeChannel?.unsubscribe();
+      realtimeChannel = supabase
+        .channel(`presence_logs:area:${area.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'presence_logs', filter: `area_id=eq.${area.id}` },
+          async () => {
+            try {
+              const latestLogs = await fetchOpenPresenceLogs(area.id);
+              get().setPresenceLogs(latestLogs);
+            } catch {
+              // Realtime再取得の失敗は画面を壊さず無視する（次のイベントで再試行される）
+            }
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      set({
+        status: 'error',
+        errorMessage: error instanceof Error ? error.message : '在席情報の取得に失敗しました',
+      });
+    }
+  },
 }));
