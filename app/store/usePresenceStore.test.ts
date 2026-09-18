@@ -109,6 +109,64 @@ describe('buildInitialState', () => {
     expect(result.friends).toEqual([]);
     expect(result.presentCount).toBe(0);
   });
+
+  // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
+  // areaParticipantUserIdsを省略した場合は従来通り承認済みのみ表示すること（後方互換）と、
+  // 渡した場合は承認が無くても同エリア参加者の名前が表示されることを確認する
+  describe('DEMO SHORTCUT (ADR-0008): areaParticipantUserIds', () => {
+    test('省略した場合は従来通り、承認が無い友達の名前は表示しない', () => {
+      const friendships: Friendship[] = [
+        { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      ];
+
+      const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], users, area);
+
+      expect(result.friends).toEqual([
+        { userId: 'user-a', displayName: null, iconUrl: null, isPresent: false },
+      ]);
+    });
+
+    test('承認が無くても、同エリア参加者であれば名前・アイコンを表示する', () => {
+      const friendships: Friendship[] = [
+        { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      ];
+
+      const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], users, area, ['user-a']);
+
+      expect(result.friends).toEqual([
+        { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', isPresent: false },
+      ]);
+    });
+
+    test('承認済みの場合は同エリア参加者リストの有無に関わらず承認済みの名前を優先する', () => {
+      const friendships: Friendship[] = [
+        { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      ];
+      const friendAreaLinks: FriendAreaLink[] = [
+        { id: 'link-a', initiator_id: CURRENT_USER_ID, friend_id: 'user-a', area_id: area.id, status: 'approved', created_at: now, updated_at: now },
+      ];
+
+      const result = buildInitialState(CURRENT_USER_ID, friendships, [], friendAreaLinks, users, area, []);
+
+      expect(result.friends).toEqual([
+        { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', isPresent: false },
+      ]);
+    });
+
+    test('同エリア参加者リストに含まれない友達は、承認が無ければ名前を表示しない', () => {
+      const friendships: Friendship[] = [
+        { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+        { id: 'f-b', user_id: CURRENT_USER_ID, friend_id: 'user-b', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      ];
+
+      const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], users, area, ['user-a']);
+
+      expect(result.friends).toEqual([
+        { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', isPresent: false },
+        { userId: 'user-b', displayName: null, iconUrl: null, isPresent: false },
+      ]);
+    });
+  });
 });
 
 describe('buildPresenceMarkers', () => {

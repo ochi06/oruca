@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '../components/Avatar';
+import { ErrorState } from '../components/ErrorState';
 import { ListItem } from '../components/ListItem';
+import { LoadingIndicator } from '../components/LoadingIndicator';
 import { Screen } from '../components/Screen';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
@@ -11,7 +14,28 @@ import { usePresenceStore } from '../store/usePresenceStore';
 
 export default function PresenceScreen() {
   const { colors } = useTheme();
-  const { areaName, friends, presentCount } = usePresenceStore();
+  const { areaName, friends, presentCount, status, errorMessage, initialize } = usePresenceStore();
+
+  useEffect(() => {
+    initialize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <Screen style={styles.container}>
+        <LoadingIndicator />
+      </Screen>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message={errorMessage ?? undefined} onRetry={initialize} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen style={styles.container}>
