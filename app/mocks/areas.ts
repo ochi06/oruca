@@ -88,4 +88,12 @@ export const mockUserAreas: UserArea[] = [
     area_id: 'area-1',
     created_at: now,
   },
+  // US-001の在席表示（app/mocks/presence.ts）と同じユーザー・エリアで
+  // ジオフェンス判定を行うための行（デモでUS-004→US-001の連携を見せるため）
+  {
+    id: 'user-area-2',
+    user_id: 'user-me',
+    area_id: 'area-1',
+    created_at: now,
+  },
 ];
