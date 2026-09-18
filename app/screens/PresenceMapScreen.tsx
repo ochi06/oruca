@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, MapStyleElement, Marker } from 'react-native-maps';
 
 import { Avatar } from '../components/Avatar';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { Screen } from '../components/Screen';
@@ -12,26 +13,44 @@ import { typography } from '../theme/typography';
 import { darkMapStyle } from '../constants/mapStyle';
 import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { mockAreas } from '../mocks/areas';
+import { Area } from '../mocks/areas';
 import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../store/usePresenceStore';
+import { computeRegionForAreas, Region } from '../utils/mapRegion';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
-// GeofenceScreen.tsxのBACKEND_AREA_IDSと同じ対応（デモ用に事前投入済みの
-// エリアは1件のみ）。エリア登録機能（US-018）と繋がった後は、実エリアの
-// 中心・半径をSupabaseから取得する形に置き換える想定
-const DEMO_AREA_ID = 'c06fe2ac-fff3-42a8-b5ea-00756b9396e4';
-const demoArea = mockAreas.find((area) => area.id === 'area-1')!;
-
 type LoadState = 'loading' | 'loaded' | 'error';
 
-async function fetchPresenceMarkers(areaId: string): Promise<PresenceMarker[]> {
+type PresenceMapData = {
+  areas: Area[];
+  markers: PresenceMarker[];
+};
+
+// 自分が参加している全エリア（USER_AREAS）と、その中の在席者をまとめて取得する（Issue #62）
+async function fetchPresenceMapData(): Promise<PresenceMapData> {
   const currentUserId = await ensureSignedIn();
+
+  const { data: userAreas, error: userAreasError } = await supabase
+    .from('user_areas')
+    .select('area_id')
+    .eq('user_id', currentUserId);
+  if (userAreasError) throw userAreasError;
+
+  const areaIds = Array.from(new Set((userAreas ?? []).map((row) => row.area_id)));
+  if (areaIds.length === 0) {
+    return { areas: [], markers: [] };
+  }
+
+  const { data: areas, error: areasError } = await supabase
+    .from('areas')
+    .select('id, owner_user_id, name, center_lat, center_lng, radius_m, is_public, created_at, updated_at')
+    .in('id', areaIds);
+  if (areasError) throw areasError;
 
   const { data: locations, error: presenceError } = await supabase
     .from('presence_logs')
     .select('user_id, lat, lng')
-    .eq('area_id', areaId)
+    .in('area_id', areaIds)
     .is('exited_at', null);
   if (presenceError) throw presenceError;
 
@@ -49,19 +68,21 @@ async function fetchPresenceMarkers(areaId: string): Promise<PresenceMarker[]> {
   // ユーザーは全員、承認状態に関わらず名前・アイコンつきで表示する
   const visibleUserIds = new Set(userIds);
 
-  return buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
+  const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
+
+  return { areas: (areas ?? []) as Area[], markers };
 }
 
 export default function PresenceMapScreen() {
   const { colors, isDark } = useTheme();
   const [state, setState] = useState<LoadState>('loading');
-  const [markers, setMarkers] = useState<PresenceMarker[]>([]);
+  const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [] });
 
   const load = useCallback(() => {
     setState('loading');
-    fetchPresenceMarkers(DEMO_AREA_ID)
+    fetchPresenceMapData()
       .then((result) => {
-        setMarkers(result);
+        setData(result);
         setState('loaded');
       })
       .catch(() => {
@@ -84,31 +105,43 @@ export default function PresenceMapScreen() {
   if (state === 'error') {
     return (
       <Screen style={styles.container}>
-        <ErrorState message="在席者の取得に失敗しました。" onRetry={load} />
+        <ErrorState message="エリア・在席者の取得に失敗しました。" onRetry={load} />
       </Screen>
     );
   }
+
+  if (data.areas.length === 0) {
+    return (
+      <Screen style={styles.container}>
+        <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
+        <EmptyState icon="map-outline" message="参加しているエリアがまだありません" />
+      </Screen>
+    );
+  }
+
+  // 全エリアの中心が収まる大まかな表示範囲（半径のフィッティングまでは行わない簡易対応）
+  const region: Region = computeRegionForAreas(
+    data.areas.map((area) => ({ latitude: area.center_lat, longitude: area.center_lng }))
+  );
 
   return (
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
       <MapView
         style={styles.map}
-        initialRegion={{
-          latitude: demoArea.center_lat,
-          longitude: demoArea.center_lng,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }}
+        initialRegion={region}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
       >
-        <Circle
-          center={{ latitude: demoArea.center_lat, longitude: demoArea.center_lng }}
-          radius={demoArea.radius_m}
-          strokeColor={colors.blue}
-          fillColor={`${colors.blue}33`}
-        />
-        {markers.map((marker) => (
+        {data.areas.map((area) => (
+          <Circle
+            key={area.id}
+            center={{ latitude: area.center_lat, longitude: area.center_lng }}
+            radius={area.radius_m}
+            strokeColor={colors.blue}
+            fillColor={`${colors.blue}33`}
+          />
+        ))}
+        {data.markers.map((marker) => (
           <Marker
             key={marker.userId}
             coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
