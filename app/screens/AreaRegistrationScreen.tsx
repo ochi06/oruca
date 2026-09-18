@@ -21,6 +21,7 @@ import Slider from '@react-native-community/slider';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { Screen } from '../components/Screen';
+import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
 import { Area, mockAreas } from '../mocks/areas';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
@@ -34,6 +35,8 @@ import {
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
+// Supabase未接続の間の仮の自分ユーザーID。mocks/areas.tsの既存データに合わせる。
+const CURRENT_USER_ID = 'user-1';
 
 const defaultCenter: LatLng = {
   latitude: mockAreas[0].center_lat,
@@ -52,7 +55,9 @@ type Props = {
 
 export default function AreaRegistrationScreen({ onClose }: Props) {
   const { colors, isDark } = useTheme();
+  const { showToast } = useToast();
   const [pin, setPin] = useState<LatLng | null>(null);
+  const [areaName, setAreaName] = useState('');
   const [radiusM, setRadiusM] = useState(RADIUS_MIN_M);
   const [handleBearingDeg, setHandleBearingDeg] = useState(
     INITIAL_HANDLE_BEARING_DEG
@@ -98,8 +103,32 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
 
   const handleRegister = () => {
     if (!pin) return;
+
+    const trimmedName = areaName.trim();
+    if (!trimmedName) {
+      showToast('エリア名を入力してください');
+      return;
+    }
+
     // TODO: Supabaseへのinsert処理（US-018の🖊️タスク、バックエンド接続後に実装）
-    console.log('register area (mock)', { pin, radiusM });
+    const nowIso = new Date().toISOString();
+    const newArea: Area = {
+      id: `area-mock-${mockAreas.length + 1}`,
+      owner_user_id: CURRENT_USER_ID,
+      name: trimmedName,
+      center_lat: pin.latitude,
+      center_lng: pin.longitude,
+      radius_m: radiusM,
+      is_public: false,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    mockAreas.push(newArea);
+
+    showToast(`「${trimmedName}」を登録しました`);
+    setPin(null);
+    setAreaName('');
+    setRadiusM(RADIUS_MIN_M);
   };
 
   const handleHandleDrag = (event: MarkerDragStartEndEvent) => {
@@ -214,6 +243,16 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       )}
       {pin && (
         <View style={[styles.sliderContainer, { backgroundColor: colors.surface }]}>
+          <TextInput
+            style={[
+              styles.nameInput,
+              { borderColor: colors.textSub, color: colors.text },
+            ]}
+            placeholder="エリア名（例：部室）"
+            placeholderTextColor={colors.textSub}
+            value={areaName}
+            onChangeText={setAreaName}
+          />
           <Text style={{ color: colors.text }}>
             半径: {Math.round(radiusM)}m
           </Text>
@@ -294,5 +333,10 @@ const styles = StyleSheet.create({
   searchResultRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 8,
   },
 });
