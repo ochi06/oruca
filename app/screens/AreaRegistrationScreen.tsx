@@ -71,6 +71,13 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const resetForm = () => {
+    setPin(null);
+    setAreaName('');
+    setSelectedExistingArea(null);
+    setRadiusM(RADIUS_MIN_M);
+  };
+
   const handleMapPress = (event: MapPressEvent) => {
     setPin(event.nativeEvent.coordinate);
     setAreaName('');
@@ -141,10 +148,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
         showToast(`「${selectedExistingArea.name}」を登録しました`);
       }
 
-      setPin(null);
-      setAreaName('');
-      setSelectedExistingArea(null);
-      setRadiusM(RADIUS_MIN_M);
+      resetForm();
       return;
     }
 
@@ -172,9 +176,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     mockUserAreas.push(newUserArea);
 
     showToast(`「${trimmedName}」を登録しました`);
-    setPin(null);
-    setAreaName('');
-    setRadiusM(RADIUS_MIN_M);
+    resetForm();
   };
 
   const handleHandleDrag = (event: MarkerDragStartEndEvent) => {
@@ -293,11 +295,13 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             style={[
               styles.nameInput,
               { borderColor: colors.textSub, color: colors.text },
+              selectedExistingArea && { color: colors.textSub },
             ]}
             placeholder="エリア名（例：部室）"
             placeholderTextColor={colors.textSub}
             value={areaName}
             onChangeText={setAreaName}
+            editable={!selectedExistingArea}
           />
           <Text style={{ color: colors.text }}>
             半径: {Math.round(radiusM)}m
