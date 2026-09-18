@@ -120,6 +120,48 @@ export function buildInitialState(
   return { areaName: area.name, friends, presentCount };
 }
 
+export type PresenceLocation = {
+  user_id: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+export type PresenceMarker = {
+  userId: string;
+  latitude: number;
+  longitude: number;
+  displayName: string | null; // nullの場合、画面側では色つきドットのみ表示する
+  iconUrl: string | null;
+};
+
+// Issue #58：マップ上に表示するマーカー情報を組み立てる。
+// 「誰の名前・アイコンを見せてよいか」はvisibleUserIds（呼び出し側が
+// resolveDisplayNameなどで判定した結果）で受け取る形にし、この関数自体は
+// 可視性の判定ロジックを持たない（テスト・呼び出し側の判断基準の差し替えを
+// しやすくするため）。自分自身は常に表示する
+export function buildPresenceMarkers(
+  currentUserId: string,
+  presenceLocations: PresenceLocation[],
+  visibleUserIds: Set<string>,
+  users: User[]
+): PresenceMarker[] {
+  return presenceLocations
+    .filter((location): location is PresenceLocation & { lat: number; lng: number } =>
+      location.lat !== null && location.lng !== null
+    )
+    .map((location) => {
+      const isVisible = location.user_id === currentUserId || visibleUserIds.has(location.user_id);
+      const user = users.find((u) => u.id === location.user_id);
+      return {
+        userId: location.user_id,
+        latitude: location.lat,
+        longitude: location.lng,
+        displayName: isVisible ? user?.name ?? null : null,
+        iconUrl: isVisible ? user?.icon_url ?? null : null,
+      };
+    });
+}
+
 export const usePresenceStore = create<PresenceState>((set) => ({
   ...buildInitialState(
     CURRENT_USER_ID,
