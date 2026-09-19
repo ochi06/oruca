@@ -4,25 +4,11 @@ import * as Location from 'expo-location';
 
 import { isInsideArea, recordPresence } from '../geofence';
 import { ensureSignedIn } from '../lib/auth';
+import { fetchMonitoredAreas } from '../lib/areas';
 import { supabase } from '../lib/supabase';
-import { mockAreas, mockUserAreas } from '../mocks/areas';
-import { CURRENT_USER_ID, PresenceLog } from '../mocks/presence';
+import { Area } from '../mocks/areas';
+import { PresenceLog } from '../mocks/presence';
 import { LatLng } from '../utils/geo';
-
-// デモ用に事前投入済みのエリア（神戸産業振興センター）。本来はエリアの
-// 検索・QRコード読み取りなどで見つける想定だが、今回は時間の都合で
-// このIDに固定している（本格的な導線はUS-018の後続タスクで整備）。
-// 2026-09-19: 誤登録された重複エリア(旧c06fe2ac...、半径50m)を削除したため、
-// 実際にAreaRegistrationScreen経由で登録された方のIDに差し替えた
-const DEMO_AREA_ID = '50a37dc2-7e64-4da6-88a6-4aabfc57d2b1';
-
-// モックのエリアID（geofence判定に使っている app/mocks/areas.ts 側のID）と、
-// 実際にSupabaseへ投入済みのエリアIDの対応。今はデモ用の1件のみ実データが
-// あるため、area-1（部室）だけを対応させている。エリア登録機能（US-018）が
-// 一通り繋がった後は、この対応表自体が不要になる想定
-const BACKEND_AREA_IDS: Record<string, string> = {
-  'area-1': DEMO_AREA_ID,
-};
 
 // 入室時：presence_logsに新しい行をinsertする
 async function recordEntryInBackend(areaId: string, location: LatLng, enteredAt: string): Promise<void> {
@@ -69,10 +55,8 @@ async function recordLocationUpdateInBackend(areaId: string, location: LatLng): 
   }
 }
 
-function hasOpenLog(logs: PresenceLog[], areaId: string): boolean {
-  return logs.some(
-    (log) => log.user_id === CURRENT_USER_ID && log.area_id === areaId && log.exited_at === null
-  );
+function hasOpenLog(logs: PresenceLog[], userId: string, areaId: string): boolean {
+  return logs.some((log) => log.user_id === userId && log.area_id === areaId && log.exited_at === null);
 }
 
 // タブ切り替えでアンマウントされて監視が止まってしまわないよう、ログイン後は
@@ -80,19 +64,63 @@ function hasOpenLog(logs: PresenceLog[], areaId: string): boolean {
 // （US-004、独立タブを持たない横断的な機能。docs/architecture.md参照、Issue #73）。
 // enabledはログイン完了前に位置情報の許可を要求してしまわないためのガード
 export function useGeofenceMonitor(enabled: boolean): void {
-  const monitoredAreaIds = mockUserAreas
-    .filter((userArea) => userArea.user_id === CURRENT_USER_ID)
-    .map((userArea) => userArea.area_id);
-  const areas = mockAreas.filter((area) => monitoredAreaIds.includes(area.id));
+  // ログイン中ユーザーが実際に参加しているエリア（USER_AREAS）。ここはこの
+  // フック内でしか参照しない値なので、再レンダーを起こさないrefで持つ
+  // （Issue #109、以前はapp/mocks/areas.tsの固定モックを使っていた）
+  const userIdRef = useRef<string | null>(null);
+  const areasRef = useRef<Area[]>([]);
 
-  // このリストはこのフック専用のローカル状態（モックのCURRENT_USER_ID・エリアID
-  // を使っている）。実際のバックエンドへの反映はrecordEntryInBackend/
-  // recordExitInBackendがpresence_logsに書き込み、usePresenceStore側はその
-  // Realtime購読で独立して最新化される（詳細はusePresenceStore.tsのinitialize参照）
   const [logs, setLogs] = useState<PresenceLog[]>([]);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
+  // ユーザーの監視対象エリアを取得し、USER_AREASへの参加・離脱に追従して
+  // 再取得する（Issue #109）。usePresenceStore.tsのpresence_logs購読と同じ
+  // パターンで、user_areasテーブルの変更をRealtimeで購読する
+  useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function loadAreasAndSubscribe() {
+      const userId = await ensureSignedIn();
+      if (cancelled) return;
+      userIdRef.current = userId;
+
+      async function refetchAreas() {
+        const monitoredAreas = await fetchMonitoredAreas(userId);
+        if (!cancelled) {
+          areasRef.current = monitoredAreas;
+        }
+      }
+
+      await refetchAreas();
+      if (cancelled) return;
+
+      channel = supabase
+        .channel(`user_areas:user:${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_areas', filter: `user_id=eq.${userId}` },
+          () => {
+            refetchAreas();
+          }
+        )
+        .subscribe();
+    }
+
+    loadAreasAndSubscribe();
+
+    return () => {
+      cancelled = true;
+      channel?.unsubscribe();
+    };
+  }, [enabled]);
+
   async function handleLocation(location: LatLng) {
+    const userId = userIdRef.current;
+    if (!userId) return;
+
     const now = new Date().toISOString();
     let updatedLogs: PresenceLog[] = [];
     const transitions: { areaId: string; entered: boolean }[] = [];
@@ -102,11 +130,11 @@ export function useGeofenceMonitor(enabled: boolean): void {
     // 最新のstateを受け取れるため、ここで最新のlogsを基準に計算する
     setLogs((prevLogs) => {
       updatedLogs = prevLogs;
-      for (const area of areas) {
+      for (const area of areasRef.current) {
         const inside = isInsideArea(location, area);
-        const wasOpen = hasOpenLog(updatedLogs, area.id);
-        updatedLogs = recordPresence(updatedLogs, CURRENT_USER_ID, area, inside, now);
-        const isOpenNow = hasOpenLog(updatedLogs, area.id);
+        const wasOpen = hasOpenLog(updatedLogs, userId, area.id);
+        updatedLogs = recordPresence(updatedLogs, userId, area, inside, now);
+        const isOpenNow = hasOpenLog(updatedLogs, userId, area.id);
         if (wasOpen !== isOpenNow) {
           transitions.push({ areaId: area.id, entered: isOpenNow });
         } else if (wasOpen && isOpenNow) {
@@ -117,27 +145,23 @@ export function useGeofenceMonitor(enabled: boolean): void {
     });
 
     for (const { areaId, entered } of transitions) {
-      const backendAreaId = BACKEND_AREA_IDS[areaId];
-      if (!backendAreaId) continue;
       try {
         if (entered) {
-          await recordEntryInBackend(backendAreaId, location, now);
+          await recordEntryInBackend(areaId, location, now);
         } else {
-          await recordExitInBackend(backendAreaId, now);
+          await recordExitInBackend(areaId, now);
         }
       } catch {
-        // バックエンドへの書き込みが失敗しても、モック側の在席判定はそのまま
+        // バックエンドへの書き込みが失敗しても、ローカルの在席判定はそのまま
         // 継続させる（オフライン等で失敗しても監視自体は壊れないように）
       }
     }
 
     for (const areaId of staying) {
-      const backendAreaId = BACKEND_AREA_IDS[areaId];
-      if (!backendAreaId) continue;
       try {
-        await recordLocationUpdateInBackend(backendAreaId, location);
+        await recordLocationUpdateInBackend(areaId, location);
       } catch {
-        // 同上、失敗してもモック側の在席判定・監視自体は継続させる
+        // 同上、失敗してもローカルの在席判定・監視自体は継続させる
       }
     }
   }
