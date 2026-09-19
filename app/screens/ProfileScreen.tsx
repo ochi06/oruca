@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { ErrorState } from '../components/ErrorState';
+import { Input } from '../components/Input';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { Screen } from '../components/Screen';
 import { useToast } from '../components/Toast';
@@ -19,8 +20,13 @@ import {
   fetchUserName,
   fetchUserStatus,
   updateUserIcon,
+  updateUserName,
   updateUserStatus,
 } from '../lib/auth';
+
+// エリア名（AREA_NAME_MAX_LENGTH）と同程度の上限を設ける。DB側に長さ制約は
+// 無いが、一覧・アイコン横での表示崩れを防ぐための画面側のガード
+const DISPLAY_NAME_MAX_LENGTH = 30;
 
 type LoadState = 'loading' | 'loaded' | 'error';
 
@@ -33,6 +39,9 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<UserStatus | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   function load() {
     setState('loading');
@@ -73,6 +82,37 @@ export default function ProfileScreen() {
       showToast('ステータスの更新に失敗しました');
     } finally {
       setUpdatingStatus(false);
+    }
+  }
+
+  function handleStartEditName() {
+    setNameInput(name);
+    setEditingName(true);
+  }
+
+  async function handleSaveName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      showToast('名前を入力してください');
+      return;
+    }
+    if (trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
+      showToast(`名前は${DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください`);
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserName(userId, trimmed);
+      setName(trimmed);
+      setEditingName(false);
+      showToast('名前を更新しました');
+    } catch (error) {
+      console.error('updateUserName failed:', error);
+      showToast('名前の更新に失敗しました');
+    } finally {
+      setSavingName(false);
     }
   }
 
@@ -129,12 +169,41 @@ export default function ProfileScreen() {
       <Text style={[styles.title, { color: colors.text }]}>プロフィール</Text>
       <View style={styles.avatarSection}>
         <Avatar iconUrl={iconUrl} name={name} size={96} />
-        <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
+
+        {editingName ? (
+          <View style={styles.nameEditRow}>
+            <Input
+              style={styles.nameInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              maxLength={DISPLAY_NAME_MAX_LENGTH}
+              editable={!savingName}
+              autoFocus
+            />
+            <Button
+              label="キャンセル"
+              variant="secondary"
+              onPress={() => setEditingName(false)}
+              disabled={savingName}
+            />
+            <Button
+              label={savingName ? '保存中…' : '保存'}
+              onPress={handleSaveName}
+              disabled={savingName}
+            />
+          </View>
+        ) : (
+          <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
+        )}
+
         <Button
           label={uploading ? 'アップロード中…' : 'アイコンを変更する'}
           onPress={handleChangeIcon}
           disabled={uploading}
         />
+        {!editingName && (
+          <Button label="名前を変更する" variant="secondary" onPress={handleStartEditName} />
+        )}
       </View>
 
       <View style={styles.statusSection}>
@@ -170,6 +239,14 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.body,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  nameInput: {
+    flex: 1,
   },
   statusSection: {
     marginTop: spacing.xl,

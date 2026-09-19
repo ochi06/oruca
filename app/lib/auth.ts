@@ -64,6 +64,16 @@ export async function fetchUserName(userId: string): Promise<string | null> {
   return data?.name ?? null;
 }
 
+// 自分のusers.nameを更新する（Issue #111：Issue #106でAreaJoinScreen経由の
+// 名前設定導線が消え、他に呼び出し元が無くなった際に一度削除されていたが、
+// ProfileScreenでの名前編集用に復活させた）
+export async function updateUserName(userId: string, name: string): Promise<void> {
+  const { error } = await supabase.from('users').update({ name }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分の現在のusers.statusを取得する（US-014、Issue #10）
 export async function fetchUserStatus(userId: string): Promise<UserStatus | null> {
   const { data, error } = await supabase.from('users').select('status').eq('id', userId).maybeSingle();
