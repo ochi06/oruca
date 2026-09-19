@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -5,12 +6,14 @@ import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
+import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
+import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
 
@@ -33,6 +36,9 @@ export default function GroupDetailScreen({ groupId, onBack }: Props) {
   const approveMember = useGroupStore((state) => state.approveMember);
   const rejectMember = useGroupStore((state) => state.rejectMember);
   const removeMember = useGroupStore((state) => state.removeMember);
+  const leaveGroup = useGroupStore((state) => state.leaveGroup);
+  const transferOwnership = useGroupStore((state) => state.transferOwnership);
+  const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
 
   if (!group) {
     return (
@@ -77,6 +83,29 @@ export default function GroupDetailScreen({ groupId, onBack }: Props) {
     }
     if (result.status === 'success') {
       showToast('メンバーを退会させました');
+    }
+  }
+
+  function handleLeave() {
+    const result = leaveGroup(groupId, CURRENT_USER_ID);
+    if (result.status === 'last_admin') {
+      showToast('管理者権限を誰かに譲ってから退会してください');
+      return;
+    }
+    if (result.status === 'success') {
+      showToast('グループを退会しました');
+      onBack();
+    }
+  }
+
+  function handleConfirmTransfer() {
+    if (!transferTarget) return;
+    const result = transferOwnership(groupId, transferTarget.user_id, CURRENT_USER_ID);
+    setTransferTarget(null);
+    if (result.status === 'success') {
+      showToast(`${findUserName(transferTarget.user_id)}さんに管理者権限を譲りました`);
+    } else {
+      showToast('管理者権限の譲渡に失敗しました');
     }
   }
 
@@ -126,13 +155,53 @@ export default function GroupDetailScreen({ groupId, onBack }: Props) {
               leading={<Avatar name={findUserName(member.user_id)} iconUrl={null} />}
               trailing={
                 isAdmin && member.user_id !== group.owner_user_id ? (
-                  <Button label="退会させる" variant="secondary" onPress={() => handleRemove(member.id)} />
+                  <View style={styles.actions}>
+                    <Button
+                      label="権限を譲る"
+                      variant="secondary"
+                      onPress={() => setTransferTarget(member)}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      label="退会させる"
+                      variant="secondary"
+                      onPress={() => handleRemove(member.id)}
+                      style={styles.actionButton}
+                    />
+                  </View>
                 ) : undefined
               }
             />
           ))
         )}
       </View>
+
+      <Button
+        label="グループを退会する"
+        variant="secondary"
+        onPress={handleLeave}
+        style={styles.leaveButton}
+      />
+
+      <Modal
+        visible={transferTarget !== null}
+        onClose={() => setTransferTarget(null)}
+        title="管理者権限を譲りますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          {transferTarget ? findUserName(transferTarget.user_id) : ''}さんに管理者権限を譲ります。
+          あなたはこのグループの管理者ではなくなります。この操作は取り消せません。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setTransferTarget(null)}
+            style={styles.modalButton}
+          />
+          <Button label="譲る" onPress={handleConfirmTransfer} style={styles.modalButton} />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -162,5 +231,15 @@ const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
     marginBottom: spacing.md,
+  },
+  leaveButton: {
+    marginTop: spacing.md,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
