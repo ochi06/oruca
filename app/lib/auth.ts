@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { supabase } from './supabase';
 
 // プロフィール編集画面ができるまでの仮の初期表示名。
@@ -69,18 +71,16 @@ export async function updateUserIcon(
   const extension = mimeType.split('/')[1] ?? 'jpg';
   const path = `${userId}/icon.${extension}`;
 
-  const formData = new FormData();
-  // React Native独自のFormDataの使い方（uri/name/typeを持つオブジェクトを渡す）。
-  // DOM標準のFormData.append型とは合わないため、supabase-js側の型に合わせてキャストする
-  formData.append('file', {
-    uri: localUri,
-    name: `icon.${extension}`,
-    type: mimeType,
-  } as unknown as Blob);
+  // React NativeではBlob/File/FormDataを渡してもsupabase-js側が期待する
+  // バイナリ形式と一致せず、実行時にアップロードが失敗する（型キャストで
+  // コンパイルは通ってしまうため気づきにくい）。ArrayBufferを渡す必要がある
+  // （supabase-jsのStorageFileApi.upload docコメント・Issue #88参照）
+  const file = new File(localUri);
+  const arrayBuffer = await file.arrayBuffer();
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(path, formData, { upsert: true, contentType: mimeType });
+    .upload(path, arrayBuffer, { upsert: true, contentType: mimeType });
   if (uploadError) {
     throw uploadError;
   }
