@@ -9,6 +9,7 @@ export const otherUser: User = {
   id: 'user-d',
   name: '高橋',
   icon_url: null,
+  status: null,
   created_at: '2026-08-16T00:00:00.000Z',
   updated_at: '2026-08-16T00:00:00.000Z',
 };

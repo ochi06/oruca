@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
 import { Friendship, FriendAreaLink, PresenceLog, User } from '../mocks/presence';
+import { UserStatus } from '../constants/status';
 
 export type FriendPresence = {
   userId: string;
   displayName: string | null; // 承認済みでなければ null（画面側で「非公開」表示）
   iconUrl: string | null; // 承認済みでなければ null（名前と同じ理由で非表示にする）
+  status: UserStatus | null; // 承認済みでなければ null（名前・アイコンと同じ理由、Issue #10）
   isPresent: boolean;
 };
 
@@ -92,9 +94,10 @@ export function buildInitialState(
       (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
     );
     const displayName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
-    const iconUrl =
-      displayName === null ? null : users.find((user) => user.id === friendId)?.icon_url ?? null;
-    return { userId: friendId, displayName, iconUrl, isPresent };
+    const friendUser = displayName === null ? undefined : users.find((user) => user.id === friendId);
+    const iconUrl = friendUser?.icon_url ?? null;
+    const status = friendUser?.status ?? null;
+    return { userId: friendId, displayName, iconUrl, status, isPresent };
   });
 
   // 在席人数はエリア内の在席者全体が対象（友達に限らない）。

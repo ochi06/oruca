@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { supabase } from './supabase';
+import { UserStatus } from '../constants/status';
 
 // アイコン表示は現状96px程度のため、これより大きい解像度でアップロードしても
 // 表示上の意味がなく、転送時間が伸びるだけになる（Issue #91）
@@ -81,6 +82,23 @@ export async function fetchUserName(userId: string): Promise<string | null> {
 // Issue #65：エリア参加直後、まだDEFAULT_USER_NAMEのままなら名前入力を促す）
 export async function updateUserName(userId: string, name: string): Promise<void> {
   const { error } = await supabase.from('users').update({ name }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
+// 自分の現在のusers.statusを取得する（US-014、Issue #10）
+export async function fetchUserStatus(userId: string): Promise<UserStatus | null> {
+  const { data, error } = await supabase.from('users').select('status').eq('id', userId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return (data?.status as UserStatus | null) ?? null;
+}
+
+// 自分のusers.statusを更新する（US-014、Issue #10）。nullを渡すと未設定に戻す
+export async function updateUserStatus(userId: string, status: UserStatus | null): Promise<void> {
+  const { error } = await supabase.from('users').update({ status }).eq('id', userId);
   if (error) {
     throw error;
   }
