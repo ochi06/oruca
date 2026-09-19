@@ -22,3 +22,11 @@
   のようなコメントを付け、後から検索して戻せるようにする
 - デモ終了後、この近道を無効化し、本来の`resolveDisplayName`ロジック
   （承認済みのみ表示）に一本化する
+
+## 対応済み（2026-09-19、Issue #79）
+
+デモ終了に伴い、上記の近道を元に戻した。
+- `supabase/migrations/20260919100000_revert_demo_area_visibility.sql`で
+  `"demo: same-area users are readable"`ポリシーを削除
+- `app/store/usePresenceStore.ts`の`areaParticipantUserIds`引数・関連ロジックを削除し、
+  `resolveDisplayName`（`FRIEND_AREA_LINKS.status='approved'`必須）のみに一本化

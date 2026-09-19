@@ -68,10 +68,9 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
     .in('id', userIds.length > 0 ? userIds : ['']);
   if (usersError) throw usersError;
 
-  // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
-  // 今夜のデモに限り、同じエリアに在席している（=presence_logsに行がある）
-  // ユーザーは全員、承認状態に関わらず名前・アイコンつきで表示する
-  const visibleUserIds = new Set(userIds);
+  // usersはRLS（FRIEND_AREA_LINKS.status='approved'の相手、または自分自身）で
+  // 既に絞り込まれているため、ここではその結果をそのまま「表示してよい相手」として扱う
+  const visibleUserIds = new Set(users?.map((user) => user.id) ?? []);
 
   const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
 
