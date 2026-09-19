@@ -25,4 +25,16 @@ describe('shouldSendEntryNotification', () => {
   test('notify_enabledがfalseなら通知しないと判定する', () => {
     expect(shouldSendEntryNotification(makeFriendship({ notify_enabled: false }))).toBe(false);
   });
+
+  test('notify_enabledがtrueでもmutedがtrueなら通知しないと判定する（Issue #8、mutedが優先）', () => {
+    expect(
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: true }))
+    ).toBe(false);
+  });
+
+  test('notify_enabledがfalseでmutedもtrueなら通知しないと判定する', () => {
+    expect(
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: false, muted: true }))
+    ).toBe(false);
+  });
 });
