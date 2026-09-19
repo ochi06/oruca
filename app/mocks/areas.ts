@@ -27,12 +27,14 @@ export const mockAreas: Area[] = [
   {
     id: 'area-1',
     owner_user_id: 'user-1',
-    // デモ用に事前投入した実エリア（GeofenceScreen.tsxのDEMO_AREA_ID）と
-    // 名前・座標・半径を統一している（別々に見えると混乱するため）
-    name: '神戸市産業振興センター',
-    center_lat: 34.680683,
-    center_lng: 135.181851,
-    radius_m: 50,
+    // デモ用に事前投入した実エリア（useGeofenceMonitor.tsのDEMO_AREA_ID）と
+    // 名前・座標・半径を統一している（別々に見えると混乱するため）。
+    // 2026-09-19: 誤登録された重複エリアを削除したため、実際に
+    // AreaRegistrationScreen経由で登録された方の値に合わせて更新
+    name: '神戸産業振興センター',
+    center_lat: 34.68055147501373,
+    center_lng: 135.1819147914648,
+    radius_m: 34,
     is_public: true,
     created_at: now,
     updated_at: now,

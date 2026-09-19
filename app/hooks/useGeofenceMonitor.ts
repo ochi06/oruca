@@ -9,10 +9,12 @@ import { mockAreas, mockUserAreas } from '../mocks/areas';
 import { CURRENT_USER_ID, PresenceLog } from '../mocks/presence';
 import { LatLng } from '../utils/geo';
 
-// デモ用に事前投入済みのエリア（神戸市産業振興センター）。本来はエリアの
+// デモ用に事前投入済みのエリア（神戸産業振興センター）。本来はエリアの
 // 検索・QRコード読み取りなどで見つける想定だが、今回は時間の都合で
 // このIDに固定している（本格的な導線はUS-018の後続タスクで整備）。
-const DEMO_AREA_ID = 'c06fe2ac-fff3-42a8-b5ea-00756b9396e4';
+// 2026-09-19: 誤登録された重複エリア(旧c06fe2ac...、半径50m)を削除したため、
+// 実際にAreaRegistrationScreen経由で登録された方のIDに差し替えた
+const DEMO_AREA_ID = '50a37dc2-7e64-4da6-88a6-4aabfc57d2b1';
 
 // モックのエリアID（geofence判定に使っている app/mocks/areas.ts 側のID）と、
 // 実際にSupabaseへ投入済みのエリアIDの対応。今はデモ用の1件のみ実データが

@@ -17,8 +17,10 @@ import { DEFAULT_USER_NAME, ensureSignedIn, fetchUserName, updateUserName } from
 
 // デモ用に固定の1エリアのみ対応（Issue #65）。エリア検索・複数エリア対応は
 // 別タスク（US-018後続）で整備する想定
-const DEMO_AREA_ID = 'c06fe2ac-fff3-42a8-b5ea-00756b9396e4';
-const DEMO_AREA_NAME = '神戸市産業振興センター';
+// 2026-09-19: 誤登録された重複エリア(旧c06fe2ac...、半径50m)を削除したため、
+// 実際にAreaRegistrationScreen経由で登録された方のIDに差し替えた
+const DEMO_AREA_ID = '50a37dc2-7e64-4da6-88a6-4aabfc57d2b1';
+const DEMO_AREA_NAME = '神戸産業振興センター';
 // カメラが無い/使えない場合のワンタイムコード入力用（大文字小文字を区別しない）
 const DEMO_JOIN_CODE = 'KOBE2026';
 
