@@ -15,6 +15,7 @@ import FriendsScreen from './screens/friends/FriendsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
 import AreaJoinScreen from './screens/areas/AreaJoinScreen';
 import AreaManagementScreen from './screens/areas/AreaManagementScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 // react-navigation導入前のデモ用画面切り替え（Issue #45）。
 // US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
@@ -29,6 +30,7 @@ const DEMO_TABS: DemoTab[] = [
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
   { key: 'area-join', label: 'エリア参加', icon: 'qr-code-outline' },
   { key: 'area-management', label: 'エリア管理', icon: 'settings-outline' },
+  { key: 'profile', label: 'プロフィール', icon: 'person-circle-outline' },
 ];
 
 export default function App() {
@@ -107,6 +109,7 @@ export default function App() {
           {activeTab === 'map' && <PresenceMapScreen />}
           {activeTab === 'area-join' && <AreaJoinScreen />}
           {activeTab === 'area-management' && <AreaManagementScreen />}
+          {activeTab === 'profile' && <ProfileScreen />}
         </View>
         <DemoTabBar tabs={DEMO_TABS} activeKey={activeTab} onSelect={setActiveTab} />
         <StatusBar style="auto" />

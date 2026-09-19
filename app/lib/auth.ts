@@ -47,3 +47,53 @@ export async function updateUserName(userId: string, name: string): Promise<void
     throw error;
   }
 }
+
+// 自分の現在のusers.icon_urlを取得する
+export async function fetchUserIconUrl(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('users').select('icon_url').eq('id', userId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.icon_url ?? null;
+}
+
+// プロフィールアイコンをavatarsバケット（`{user_id}/icon.<拡張子>`、公開読み取り・
+// 本人のみ書き込み可。docs/schema.md「USERS」・supabase/migrations参照）に
+// アップロードし、公開URLをusers.icon_urlに反映する（Issue #34）。
+// 同じパスに上書き保存するため、再アップロードのたびに前のファイルは置き換わる
+export async function updateUserIcon(
+  userId: string,
+  localUri: string,
+  mimeType: string
+): Promise<string> {
+  const extension = mimeType.split('/')[1] ?? 'jpg';
+  const path = `${userId}/icon.${extension}`;
+
+  const formData = new FormData();
+  // React Native独自のFormDataの使い方（uri/name/typeを持つオブジェクトを渡す）。
+  // DOM標準のFormData.append型とは合わないため、supabase-js側の型に合わせてキャストする
+  formData.append('file', {
+    uri: localUri,
+    name: `icon.${extension}`,
+    type: mimeType,
+  } as unknown as Blob);
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, formData, { upsert: true, contentType: mimeType });
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  // 上書き保存だと同じURLがキャッシュされ、更新後も古い画像が表示され続けることがあるため、
+  // 末尾にキャッシュバスター用のクエリを付ける
+  const iconUrl = `${data.publicUrl}?updated=${Date.now()}`;
+
+  const { error: updateError } = await supabase.from('users').update({ icon_url: iconUrl }).eq('id', userId);
+  if (updateError) {
+    throw updateError;
+  }
+
+  return iconUrl;
+}
