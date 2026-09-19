@@ -16,7 +16,6 @@ import PresenceScreen from './screens/PresenceScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
 import GroupsScreen from './screens/groups/GroupsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
-import AreaManagementScreen from './screens/areas/AreaManagementScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 // react-navigation導入前のデモ用画面切り替え（Issue #45）。
@@ -28,12 +27,13 @@ import ProfileScreen from './screens/ProfileScreen';
 // ログイン後常時実行する（Issue #73）。
 // 「エリア参加」タブは「エリアに参加する」という概念自体が本来の設計
 // （docs/schema.md）に存在しないデモ用の近道だったため削除した（Issue #106）。
+// 「エリア管理」も「エリア登録」と同様、マップタブ内のモード切り替えに
+// 統合したため、独立タブとしては持たない（Issue #104）。
 const DEMO_TABS: DemoTab[] = [
   { key: 'presence', label: '在席一覧', icon: 'people-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
   { key: 'groups', label: 'グループ', icon: 'people-circle-outline' },
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
-  { key: 'area-management', label: 'エリア管理', icon: 'settings-outline' },
   { key: 'profile', label: 'プロフィール', icon: 'person-circle-outline' },
 ];
 
@@ -123,7 +123,6 @@ export default function App() {
           {activeTab === 'friends' && <FriendsScreen />}
           {activeTab === 'groups' && <GroupsScreen />}
           {activeTab === 'map' && <PresenceMapScreen />}
-          {activeTab === 'area-management' && <AreaManagementScreen />}
           {activeTab === 'profile' && <ProfileScreen />}
         </View>
         <DemoTabBar tabs={DEMO_TABS} activeKey={activeTab} onSelect={setActiveTab} />

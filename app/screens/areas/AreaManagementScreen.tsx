@@ -164,7 +164,13 @@ function AreaEditView({
   );
 }
 
-function AreaListView({ onEdit }: { onEdit: (area: Area) => void }) {
+function AreaListView({
+  onEdit,
+  onClose,
+}: {
+  onEdit: (area: Area) => void;
+  onClose?: () => void;
+}) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [state, setState] = useState<LoadState>('loading');
@@ -222,7 +228,18 @@ function AreaListView({ onEdit }: { onEdit: (area: Area) => void }) {
 
   return (
     <Screen style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>エリア管理</Text>
+      <View style={styles.header}>
+        {onClose && (
+          <IconButton
+            name="close-outline"
+            variant="secondary"
+            accessibilityLabel="エリア管理を閉じる"
+            style={styles.headerCloseButton}
+            onPress={onClose}
+          />
+        )}
+        <Text style={[styles.title, { color: colors.text }]}>エリア管理</Text>
+      </View>
       {areas.length === 0 ? (
         <EmptyState icon="map-outline" message="作成したエリアがまだありません" />
       ) : (
@@ -281,7 +298,11 @@ function AreaListView({ onEdit }: { onEdit: (area: Area) => void }) {
   );
 }
 
-export default function AreaManagementScreen() {
+type Props = {
+  onClose?: () => void;
+};
+
+export default function AreaManagementScreen({ onClose }: Props) {
   const [route, setRoute] = useState<Route>({ name: 'list' });
 
   if (route.name === 'edit') {
@@ -294,7 +315,7 @@ export default function AreaManagementScreen() {
     );
   }
 
-  return <AreaListView onEdit={(area) => setRoute({ name: 'edit', area })} />;
+  return <AreaListView onEdit={(area) => setRoute({ name: 'edit', area })} onClose={onClose} />;
 }
 
 const styles = StyleSheet.create({
@@ -303,6 +324,14 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.heading,
+    marginBottom: spacing.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerCloseButton: {
     marginBottom: spacing.md,
   },
   rowActions: {
