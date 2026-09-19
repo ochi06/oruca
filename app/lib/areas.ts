@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Area } from '../mocks/areas';
+import { roundCoordinate } from '../utils/geo';
 
 // 自分が作成した（owner_user_id = 自分）エリア一覧を取得する（Issue #50）
 export async function fetchOwnedAreas(userId: string): Promise<Area[]> {
@@ -20,11 +21,6 @@ export type AreaUpdate = {
   center_lng: number;
   radius_m: number;
 };
-
-// docs/schema.md「AREAS」の丸めルール：座標は小数点以下6桁、半径は整数
-function roundCoordinate(value: number): number {
-  return Math.round(value * 1_000_000) / 1_000_000;
-}
 
 // エリアの名前・中心座標・半径を更新する（Issue #50）。所有者以外はRLSにより弾かれる
 export async function updateArea(areaId: string, update: AreaUpdate): Promise<void> {

@@ -39,6 +39,7 @@ import {
   bearingDegrees,
   destinationPoint,
   distanceInMeters,
+  roundCoordinate,
 } from '../utils/geo';
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
@@ -67,8 +68,8 @@ async function createAreaInBackend(
     .insert({
       owner_user_id: userId,
       name,
-      center_lat: center.latitude,
-      center_lng: center.longitude,
+      center_lat: roundCoordinate(center.latitude),
+      center_lng: roundCoordinate(center.longitude),
       radius_m: radiusM,
       is_public: false,
     })
@@ -82,6 +83,9 @@ async function createAreaInBackend(
     .from('user_areas')
     .insert({ user_id: userId, area_id: newArea.id });
   if (userAreaError) {
+    // user_areasへのinsertが失敗すると、誰からも監視されない孤立したareas行が
+    // 残ってしまうため、作成済みのareaを取り消してから失敗を呼び出し元に伝える
+    await supabase.from('areas').delete().eq('id', newArea.id);
     throw userAreaError;
   }
 }
@@ -211,7 +215,8 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       showToast(`「${trimmedName}」を登録しました`);
       resetForm();
       onClose?.();
-    } catch {
+    } catch (error) {
+      console.error('エリア登録に失敗しました', error);
       showToast('エリアの登録に失敗しました');
     } finally {
       setRegistering(false);

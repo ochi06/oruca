@@ -3,6 +3,12 @@ export type LatLng = {
   longitude: number;
 };
 
+// DBに保存する緯度経度は小数点以下6桁（約11cm精度）に丸め、地図SDKの
+// 生の値をそのまま保存しない（docs/schema.md「AREAS」参照）
+export function roundCoordinate(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
 const EARTH_RADIUS_M = 6_371_000;
 
 function toRadians(deg: number): number {
