@@ -16,7 +16,6 @@ import PresenceScreen from './screens/PresenceScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
 import GroupsScreen from './screens/groups/GroupsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
-import AreaJoinScreen from './screens/areas/AreaJoinScreen';
 import AreaManagementScreen from './screens/areas/AreaManagementScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
@@ -24,15 +23,16 @@ import ProfileScreen from './screens/ProfileScreen';
 // US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
 // 「エリア登録」はマップタブ内のモード切り替えに統合したため、独立タブとしては
 // 持たない（docs/architecture.md「3. 画面構成・ナビゲーション」参照、Issue #64）。
-// 「ジオフェンス」タブも在席一覧・エリア参加・マップと表示が重複するため
+// 「ジオフェンス」タブも在席一覧・マップと表示が重複するため
 // 独立タブとしては持たず、位置監視ロジックのみuseGeofenceMonitorとして
 // ログイン後常時実行する（Issue #73）。
+// 「エリア参加」タブは「エリアに参加する」という概念自体が本来の設計
+// （docs/schema.md）に存在しないデモ用の近道だったため削除した（Issue #106）。
 const DEMO_TABS: DemoTab[] = [
   { key: 'presence', label: '在席一覧', icon: 'people-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
   { key: 'groups', label: 'グループ', icon: 'people-circle-outline' },
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
-  { key: 'area-join', label: 'エリア参加', icon: 'qr-code-outline' },
   { key: 'area-management', label: 'エリア管理', icon: 'settings-outline' },
   { key: 'profile', label: 'プロフィール', icon: 'person-circle-outline' },
 ];
@@ -123,7 +123,6 @@ export default function App() {
           {activeTab === 'friends' && <FriendsScreen />}
           {activeTab === 'groups' && <GroupsScreen />}
           {activeTab === 'map' && <PresenceMapScreen />}
-          {activeTab === 'area-join' && <AreaJoinScreen />}
           {activeTab === 'area-management' && <AreaManagementScreen />}
           {activeTab === 'profile' && <ProfileScreen />}
         </View>
