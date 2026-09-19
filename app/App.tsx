@@ -14,6 +14,7 @@ import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
 import LoginScreen from './screens/LoginScreen';
 import PresenceScreen from './screens/PresenceScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
+import GroupsScreen from './screens/groups/GroupsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
 import AreaJoinScreen from './screens/areas/AreaJoinScreen';
 import AreaManagementScreen from './screens/areas/AreaManagementScreen';
@@ -29,6 +30,7 @@ import ProfileScreen from './screens/ProfileScreen';
 const DEMO_TABS: DemoTab[] = [
   { key: 'presence', label: '在席一覧', icon: 'people-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
+  { key: 'groups', label: 'グループ', icon: 'people-circle-outline' },
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
   { key: 'area-join', label: 'エリア参加', icon: 'qr-code-outline' },
   { key: 'area-management', label: 'エリア管理', icon: 'settings-outline' },
@@ -144,6 +146,7 @@ export default function App() {
         <View style={styles.content}>
           {activeTab === 'presence' && <PresenceScreen />}
           {activeTab === 'friends' && <FriendsScreen />}
+          {activeTab === 'groups' && <GroupsScreen />}
           {activeTab === 'map' && <PresenceMapScreen />}
           {activeTab === 'area-join' && <AreaJoinScreen />}
           {activeTab === 'area-management' && <AreaManagementScreen />}
