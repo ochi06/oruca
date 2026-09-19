@@ -7,7 +7,7 @@ import { ToastProvider } from './components/Toast';
 import { DemoTabBar, DemoTab } from './components/DemoTabBar';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
-import { ensureSignedIn, ensureUserRow } from './lib/auth';
+import { DEFAULT_USER_NAME, ensureSignedIn, ensureUserRow } from './lib/auth';
 
 import PresenceScreen from './screens/PresenceScreen';
 import GeofenceScreen from './screens/GeofenceScreen';
@@ -26,9 +26,6 @@ const DEMO_TABS: DemoTab[] = [
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
   { key: 'area-join', label: 'エリア参加', icon: 'qr-code-outline' },
 ];
-
-// プロフィール編集画面ができるまでの仮の初期表示名（別タスクで変更可能にする想定）。
-const DEFAULT_USER_NAME = 'ゲスト';
 
 export default function App() {
   const [fontsLoaded] = useFonts({

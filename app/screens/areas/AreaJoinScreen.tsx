@@ -13,6 +13,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { joinArea } from '../../lib/areas';
+import { DEFAULT_USER_NAME, ensureSignedIn, fetchUserName, updateUserName } from '../../lib/auth';
 
 // デモ用に固定の1エリアのみ対応（Issue #65）。エリア検索・複数エリア対応は
 // 別タスク（US-018後続）で整備する想定
@@ -21,21 +22,31 @@ const DEMO_AREA_NAME = '神戸市産業振興センター';
 // カメラが無い/使えない場合のワンタイムコード入力用（大文字小文字を区別しない）
 const DEMO_JOIN_CODE = 'KOBE2026';
 
-type Route = 'menu' | 'scan';
+type Route = 'menu' | 'scan' | 'setName';
+
+type JoinOutcome = {
+  ok: boolean;
+  // エリア参加自体は成功したが、まだ名前を設定していない（DEFAULT_USER_NAMEのまま）場合true。
+  // デモ用に、参加直後に名前入力を促す導線を出し分けるために使う（Issue #65後続）
+  needsName: boolean;
+};
 
 function useJoinArea() {
   const { showToast } = useToast();
   const [joining, setJoining] = useState(false);
 
-  async function join(areaId: string) {
+  async function join(areaId: string): Promise<JoinOutcome> {
     setJoining(true);
     try {
       const result = await joinArea(areaId);
       showToast(result === 'joined' ? `${DEMO_AREA_NAME}に参加しました` : 'すでに参加しています');
-      return true;
+
+      const userId = await ensureSignedIn();
+      const name = await fetchUserName(userId);
+      return { ok: true, needsName: name === null || name === DEFAULT_USER_NAME };
     } catch {
       showToast('エリアへの参加に失敗しました');
-      return false;
+      return { ok: false, needsName: false };
     } finally {
       setJoining(false);
     }
@@ -44,19 +55,23 @@ function useJoinArea() {
   return { join, joining };
 }
 
-function AreaJoinMenu({ onScanQr }: { onScanQr: () => void }) {
+function AreaJoinMenu({
+  onScanQr,
+  onJoined,
+}: {
+  onScanQr: () => void;
+  onJoined: (needsName: boolean) => void;
+}) {
   const { colors } = useTheme();
   const { join, joining } = useJoinArea();
   const [code, setCode] = useState('');
 
   function handleSubmitCode() {
-    if (code.trim().toUpperCase() === DEMO_JOIN_CODE) {
-      join(DEMO_AREA_ID).then((ok) => {
-        if (ok) setCode('');
-      });
-      return;
-    }
-    join(code.trim());
+    const areaId = code.trim().toUpperCase() === DEMO_JOIN_CODE ? DEMO_AREA_ID : code.trim();
+    join(areaId).then(({ ok, needsName }) => {
+      if (ok) setCode('');
+      onJoined(needsName);
+    });
   }
 
   return (
@@ -99,7 +114,13 @@ function AreaJoinMenu({ onScanQr }: { onScanQr: () => void }) {
   );
 }
 
-function AreaJoinScanner({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+function AreaJoinScanner({
+  onBack,
+  onJoined,
+}: {
+  onBack: () => void;
+  onJoined: (needsName: boolean) => void;
+}) {
   const { colors } = useTheme();
   const { join, joining } = useJoinArea();
   const [permission, requestPermission] = useCameraPermissions();
@@ -108,7 +129,7 @@ function AreaJoinScanner({ onBack, onDone }: { onBack: () => void; onDone: () =>
   function handleScan(result: BarcodeScanningResult) {
     if (handled) return;
     setHandled(true);
-    join(result.data.trim()).then(onDone);
+    join(result.data.trim()).then(({ needsName }) => onJoined(needsName));
   }
 
   if (!permission) {
@@ -146,13 +167,69 @@ function AreaJoinScanner({ onBack, onDone }: { onBack: () => void; onDone: () =>
   );
 }
 
+// エリア参加直後、まだ名前を設定していない場合に表示する（デモ用、Issue #65後続）。
+// 本来のプロフィール編集画面ができるまでの暫定的な導線
+function NameSetupScreen({ onDone }: { onDone: () => void }) {
+  const { colors } = useTheme();
+  const { showToast } = useToast();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    const trimmed = name.trim();
+    if (trimmed.length === 0) return;
+    setSaving(true);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserName(userId, trimmed);
+      showToast('名前を設定しました');
+      onDone();
+    } catch {
+      showToast('名前の設定に失敗しました');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Screen style={styles.container} avoidKeyboard>
+      <Text style={[styles.title, { color: colors.text }]}>お名前を設定してください</Text>
+      <Text style={[styles.label, { color: colors.textSub }]}>
+        在席一覧・マップで他の参加者に表示される名前です
+      </Text>
+      <Input value={name} onChangeText={setName} placeholder="山田太郎" />
+      <View style={styles.buttonRow}>
+        <Button
+          label={saving ? '保存中…' : '保存する'}
+          onPress={handleSave}
+          disabled={saving || name.trim().length === 0}
+        />
+        <Button
+          label="あとで設定する"
+          variant="secondary"
+          onPress={onDone}
+          disabled={saving}
+          style={styles.skipButton}
+        />
+      </View>
+    </Screen>
+  );
+}
+
 export default function AreaJoinScreen() {
   const [route, setRoute] = useState<Route>('menu');
 
-  if (route === 'scan') {
-    return <AreaJoinScanner onBack={() => setRoute('menu')} onDone={() => setRoute('menu')} />;
+  function handleJoined(needsName: boolean) {
+    setRoute(needsName ? 'setName' : 'menu');
   }
-  return <AreaJoinMenu onScanQr={() => setRoute('scan')} />;
+
+  if (route === 'scan') {
+    return <AreaJoinScanner onBack={() => setRoute('menu')} onJoined={handleJoined} />;
+  }
+  if (route === 'setName') {
+    return <NameSetupScreen onDone={() => setRoute('menu')} />;
+  }
+  return <AreaJoinMenu onScanQr={() => setRoute('scan')} onJoined={handleJoined} />;
 }
 
 const styles = StyleSheet.create({
@@ -171,6 +248,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   buttonRow: {
+    marginTop: spacing.sm,
+  },
+  skipButton: {
     marginTop: spacing.sm,
   },
   qrWrapper: {
