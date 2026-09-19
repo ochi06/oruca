@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
@@ -26,7 +27,9 @@ export default function GroupDetailScreen({ groupId, onBack }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const group = useGroupStore((state) => state.groups.find((g) => g.id === groupId));
-  const members = useGroupStore((state) => state.members.filter((m) => m.group_id === groupId));
+  const members = useGroupStore(
+    useShallow((state) => state.members.filter((m) => m.group_id === groupId)),
+  );
   const approveMember = useGroupStore((state) => state.approveMember);
   const rejectMember = useGroupStore((state) => state.rejectMember);
   const removeMember = useGroupStore((state) => state.removeMember);
