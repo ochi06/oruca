@@ -22,6 +22,7 @@ export default function FriendsListScreen({ onAddFriend }: Props) {
   const addedFriendIds = useFriendAddStore((state) => state.addedFriendIds);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
   const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
+  const toggleMuted = useNotifyPreferencesStore((state) => state.toggleMuted);
 
   const friendIds = friendships
     .filter((f) => f.user_id === CURRENT_USER_ID && f.status === 'active')
@@ -52,12 +53,26 @@ export default function FriendsListScreen({ onAddFriend }: Props) {
                 leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
                 trailing={
                   friendship ? (
-                    <Switch
-                      value={friendship.notify_enabled}
-                      onValueChange={() => toggleNotifyEnabled(user.id)}
-                      trackColor={{ true: colors.blue, false: colors.lightblue }}
-                      accessibilityLabel={`${user.name}への入室通知`}
-                    />
+                    <View style={styles.toggles}>
+                      <View style={styles.toggleRow}>
+                        <Text style={[styles.toggleLabel, { color: colors.textSub }]}>通知</Text>
+                        <Switch
+                          value={friendship.notify_enabled}
+                          onValueChange={() => toggleNotifyEnabled(user.id)}
+                          trackColor={{ true: colors.blue, false: colors.lightblue }}
+                          accessibilityLabel={`${user.name}への入室通知`}
+                        />
+                      </View>
+                      <View style={styles.toggleRow}>
+                        <Text style={[styles.toggleLabel, { color: colors.textSub }]}>ミュート</Text>
+                        <Switch
+                          value={friendship.muted}
+                          onValueChange={() => toggleMuted(user.id)}
+                          trackColor={{ true: colors.coral, false: colors.lightblue }}
+                          accessibilityLabel={`${user.name}からの通知をミュート`}
+                        />
+                      </View>
+                    </View>
                   ) : null
                 }
               />
@@ -83,5 +98,16 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: spacing.md,
+  },
+  toggles: {
+    gap: spacing.xs,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  toggleLabel: {
+    ...typography.caption,
   },
 });

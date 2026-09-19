@@ -8,6 +8,8 @@ import { Friendship, mockFriendships } from '../mocks/presence';
 type NotifyPreferencesState = {
   friendships: Friendship[];
   toggleNotifyEnabled: (friendId: string) => void;
+  // 特定の相手からの通知をミュートする（US-008、受信側の設定）
+  toggleMuted: (friendId: string) => void;
 };
 
 export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set) => ({
@@ -19,6 +21,13 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set) =>
         friendship.friend_id === friendId
           ? { ...friendship, notify_enabled: !friendship.notify_enabled }
           : friendship
+      ),
+    })),
+
+  toggleMuted: (friendId) =>
+    set((state) => ({
+      friendships: state.friendships.map((friendship) =>
+        friendship.friend_id === friendId ? { ...friendship, muted: !friendship.muted } : friendship
       ),
     })),
 }));
