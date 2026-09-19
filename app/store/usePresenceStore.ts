@@ -81,12 +81,7 @@ export function buildInitialState(
   presenceLogs: PresenceLog[],
   friendAreaLinks: FriendAreaLink[],
   users: User[],
-  area: Area,
-  // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
-  // 同じエリアに参加している（USER_AREASに行がある）ユーザーのuser_id一覧を渡すと、
-  // 承認リンクが無くても名前・アイコンを表示する。デモ終了後はこの引数を削除し、
-  // resolveDisplayNameのみに一本化する（docs/decisions/0008参照）。
-  areaParticipantUserIds: string[] = []
+  area: Area
 ): DerivedPresenceState {
   const friendIds = friendships
     .filter((f) => f.user_id === currentUserId && f.status === 'active')
@@ -96,14 +91,7 @@ export function buildInitialState(
     const isPresent = presenceLogs.some(
       (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
     );
-    const approvedName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
-    // DEMO SHORTCUT (ADR-0008): 本来はFRIEND_AREA_LINKS承認が必要。
-    // 承認が無くても、同じエリアに参加している友達なら名前を表示する
-    const displayName =
-      approvedName ??
-      (areaParticipantUserIds.includes(friendId)
-        ? users.find((user) => user.id === friendId)?.name ?? null
-        : null);
+    const displayName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
     const iconUrl =
       displayName === null ? null : users.find((user) => user.id === friendId)?.icon_url ?? null;
     return { userId: friendId, displayName, iconUrl, isPresent };
@@ -172,8 +160,6 @@ type FetchedContext = {
   friendships: Friendship[];
   friendAreaLinks: FriendAreaLink[];
   users: User[];
-  // DEMO SHORTCUT (ADR-0008): 上記buildInitialStateの注釈を参照
-  areaParticipantUserIds: string[];
 };
 
 let context: FetchedContext | null = null;
@@ -222,10 +208,8 @@ async function fetchFriendAreaLinks(areaId: string): Promise<FriendAreaLink[]> {
   return (data ?? []) as FriendAreaLink[];
 }
 
-// friendIdsのうち、RLS上読めるusers行だけが返る。
-// DEMO SHORTCUT (ADR-0008): 「demo: same-area users are readable」ポリシーにより、
-// 承認リンクが無くても同じエリアの参加者ならここに含まれる。そのため、この結果に
-// 含まれるfriendIdをそのままareaParticipantUserIdsとして扱う（docs/decisions/0008参照）
+// friendIdsのうち、RLS上読めるusers行（＝FRIEND_AREA_LINKSが承認済みの相手、
+// または自分自身）だけが返る
 async function fetchUsers(userIds: string[]): Promise<User[]> {
   if (userIds.length === 0) return [];
   const { data, error } = await supabase.from('users').select('*').in('id', userIds);
@@ -263,8 +247,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
         logs,
         context.friendAreaLinks,
         context.users,
-        context.area,
-        context.areaParticipantUserIds
+        context.area
       ),
       presenceLogs: logs,
     });
@@ -296,21 +279,11 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
 
       const friendIds = friendships.map((f) => f.friend_id);
       const users = await fetchUsers(friendIds);
-      // DEMO SHORTCUT (ADR-0008): fetchUsersのコメント参照
-      const areaParticipantUserIds = users.map((user) => user.id);
 
-      context = { currentUserId, area, friendships, friendAreaLinks, users, areaParticipantUserIds };
+      context = { currentUserId, area, friendships, friendAreaLinks, users };
 
       set({
-        ...buildInitialState(
-          currentUserId,
-          friendships,
-          presenceLogs,
-          friendAreaLinks,
-          users,
-          area,
-          areaParticipantUserIds
-        ),
+        ...buildInitialState(currentUserId, friendships, presenceLogs, friendAreaLinks, users, area),
         presenceLogs,
         status: 'ready',
       });
