@@ -11,7 +11,16 @@ import { useToast } from '../components/Toast';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { DEFAULT_USER_NAME, ensureSignedIn, fetchUserIconUrl, fetchUserName, updateUserIcon } from '../lib/auth';
+import { USER_STATUS_OPTIONS, UserStatus } from '../constants/status';
+import {
+  DEFAULT_USER_NAME,
+  ensureSignedIn,
+  fetchUserIconUrl,
+  fetchUserName,
+  fetchUserStatus,
+  updateUserIcon,
+  updateUserStatus,
+} from '../lib/auth';
 
 type LoadState = 'loading' | 'loaded' | 'error';
 
@@ -22,17 +31,21 @@ export default function ProfileScreen() {
   const [name, setName] = useState(DEFAULT_USER_NAME);
   const [iconUrl, setIconUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<UserStatus | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   function load() {
     setState('loading');
     ensureSignedIn()
       .then(async (userId) => {
-        const [fetchedName, fetchedIconUrl] = await Promise.all([
+        const [fetchedName, fetchedIconUrl, fetchedStatus] = await Promise.all([
           fetchUserName(userId),
           fetchUserIconUrl(userId),
+          fetchUserStatus(userId),
         ]);
         setName(fetchedName ?? DEFAULT_USER_NAME);
         setIconUrl(fetchedIconUrl);
+        setStatus(fetchedStatus);
         setState('loaded');
       })
       .catch(() => {
@@ -43,6 +56,25 @@ export default function ProfileScreen() {
   useEffect(() => {
     load();
   }, []);
+
+  // ワンタップで切り替える。既に選択中の項目をもう一度タップした場合は
+  // 未設定（null）に戻す（Issue #10「ワンタップ切替UI」）
+  async function handleSelectStatus(value: UserStatus) {
+    const nextStatus = status === value ? null : value;
+    const previousStatus = status;
+    setStatus(nextStatus);
+    setUpdatingStatus(true);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserStatus(userId, nextStatus);
+    } catch (error) {
+      console.error('updateUserStatus failed:', error);
+      setStatus(previousStatus);
+      showToast('ステータスの更新に失敗しました');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
 
   async function handleChangeIcon() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -104,6 +136,22 @@ export default function ProfileScreen() {
           disabled={uploading}
         />
       </View>
+
+      <View style={styles.statusSection}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>ステータス</Text>
+        <View style={styles.statusOptions}>
+          {USER_STATUS_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              label={option.label}
+              variant={status === option.value ? 'primary' : 'secondary'}
+              onPress={() => handleSelectStatus(option.value)}
+              disabled={updatingStatus}
+              style={styles.statusChip}
+            />
+          ))}
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -122,5 +170,20 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.body,
+  },
+  statusSection: {
+    marginTop: spacing.xl,
+  },
+  sectionLabel: {
+    ...typography.caption,
+    marginBottom: spacing.sm,
+  },
+  statusOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  statusChip: {
+    paddingHorizontal: spacing.md,
   },
 });

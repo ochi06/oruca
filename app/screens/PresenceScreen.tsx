@@ -11,6 +11,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { formatPresenceCount } from '../utils/format';
 import { usePresenceStore } from '../store/usePresenceStore';
+import { userStatusLabel } from '../constants/status';
 
 export default function PresenceScreen() {
   const { colors } = useTheme();
@@ -50,6 +51,7 @@ export default function PresenceScreen() {
         renderItem={({ item: friend }) => (
           <ListItem
             title={friend.displayName ?? '非公開'}
+            subtitle={userStatusLabel(friend.status) ?? undefined}
             leading={<Avatar name={friend.displayName ?? '?'} iconUrl={friend.iconUrl} />}
             trailing={
               <View

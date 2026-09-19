@@ -18,8 +18,8 @@ const area: Area = {
 };
 
 const users: User[] = [
-  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', created_at: now, updated_at: now },
-  { id: 'user-b', name: '鈴木', icon_url: null, created_at: now, updated_at: now },
+  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', status: null, created_at: now, updated_at: now },
+  { id: 'user-b', name: '鈴木', icon_url: null, status: null, created_at: now, updated_at: now },
 ];
 
 describe('resolveDisplayName', () => {
@@ -81,8 +81,8 @@ describe('buildInitialState', () => {
     // 友達(1人在席)＋友達ではない在席者(user-x)を合わせた、エリア全体の人数
     expect(result.presentCount).toBe(2);
     expect(result.friends).toEqual([
-      { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', isPresent: true },
-      { userId: 'user-b', displayName: null, iconUrl: null, isPresent: false },
+      { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', status: null, isPresent: true },
+      { userId: 'user-b', displayName: null, iconUrl: null, status: null, isPresent: false },
     ]);
   });
 
@@ -95,7 +95,23 @@ describe('buildInitialState', () => {
     const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], users, area);
 
     expect(result.friends).toEqual([
-      { userId: 'user-a', displayName: null, iconUrl: null, isPresent: false },
+      { userId: 'user-a', displayName: null, iconUrl: null, status: null, isPresent: false },
+    ]);
+  });
+
+  test('非公開（displayNameがnull）の友達はstatusが設定されていてもstatusをnullにする（Issue #10）', () => {
+    const friendships: Friendship[] = [
+      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+    ];
+    const usersWithStatus: User[] = [
+      { ...users[0], status: 'working' },
+    ];
+
+    // FRIEND_AREA_LINKSが無い＝非公開のはずなのに、statusは設定されている状況
+    const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], usersWithStatus, area);
+
+    expect(result.friends).toEqual([
+      { userId: 'user-a', displayName: null, iconUrl: null, status: null, isPresent: false },
     ]);
   });
 
@@ -137,7 +153,7 @@ describe('buildPresenceMarkers', () => {
   });
 
   test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
-    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, created_at: now, updated_at: now };
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: null, created_at: now, updated_at: now };
     const locations: PresenceLocation[] = [
       { user_id: CURRENT_USER_ID, lat: 35.0, lng: 135.0 },
     ];

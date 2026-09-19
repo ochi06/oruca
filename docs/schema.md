@@ -26,6 +26,7 @@ erDiagram
     uuid id PK
     string name
     string icon_url
+    string status
     timestamp created_at
     timestamp updated_at
   }
@@ -105,7 +106,12 @@ erDiagram
 - **USERS**：利用者本体。`icon_url`はSupabase Storageの`avatars`バケット
   （公開読み取り・本人のフォルダのみ書き込み可、Issue #34）に保存した画像の
   公開URL。パスは`{user_id}/icon.<拡張子>`とし、再アップロード時は上書きする
-  （一般的なサービスのアバターと同様、閲覧側の制限は設けない方針）
+  （一般的なサービスのアバターと同様、閲覧側の制限は設けない方針）。
+  `status`はUS-014（ステータス表示機能、Issue #10）用の任意項目で、
+  `working`（作業中）／`want_to_join`（合流したい）／`away`（離席中）／
+  `focus`（集中）のいずれか、またはnull（未設定）。名前・アイコンと同じ
+  可視性ルール（`FRIEND_AREA_LINKS.status = 'approved'`の相手にのみ公開）が
+  RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
