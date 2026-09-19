@@ -51,3 +51,28 @@ export async function deleteArea(areaId: string): Promise<void> {
     throw error;
   }
 }
+
+// ユーザーが実際に参加している（USER_AREASに行がある）エリアを全件取得する
+// （Issue #109）。usePresenceStore.tsのfetchMonitoredArea（在席画面表示用、
+// 最も古い1件のみ）とは異なり、ジオフェンス監視は複数エリアを同時に見る
+// 必要があるため、同じ「user_areas→areas」の2段階クエリを全件版にしたもの
+export async function fetchMonitoredAreas(userId: string): Promise<Area[]> {
+  const { data: userAreas, error: userAreasError } = await supabase
+    .from('user_areas')
+    .select('area_id')
+    .eq('user_id', userId);
+  if (userAreasError) {
+    throw userAreasError;
+  }
+
+  const areaIds = (userAreas ?? []).map((userArea) => userArea.area_id);
+  if (areaIds.length === 0) {
+    return [];
+  }
+
+  const { data: areas, error: areasError } = await supabase.from('areas').select('*').in('id', areaIds);
+  if (areasError) {
+    throw areasError;
+  }
+  return (areas ?? []) as Area[];
+}
