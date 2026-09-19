@@ -201,6 +201,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       }
 
       resetForm();
+      onClose?.();
       return;
     }
 
@@ -209,6 +210,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       await createAreaInBackend(trimmedName, pin, radiusM);
       showToast(`「${trimmedName}」を登録しました`);
       resetForm();
+      onClose?.();
     } catch {
       showToast('エリアの登録に失敗しました');
     } finally {
