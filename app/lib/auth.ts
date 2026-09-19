@@ -8,8 +8,7 @@ import { UserStatus } from '../constants/status';
 // 表示上の意味がなく、転送時間が伸びるだけになる（Issue #91）
 const ICON_MAX_DIMENSION_PX = 256;
 
-// プロフィール編集画面ができるまでの仮の初期表示名。
-// この名前のままなら「まだ名前を設定していない」とみなす（Issue #65後続）
+// 初回ログイン時にUSERSテーブルへ入れる仮の初期表示名
 export const DEFAULT_USER_NAME = 'ゲスト';
 
 // 現在ログイン中のユーザーIDを返す。ADR-0010でメールログインに移行した後は、
@@ -63,15 +62,6 @@ export async function fetchUserName(userId: string): Promise<string | null> {
     throw error;
   }
   return data?.name ?? null;
-}
-
-// 自分のusers.nameを更新する（プロフィール編集画面ができるまでの暫定経路。
-// Issue #65：エリア参加直後、まだDEFAULT_USER_NAMEのままなら名前入力を促す）
-export async function updateUserName(userId: string, name: string): Promise<void> {
-  const { error } = await supabase.from('users').update({ name }).eq('id', userId);
-  if (error) {
-    throw error;
-  }
 }
 
 // 自分の現在のusers.statusを取得する（US-014、Issue #10）
