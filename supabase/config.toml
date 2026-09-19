@@ -247,6 +247,15 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# ADR-0010: メールログインのコードを平文の6桁コードのみで届ける
+# （クリック可能なリンクを含めない）。デフォルトのマジックリンクテンプレート
+# だとGmail等のメールセキュリティ機能がリンクを事前スキャンして使い捨て
+# トークンを消費してしまい、ユーザーが実際にタップする前にログインコードが
+# 失効してしまう問題が実機検証で見つかったため
+[auth.email.template.magic_link]
+subject = "oruca ログインコード"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

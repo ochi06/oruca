@@ -12,12 +12,7 @@ const ICON_MAX_DIMENSION_PX = 256;
 // この名前のままなら「まだ名前を設定していない」とみなす（Issue #65後続）
 export const DEFAULT_USER_NAME = 'ゲスト';
 
-// メールのログインリンクの戻り先。app.config.jsの`scheme`と対応させる
-// （docs/decisions/0009-auth-email-magic-link.md参照）。Supabase側の
-// Redirect URLsにも同じ値を登録しておく必要がある
-const LOGIN_CALLBACK_URL = 'oruca://login-callback';
-
-// 現在ログイン中のユーザーIDを返す。ADR-0009でメールログインに移行した後は、
+// 現在ログイン中のユーザーIDを返す。ADR-0010でメールログインに移行した後は、
 // ここで新規セッションを作ることはしない（未ログイン状態は呼び出し側のバグか、
 // App.tsxのログインゲートを通らずに呼ばれた異常系なので例外にする）。
 // 関数名・シグネチャは移行前（匿名ログイン時代）から変えていない
@@ -30,28 +25,20 @@ export async function ensureSignedIn(): Promise<string> {
   return data.session.user.id;
 }
 
-// メールアドレス宛にログイン用のマジックリンクを送信する（ADR-0009）。
-// パスワードは使わず、リンクをタップするだけでログインが完了する方式
-export async function sendLoginLink(email: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: LOGIN_CALLBACK_URL },
-  });
+// メールアドレス宛に6桁のログインコードを送信する（ADR-0010）。
+// マジックリンク方式（ADR-0009）は、Gmail等のメールセキュリティ機能が
+// ユーザーのクリック前にリンクを自動で開いてしまい、使い捨てトークンを
+// 消費してしまう問題が実機検証で見つかったため、手入力のコード方式に変更した
+export async function sendLoginCode(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({ email });
   if (error) {
     throw error;
   }
 }
 
-// メールのリンクをタップしてアプリに戻ってきた時のURL（例：
-// oruca://login-callback?code=...）からログインを完了させる。
-// PKCEフローのため、URLの`code`パラメータをセッションと交換する
-export async function completeSignInFromUrl(url: string): Promise<string> {
-  const code = new URL(url).searchParams.get('code');
-  if (!code) {
-    throw new Error('ログインリンクの形式が正しくありません');
-  }
-
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+// メールに届いた6桁のコードでログインを完了させる（ADR-0010）
+export async function verifyLoginCode(email: string, code: string): Promise<string> {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
   if (error || !data.session) {
     throw error ?? new Error('ログインに失敗しました');
   }
