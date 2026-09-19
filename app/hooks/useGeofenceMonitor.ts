@@ -53,6 +53,22 @@ async function recordExitInBackend(areaId: string, exitedAt: string): Promise<vo
   }
 }
 
+// 在室中：入室中（exited_atがnull）の行のlat/lngを最新の位置に更新する
+// （Issue #74）。更新頻度は間引かず、watchPositionAsyncのコールバックが
+// 発火するたび（既にtimeInterval/distanceIntervalで間引き済み）に更新する
+async function recordLocationUpdateInBackend(areaId: string, location: LatLng): Promise<void> {
+  const userId = await ensureSignedIn();
+  const { error } = await supabase
+    .from('presence_logs')
+    .update({ lat: location.latitude, lng: location.longitude })
+    .eq('user_id', userId)
+    .eq('area_id', areaId)
+    .is('exited_at', null);
+  if (error) {
+    throw error;
+  }
+}
+
 function hasOpenLog(logs: PresenceLog[], areaId: string): boolean {
   return logs.some(
     (log) => log.user_id === CURRENT_USER_ID && log.area_id === areaId && log.exited_at === null
@@ -80,6 +96,7 @@ export function useGeofenceMonitor(enabled: boolean): void {
     const now = new Date().toISOString();
     let updatedLogs: PresenceLog[] = [];
     const transitions: { areaId: string; entered: boolean }[] = [];
+    const staying: string[] = [];
 
     // setLogsのコールバックはuseEffect実行時点のクロージャではなく、常に
     // 最新のstateを受け取れるため、ここで最新のlogsを基準に計算する
@@ -92,6 +109,8 @@ export function useGeofenceMonitor(enabled: boolean): void {
         const isOpenNow = hasOpenLog(updatedLogs, area.id);
         if (wasOpen !== isOpenNow) {
           transitions.push({ areaId: area.id, entered: isOpenNow });
+        } else if (wasOpen && isOpenNow) {
+          staying.push(area.id);
         }
       }
       return updatedLogs;
@@ -109,6 +128,16 @@ export function useGeofenceMonitor(enabled: boolean): void {
       } catch {
         // バックエンドへの書き込みが失敗しても、モック側の在席判定はそのまま
         // 継続させる（オフライン等で失敗しても監視自体は壊れないように）
+      }
+    }
+
+    for (const areaId of staying) {
+      const backendAreaId = BACKEND_AREA_IDS[areaId];
+      if (!backendAreaId) continue;
+      try {
+        await recordLocationUpdateInBackend(backendAreaId, location);
+      } catch {
+        // 同上、失敗してもモック側の在席判定・監視自体は継続させる
       }
     }
   }
