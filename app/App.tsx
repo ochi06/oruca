@@ -8,9 +8,9 @@ import { DemoTabBar, DemoTab } from './components/DemoTabBar';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
 import { DEFAULT_USER_NAME, ensureSignedIn, ensureUserRow } from './lib/auth';
+import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
 
 import PresenceScreen from './screens/PresenceScreen';
-import GeofenceScreen from './screens/GeofenceScreen';
 import FriendsScreen from './screens/friends/FriendsScreen';
 import PresenceMapScreen from './screens/PresenceMapScreen';
 import AreaJoinScreen from './screens/areas/AreaJoinScreen';
@@ -19,9 +19,11 @@ import AreaJoinScreen from './screens/areas/AreaJoinScreen';
 // US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
 // 「エリア登録」はマップタブ内のモード切り替えに統合したため、独立タブとしては
 // 持たない（docs/architecture.md「3. 画面構成・ナビゲーション」参照、Issue #64）。
+// 「ジオフェンス」タブも在席一覧・エリア参加・マップと表示が重複するため
+// 独立タブとしては持たず、位置監視ロジックのみuseGeofenceMonitorとして
+// ログイン後常時実行する（Issue #73）。
 const DEMO_TABS: DemoTab[] = [
   { key: 'presence', label: '在席一覧', icon: 'people-outline' },
-  { key: 'geofence', label: 'ジオフェンス', icon: 'location-outline' },
   { key: 'friends', label: '友達', icon: 'person-add-outline' },
   { key: 'map', label: 'マップ', icon: 'navigate-outline' },
   { key: 'area-join', label: 'エリア参加', icon: 'qr-code-outline' },
@@ -36,6 +38,10 @@ export default function App() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [signInError, setSignInError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+
+  // ログイン完了後は、どのタブを表示していても常時マウントされるApp本体から
+  // 呼び出すことで、タブ切り替えによるアンマウントで監視が止まらないようにする
+  useGeofenceMonitor(isSignedIn);
 
   useEffect(() => {
     if (!fontsLoaded) {
@@ -95,7 +101,6 @@ export default function App() {
       <ToastProvider>
         <View style={styles.content}>
           {activeTab === 'presence' && <PresenceScreen />}
-          {activeTab === 'geofence' && <GeofenceScreen />}
           {activeTab === 'friends' && <FriendsScreen />}
           {activeTab === 'map' && <PresenceMapScreen />}
           {activeTab === 'area-join' && <AreaJoinScreen />}
