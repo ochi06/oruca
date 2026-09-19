@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
@@ -8,9 +8,10 @@ import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID, mockFriendships, mockUsers } from '../../mocks/presence';
+import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
 import { otherUser } from '../../mocks/otp';
 import { useFriendAddStore } from '../../store/useFriendAddStore';
+import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 
 type Props = {
   onAddFriend: () => void;
@@ -19,8 +20,10 @@ type Props = {
 export default function FriendsListScreen({ onAddFriend }: Props) {
   const { colors } = useTheme();
   const addedFriendIds = useFriendAddStore((state) => state.addedFriendIds);
+  const friendships = useNotifyPreferencesStore((state) => state.friendships);
+  const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
 
-  const friendIds = mockFriendships
+  const friendIds = friendships
     .filter((f) => f.user_id === CURRENT_USER_ID && f.status === 'active')
     .map((f) => f.friend_id);
   const allUsers = [...mockUsers, otherUser];
@@ -39,12 +42,27 @@ export default function FriendsListScreen({ onAddFriend }: Props) {
         <FlatList
           data={friends}
           keyExtractor={(user) => user.id}
-          renderItem={({ item: user }) => (
-            <ListItem
-              title={user.name}
-              leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
-            />
-          )}
+          renderItem={({ item: user }) => {
+            const friendship = friendships.find(
+              (f) => f.user_id === CURRENT_USER_ID && f.friend_id === user.id
+            );
+            return (
+              <ListItem
+                title={user.name}
+                leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
+                trailing={
+                  friendship ? (
+                    <Switch
+                      value={friendship.notify_enabled}
+                      onValueChange={() => toggleNotifyEnabled(user.id)}
+                      trackColor={{ true: colors.blue, false: colors.lightblue }}
+                      accessibilityLabel={`${user.name}への入室通知`}
+                    />
+                  ) : null
+                }
+              />
+            );
+          }}
         />
       )}
 
