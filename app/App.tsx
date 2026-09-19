@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, NotoSansJP_400Regular, NotoSansJP_700Bold } from '@expo-google-fonts/noto-sans-jp';
@@ -7,7 +7,7 @@ import { ToastProvider } from './components/Toast';
 import { DemoTabBar, DemoTab } from './components/DemoTabBar';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
-import { DEFAULT_USER_NAME, completeSignInFromUrl, ensureUserRow } from './lib/auth';
+import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
 
@@ -37,10 +37,6 @@ const DEMO_TABS: DemoTab[] = [
   { key: 'profile', label: 'プロフィール', icon: 'person-circle-outline' },
 ];
 
-// メールのログインリンクを受け取るURL（app.config.jsの`scheme`＋
-// lib/auth.tsのLOGIN_CALLBACK_URLと対応）
-const LOGIN_CALLBACK_PATH = 'login-callback';
-
 export default function App() {
   const [fontsLoaded] = useFonts({
     NotoSansJP_400Regular,
@@ -55,9 +51,11 @@ export default function App() {
   // 呼び出すことで、タブ切り替えによるアンマウントで監視が止まらないようにする
   useGeofenceMonitor(!!userId);
 
-  // ログイン状態の監視（ADR-0009）。起動時の既存セッション確認と、以後の
+  // ログイン状態の監視（ADR-0010）。起動時の既存セッション確認と、以後の
   // ログイン・ログアウトの両方をこのリスナー1つでまとめて扱う
-  // （supabase-jsは購読直後に現在のセッション状態を1回通知してくれる）
+  // （supabase-jsは購読直後に現在のセッション状態を1回通知してくれる）。
+  // ログイン完了自体はLoginScreen側でverifyOtpを呼んだ時点で成立し、それが
+  // SIGNED_INイベントとしてここに通知される（ディープリンクは使わない）
   useEffect(() => {
     let cancelled = false;
 
@@ -86,29 +84,6 @@ export default function App() {
     };
   }, []);
 
-  // メールのログインリンクをタップして開かれた時のURLを処理する。アプリが
-  // 既に起動中ならLinkingの'url'イベント、起動していなかった場合は
-  // getInitialURLで受け取る。ログイン成功後の状態反映は上のonAuthStateChange
-  // 側に任せる（exchangeCodeForSessionが内部でセッションを保存し、
-  // それがSIGNED_INイベントとして通知される）
-  useEffect(() => {
-    function handleUrl(url: string) {
-      if (!url.includes(LOGIN_CALLBACK_PATH)) return;
-      completeSignInFromUrl(url).catch((error) => {
-        setSignInError(
-          error instanceof Error ? error : new Error('ログインリンクの処理に失敗しました')
-        );
-      });
-    }
-
-    Linking.getInitialURL().then((url) => {
-      if (url) handleUrl(url);
-    });
-
-    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
-    return () => subscription.remove();
-  }, []);
-
   if (!fontsLoaded) {
     return null;
   }
@@ -117,7 +92,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <ErrorState
-          message="ログインに失敗しました。リンクの有効期限が切れている可能性があります"
+          message="ログインに失敗しました"
           onRetry={() => setSignInError(null)}
         />
       </SafeAreaProvider>

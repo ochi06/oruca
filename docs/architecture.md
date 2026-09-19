@@ -70,12 +70,16 @@ OS側に登録する本物のジオフェンシングへの切り替えが必須
   （配布はiOSも行う予定のため、シミュレータでの確認に加え、TestFlightで
   第三者に検証してもらう等の代替手段が必要）
 
-### 認証（2026-09-19更新、Issue #78）
+### 認証（2026-09-19更新、Issue #78・ADR-0010）
 
-ユーザーのアプリ内本人確認は、Supabase Authのメールアドレス（マジックリンク、
-`signInWithOtp({ email })`）を使う。デモ用の暫定実装だった匿名ログイン
-（[ADR-0007](decisions/0007-auth-anonymous.md)）から本番仕様に移行した
-（[ADR-0009](decisions/0009-auth-email-magic-link.md)）。`USERS.id`は
+ユーザーのアプリ内本人確認は、Supabase Authのメールアドレス＋6桁コード
+入力（`signInWithOtp({ email })`で送信、`verifyOtp({ email, token, type:
+'email' })`で検証）を使う。デモ用の暫定実装だった匿名ログイン
+（[ADR-0007](decisions/0007-auth-anonymous.md)）から本番仕様に移行する
+過程で、一度マジックリンク方式（[ADR-0009](decisions/0009-auth-email-magic-link.md)）
+を採用したが、メールセキュリティ機能によるリンク事前スキャンで使い捨て
+トークンが消費されてしまう問題が実機検証で見つかったため、6桁コード方式
+（[ADR-0010](decisions/0010-auth-email-otp-code.md)）に変更した。`USERS.id`は
 `auth.uid()`と同じ値になり、RLSポリシーもこれを前提に書かれている
 （`supabase/migrations/20260918151313_auth_and_rls.sql`）。
 
