@@ -69,6 +69,9 @@ export default function LoginScreen() {
         onChangeText={setEmail}
         placeholder="you@example.com"
         keyboardType="email-address"
+        inputMode="email"
+        autoComplete="email"
+        textContentType="emailAddress"
         autoCapitalize="none"
         autoCorrect={false}
         editable={!sending}
