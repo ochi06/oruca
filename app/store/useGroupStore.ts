@@ -3,7 +3,12 @@ import { create } from 'zustand';
 import { Group, GroupMember, mockGroupMembers, mockGroups } from '../mocks/groups';
 import { isGroupAdmin } from '../utils/groupAuth';
 
-export type GroupActionResult = { status: 'success' } | { status: 'forbidden' } | { status: 'not_found' };
+export type GroupActionResult =
+  | { status: 'success' }
+  | { status: 'forbidden' }
+  | { status: 'not_found' }
+  // 自分が最後の管理者（owner_user_id）のため退会できない（Issue #11）
+  | { status: 'last_admin' };
 
 type GroupState = {
   groups: Group[];
@@ -11,6 +16,13 @@ type GroupState = {
   approveMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
   rejectMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
   removeMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
+  // 自分の意思での退会（Issue #11）。強制退会（removeMember）と違い、
+  // 管理者権限は不要だが、自分が最後の管理者の場合は退会できない
+  leaveGroup: (groupId: string, userId: string) => GroupActionResult;
+  // 管理者権限を、承認済みの別メンバーに譲る（Issue #11）。
+  // GROUPS.owner_user_idは唯一の管理者を表すため（docs/schema.md参照）、
+  // 譲渡＝owner_user_idの付け替えとして実装する（複数管理者化はしない）
+  transferOwnership: (groupId: string, newOwnerUserId: string, requestingUserId: string) => GroupActionResult;
 };
 
 function findGroupAndMember(groups: Group[], members: GroupMember[], groupId: string, memberId: string) {
@@ -69,6 +81,46 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
     set({
       members: members.filter((m) => m.id !== memberId),
+    });
+    return { status: 'success' };
+  },
+
+  leaveGroup: (groupId, userId) => {
+    const { groups, members } = get();
+    const group = groups.find((g) => g.id === groupId);
+    const member = members.find((m) => m.group_id === groupId && m.user_id === userId);
+    if (!group || !member) {
+      return { status: 'not_found' };
+    }
+    if (group.owner_user_id === userId) {
+      return { status: 'last_admin' };
+    }
+
+    set({
+      members: members.filter((m) => m.id !== member.id),
+    });
+    return { status: 'success' };
+  },
+
+  transferOwnership: (groupId, newOwnerUserId, requestingUserId) => {
+    const { groups, members } = get();
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) {
+      return { status: 'not_found' };
+    }
+    if (!isGroupAdmin(group, requestingUserId)) {
+      return { status: 'forbidden' };
+    }
+    // 譲渡先は、このグループの承認済みメンバーである必要がある
+    const newOwnerMember = members.find(
+      (m) => m.group_id === groupId && m.user_id === newOwnerUserId && m.status === 'approved'
+    );
+    if (!newOwnerMember) {
+      return { status: 'not_found' };
+    }
+
+    set({
+      groups: groups.map((g) => (g.id === groupId ? { ...g, owner_user_id: newOwnerUserId } : g)),
     });
     return { status: 'success' };
   },
