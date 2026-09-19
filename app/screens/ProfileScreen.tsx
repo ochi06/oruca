@@ -68,7 +68,8 @@ export default function ProfileScreen() {
       const newIconUrl = await updateUserIcon(userId, asset.uri, asset.mimeType ?? 'image/jpeg');
       setIconUrl(newIconUrl);
       showToast('アイコンを更新しました');
-    } catch {
+    } catch (error) {
+      console.error('updateUserIcon failed:', error);
       showToast('アイコンの更新に失敗しました');
     } finally {
       setUploading(false);
