@@ -70,12 +70,13 @@ OS側に登録する本物のジオフェンシングへの切り替えが必須
   （配布はiOSも行う予定のため、シミュレータでの確認に加え、TestFlightで
   第三者に検証してもらう等の代替手段が必要）
 
-### 認証（2026-08-18追記）
+### 認証（2026-09-19更新、Issue #78）
 
-ユーザーのアプリ内本人確認は、Supabase Authの匿名ログイン
-（`signInAnonymously()`）を使う。詳細・将来のメールアドレス移行方針は
-`docs/decisions/0007-auth-anonymous.md`参照。`USERS.id`は`auth.uid()`と
-同じ値になり、RLSポリシーもこれを前提に書かれている
+ユーザーのアプリ内本人確認は、Supabase Authのメールアドレス（マジックリンク、
+`signInWithOtp({ email })`）を使う。デモ用の暫定実装だった匿名ログイン
+（[ADR-0007](decisions/0007-auth-anonymous.md)）から本番仕様に移行した
+（[ADR-0009](decisions/0009-auth-email-magic-link.md)）。`USERS.id`は
+`auth.uid()`と同じ値になり、RLSポリシーもこれを前提に書かれている
 （`supabase/migrations/20260918151313_auth_and_rls.sql`）。
 
 ### 本開発着手時にやること

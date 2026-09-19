@@ -3,6 +3,10 @@ module.exports = {
     name: 'app',
     slug: 'app',
     version: '1.0.0',
+    // メールのログインリンクをタップした時にこのアプリを開くためのURLスキーム
+    // （oruca://login-callback、Issue #78・docs/decisions/0009参照）。
+    // Supabase側のRedirect URLsにも同じスキームを登録する必要がある
+    scheme: 'oruca',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
