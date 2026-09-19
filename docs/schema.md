@@ -17,6 +17,10 @@ erDiagram
   USERS ||--o{ FRIEND_AREA_LINKS : "friend_id (相手)"
   AREAS ||--o{ FRIEND_AREA_LINKS : shown_in
   USERS ||--o{ OTP_CODES : generates
+  USERS ||--o{ GROUPS : owns
+  USERS ||--o{ GROUP_MEMBERS : "user_id (参加者)"
+  USERS ||--o{ GROUP_MEMBERS : "invited_by (招待者)"
+  GROUPS ||--o{ GROUP_MEMBERS : has
 
   USERS {
     uuid id PK
@@ -68,6 +72,23 @@ erDiagram
     timestamp expires_at
     timestamp created_at
   }
+  GROUPS {
+    uuid id PK
+    uuid owner_user_id FK
+    string name
+    string invite_code
+    timestamp created_at
+    timestamp updated_at
+  }
+  GROUP_MEMBERS {
+    uuid id PK
+    uuid group_id FK
+    uuid user_id FK
+    uuid invited_by FK
+    string status
+    timestamp created_at
+    timestamp updated_at
+  }
   PRESENCE_LOGS {
     uuid id PK
     uuid user_id FK
@@ -96,6 +117,15 @@ erDiagram
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
+- **GROUPS**：US-006・US-010のグループ本体。`owner_user_id`が唯一の管理者
+  （複数管理者は未対応、今後必要になれば別途検討）。`invite_code`は招待コードを
+  知っていれば誰でも参加申請できる仕組み（Issue #65のエリア参加の仕組みに準拠）
+- **GROUP_MEMBERS**：グループへの参加申請・メンバーシップ。`status`は
+  pending（申請中）→approved（承認済み）／rejected（却下）の二段階。
+  `invited_by`は既存メンバーが友達を直接招待した場合の招待者（招待コードでの
+  自己申請の場合はnull）。グループ内での名前公開は`status = 'approved'`で
+  あることのみを条件とする（グループとエリアの紐づけ・エリア単位の合意形成は
+  別Issueで検討）
 - **PRESENCE_LOGS**：入退室記録。`exited_at`がnullの間は在席中を意味する。
   `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
   正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
@@ -114,6 +144,7 @@ erDiagram
    機微データを含め、すべて物理削除する（PRDのプライバシー方針に基づく）。
    一方、友達解除・グループ退会のような通常操作（アカウント自体は残る）は、
    ソフトデリート（`status`列の変更など）で構わない
-4. グループ機能（US-006など）を追加する際は、`GROUPS`・`GROUP_MEMBERS`・
-   `GROUP_AREA_LINKS`を新規テーブルとして追加し、既存テーブルは変更しない
-   方針とする
+4. グループ機能（US-006など）は`GROUPS`・`GROUP_MEMBERS`を新規テーブルとして
+   追加し、既存テーブルは変更しない方針とする（2026-09-19、開発者確認済み）。
+   グループとエリアの紐づけ（「グループがどのエリアで在席を共有するか」）は
+   US-006のスコープ外とし、別Issueで設計する
