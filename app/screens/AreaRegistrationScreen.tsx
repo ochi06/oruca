@@ -28,7 +28,11 @@ import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { Area, UserArea, mockAreas, mockUserAreas } from '../mocks/areas';
 import { CURRENT_USER_ID } from '../mocks/presence';
-import { RADIUS_MIN_M, RADIUS_MAX_M } from '../constants/area';
+import {
+  AREA_NAME_MAX_LENGTH,
+  RADIUS_MIN_M,
+  RADIUS_MAX_M,
+} from '../constants/area';
 import { darkMapStyle } from '../constants/mapStyle';
 import {
   LatLng,
@@ -165,6 +169,10 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
     const trimmedName = areaName.trim();
     if (!trimmedName) {
       showToast('エリア名を入力してください');
+      return;
+    }
+    if (trimmedName.length > AREA_NAME_MAX_LENGTH) {
+      showToast(`エリア名は${AREA_NAME_MAX_LENGTH}文字以内で入力してください`);
       return;
     }
 
@@ -332,6 +340,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
             value={areaName}
             onChangeText={setAreaName}
             editable={!selectedExistingArea}
+            maxLength={AREA_NAME_MAX_LENGTH}
           />
           <Text style={{ color: colors.text }}>
             半径: {Math.round(radiusM)}m
