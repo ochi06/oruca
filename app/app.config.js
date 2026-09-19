@@ -47,6 +47,7 @@ module.exports = {
             'oruca は、友達追加時にQRコードを読み取るためにカメラを使用します。',
         },
       ],
+      './plugins/withFixMapsPodname',
     ],
   },
 };
