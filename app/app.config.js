@@ -47,6 +47,13 @@ module.exports = {
             'oruca は、友達追加時にQRコードを読み取るためにカメラを使用します。',
         },
       ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'oruca は、プロフィールアイコンを設定するために写真ライブラリへのアクセスを使用します。',
+        },
+      ],
       './plugins/withFixMapsPodname',
     ],
   },
