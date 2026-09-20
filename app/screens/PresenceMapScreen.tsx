@@ -17,10 +17,11 @@ import { ensureSignedIn } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
 import AreaRegistrationScreen from './AreaRegistrationScreen';
+import AreaManagementScreen from './areas/AreaManagementScreen';
 import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../store/usePresenceStore';
 import { computeRegionForAreas, Region } from '../utils/mapRegion';
 
-type ScreenMode = 'presence' | 'register';
+type ScreenMode = 'presence' | 'register' | 'manage';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
@@ -99,14 +100,18 @@ export default function PresenceMapScreen() {
     load();
   }, [load]);
 
-  const closeRegisterMode = () => {
+  const closeMode = () => {
     setMode('presence');
-    // 新規エリア登録・既存エリアへの参加登録の直後なので、地図の表示も最新化する
+    // 新規エリア登録・エリア管理（編集・削除）の直後なので、地図の表示も最新化する
     load();
   };
 
   if (mode === 'register') {
-    return <AreaRegistrationScreen onClose={closeRegisterMode} />;
+    return <AreaRegistrationScreen onClose={closeMode} />;
+  }
+
+  if (mode === 'manage') {
+    return <AreaManagementScreen onClose={closeMode} />;
   }
 
   if (state === 'loading') {
@@ -177,6 +182,13 @@ export default function PresenceMapScreen() {
         ))}
       </MapView>
       <IconButton
+        name="settings-outline"
+        variant="secondary"
+        accessibilityLabel="エリア管理"
+        style={styles.manageAreaButton}
+        onPress={() => setMode('manage')}
+      />
+      <IconButton
         name="add-outline"
         accessibilityLabel="新規エリア登録"
         style={styles.addAreaButton}
@@ -219,5 +231,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 16,
+  },
+  manageAreaButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 64,
   },
 });
