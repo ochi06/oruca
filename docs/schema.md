@@ -21,6 +21,10 @@ erDiagram
   USERS ||--o{ GROUP_MEMBERS : "user_id (参加者)"
   USERS ||--o{ GROUP_MEMBERS : "invited_by (招待者)"
   GROUPS ||--o{ GROUP_MEMBERS : has
+  USERS ||--o{ AREA_SCHEDULES : sets
+  AREAS ||--o{ AREA_SCHEDULES : scheduled_in
+  USERS ||--o{ AREA_SCHEDULE_OVERRIDES : sets
+  AREAS ||--o{ AREA_SCHEDULE_OVERRIDES : scheduled_in
 
   USERS {
     uuid id PK
@@ -90,6 +94,23 @@ erDiagram
     timestamp created_at
     timestamp updated_at
   }
+  AREA_SCHEDULES {
+    uuid id PK
+    uuid user_id FK
+    uuid area_id FK
+    string note
+    timestamp created_at
+    timestamp updated_at
+  }
+  AREA_SCHEDULE_OVERRIDES {
+    uuid id PK
+    uuid user_id FK
+    uuid area_id FK
+    date date
+    string note
+    timestamp created_at
+    timestamp updated_at
+  }
   PRESENCE_LOGS {
     uuid id PK
     uuid user_id FK
@@ -132,6 +153,13 @@ erDiagram
   自己申請の場合はnull）。グループ内での名前公開は`status = 'approved'`で
   あることのみを条件とする（グループとエリアの紐づけ・エリア単位の合意形成は
   別Issueで検討）
+- **AREA_SCHEDULES**：US-011の基本滞在予定。ユーザー×エリアごとに1件
+  （`unique(user_id, area_id)`）。時刻・曜日は構造化せず`note`に自由記述で
+  登録する（2026-09-19、開発者確認済み。詳細な構造化は今後の検討課題）
+- **AREA_SCHEDULE_OVERRIDES**：US-011の当日上書き予定。ユーザー×エリア×
+  日付ごとに1件（`unique(user_id, area_id, date)`）。`AREA_SCHEDULES`と同様
+  `note`は自由記述。友達への公開条件は名前表示と同じく
+  `FRIEND_AREA_LINKS.status = 'approved'`（原則2参照）
 - **PRESENCE_LOGS**：入退室記録。`exited_at`がnullの間は在席中を意味する。
   `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
   正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
