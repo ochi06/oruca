@@ -3,11 +3,23 @@
 ## コンポーネント構成
 
 ```
-OS位置情報API → モバイルアプリ(Expo/React Native) ⇄ Supabase → プッシュ通知配信
-                                                      ├ PostgreSQL DB
-                                                      ├ Realtime
-                                                      └ Edge Functions
+OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo/React Native) ⇄ Supabase --> プッシュ通知配信
+                                                                                    │              │
+                                                                                    ├ PostgreSQL DB │
+                                                                                    ├ Realtime      │
+                                                                                    └ Edge Functions │
+                                                                                                     ↓
+                                                                                              モバイルアプリ
+                                                                          （OS経由、アプリを閉じていても届く）
 ```
+
+- 「OS位置情報サービス」は独立したシステム（Android Location Services /
+  iOS Core Location）で、`expo-location`はそこへアクセスするためのクライアント
+  側ライブラリ（＝矢印の手段であって、それ自体はノードではない）
+- 「プッシュ通知配信」（Expo Push Service等）は、Supabaseからのリクエストを
+  受けて実際に配信処理を行う独立したシステムのため、末端ではなくモバイル
+  アプリへ戻る矢印を持つ（アプリが起動していなくてもOSの通知システム経由で
+  届く点が、Supabase⇄アプリ間の直接通信＝Realtime購読とは異なる）
 
 - **モバイルアプリ**：OS標準のジオフェンスAPIから位置情報イベントを受け取り、
   `supabase-js`経由でSupabaseと通信する
