@@ -31,6 +31,7 @@ erDiagram
     string name
     string icon_url
     string status
+    boolean is_anonymous
     timestamp created_at
     timestamp updated_at
   }
@@ -132,7 +133,12 @@ erDiagram
   `working`（作業中）／`want_to_join`（合流したい）／`away`（離席中）／
   `focus`（集中）のいずれか、またはnull（未設定）。名前・アイコンと同じ
   可視性ルール（`FRIEND_AREA_LINKS.status = 'approved'`の相手にのみ公開）が
-  RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）
+  RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）。
+  `is_anonymous`はUS-013（一時的な匿名モード、Issue #13）用のフラグ。
+  エリア単位ではなくアカウント全体で1つのON/OFF（2026-09-22、開発者確認済み）。
+  `true`の間は`FRIEND_AREA_LINKS`の承認状態に関わらず、友達に対して名前だけで
+  なく在席（`PRESENCE_LOGS`由来のisPresent）も非表示にする。デフォルトは
+  `false`
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
