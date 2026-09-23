@@ -14,6 +14,7 @@ export type User = {
   name: string;
   icon_url: string | null;
   status: UserStatus | null;
+  is_anonymous: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -24,6 +25,7 @@ export type Friendship = {
   friend_id: string;
   notify_enabled: boolean;
   muted: boolean;
+  notify_only_when_copresent: boolean;
   status: 'active';
   created_at: string;
   updated_at: string;
@@ -55,17 +57,17 @@ export const CURRENT_USER_ID = 'user-me';
 export const presenceArea = mockAreas[0];
 
 export const mockUsers: User[] = [
-  { id: 'user-me', name: '自分', icon_url: null, status: null, created_at: now, updated_at: now },
-  { id: 'user-a', name: '田中', icon_url: null, status: 'working', created_at: now, updated_at: now },
-  { id: 'user-b', name: '鈴木', icon_url: null, status: 'want_to_join', created_at: now, updated_at: now },
-  { id: 'user-c', name: '佐藤', icon_url: null, status: null, created_at: now, updated_at: now },
+  { id: 'user-me', name: '自分', icon_url: null, status: null, is_anonymous: false, created_at: now, updated_at: now },
+  { id: 'user-a', name: '田中', icon_url: null, status: 'working', is_anonymous: false, created_at: now, updated_at: now },
+  { id: 'user-b', name: '鈴木', icon_url: null, status: 'want_to_join', is_anonymous: false, created_at: now, updated_at: now },
+  { id: 'user-c', name: '佐藤', icon_url: null, status: null, is_anonymous: false, created_at: now, updated_at: now },
 ];
 
 // 自分から見た友達関係。今回は user-a, user-b, user-c すべて友達とする
 export const mockFriendships: Friendship[] = [
-  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
 ];
 
 // このエリアで名前つきで見せ合うことに合意しているか（approved のみ名前表示）

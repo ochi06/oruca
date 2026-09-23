@@ -18,8 +18,8 @@ const area: Area = {
 };
 
 const users: User[] = [
-  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', status: null, created_at: now, updated_at: now },
-  { id: 'user-b', name: '鈴木', icon_url: null, status: null, created_at: now, updated_at: now },
+  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', status: null, is_anonymous: false, created_at: now, updated_at: now },
+  { id: 'user-b', name: '鈴木', icon_url: null, status: null, is_anonymous: false, created_at: now, updated_at: now },
 ];
 
 describe('resolveDisplayName', () => {
@@ -58,13 +58,22 @@ describe('resolveDisplayName', () => {
 
     expect(resolveDisplayName(CURRENT_USER_ID, 'user-a', area.id, links, users)).toBeNull();
   });
+
+  test('US-013：approvedでも友達が匿名モード中（is_anonymous）ならnullを返す', () => {
+    const anonymousUsers: User[] = [{ ...users[0], is_anonymous: true }, users[1]];
+    const links: FriendAreaLink[] = [
+      { id: 'link-a', initiator_id: CURRENT_USER_ID, friend_id: 'user-a', area_id: area.id, status: 'approved', created_at: now, updated_at: now },
+    ];
+
+    expect(resolveDisplayName(CURRENT_USER_ID, 'user-a', area.id, links, anonymousUsers)).toBeNull();
+  });
 });
 
 describe('buildInitialState', () => {
   test('活動中の友達を対象に名前・アイコンを解決し、在席人数はエリア全体を集計する', () => {
     const friendships: Friendship[] = [
-      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
-      { id: 'f-b', user_id: CURRENT_USER_ID, friend_id: 'user-b', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+      { id: 'f-b', user_id: CURRENT_USER_ID, friend_id: 'user-b', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
     ];
     const friendAreaLinks: FriendAreaLink[] = [
       { id: 'link-a', initiator_id: CURRENT_USER_ID, friend_id: 'user-a', area_id: area.id, status: 'approved', created_at: now, updated_at: now },
@@ -88,7 +97,7 @@ describe('buildInitialState', () => {
 
   test('非公開（displayNameがnull）の友達はicon_urlが設定されていてもiconUrlをnullにする', () => {
     const friendships: Friendship[] = [
-      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
     ];
 
     // FRIEND_AREA_LINKSが無い＝非公開のはずなのに、icon_urlは設定されている状況
@@ -101,7 +110,7 @@ describe('buildInitialState', () => {
 
   test('非公開（displayNameがnull）の友達はstatusが設定されていてもstatusをnullにする（Issue #10）', () => {
     const friendships: Friendship[] = [
-      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
     ];
     const usersWithStatus: User[] = [
       { ...users[0], status: 'working' },
@@ -115,9 +124,37 @@ describe('buildInitialState', () => {
     ]);
   });
 
+  test('US-013：匿名モード中の友達は、承認済みでも名前だけでなく在席（isPresent）も非表示にする', () => {
+    const friendships: Friendship[] = [
+      { id: 'f-a', user_id: CURRENT_USER_ID, friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+    ];
+    const friendAreaLinks: FriendAreaLink[] = [
+      { id: 'link-a', initiator_id: CURRENT_USER_ID, friend_id: 'user-a', area_id: area.id, status: 'approved', created_at: now, updated_at: now },
+    ];
+    const presenceLogs: PresenceLog[] = [
+      { id: 'log-a', user_id: 'user-a', area_id: area.id, entered_at: now, exited_at: null },
+    ];
+    const anonymousUsers: User[] = [{ ...users[0], is_anonymous: true }, users[1]];
+
+    const result = buildInitialState(
+      CURRENT_USER_ID,
+      friendships,
+      presenceLogs,
+      friendAreaLinks,
+      anonymousUsers,
+      area
+    );
+
+    expect(result.friends).toEqual([
+      { userId: 'user-a', displayName: null, iconUrl: null, status: null, isPresent: false },
+    ]);
+    // 在席人数（presentCount）はエリア全体の集計なので、匿名モードの影響を受けない
+    expect(result.presentCount).toBe(1);
+  });
+
   test('自分以外が起点のfriendshipsは対象に含めない', () => {
     const friendships: Friendship[] = [
-      { id: 'f-x', user_id: 'user-a', friend_id: CURRENT_USER_ID, notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+      { id: 'f-x', user_id: 'user-a', friend_id: CURRENT_USER_ID, notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
     ];
 
     const result = buildInitialState(CURRENT_USER_ID, friendships, [], [], users, area);
@@ -153,7 +190,7 @@ describe('buildPresenceMarkers', () => {
   });
 
   test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
-    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: null, created_at: now, updated_at: now };
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: null, is_anonymous: false, created_at: now, updated_at: now };
     const locations: PresenceLocation[] = [
       { user_id: CURRENT_USER_ID, lat: 35.0, lng: 135.0 },
     ];

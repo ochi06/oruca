@@ -31,6 +31,7 @@ erDiagram
     string name
     string icon_url
     string status
+    boolean is_anonymous
     timestamp created_at
     timestamp updated_at
   }
@@ -57,6 +58,7 @@ erDiagram
     uuid friend_id FK
     boolean notify_enabled
     boolean muted
+    boolean notify_only_when_copresent
     string status
     timestamp created_at
     timestamp updated_at
@@ -132,7 +134,12 @@ erDiagram
   `working`（作業中）／`want_to_join`（合流したい）／`away`（離席中）／
   `focus`（集中）のいずれか、またはnull（未設定）。名前・アイコンと同じ
   可視性ルール（`FRIEND_AREA_LINKS.status = 'approved'`の相手にのみ公開）が
-  RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）
+  RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）。
+  `is_anonymous`はUS-013（一時的な匿名モード、Issue #13）用のフラグ。
+  エリア単位ではなくアカウント全体で1つのON/OFF（2026-09-22、開発者確認済み）。
+  `true`の間は`FRIEND_AREA_LINKS`の承認状態に関わらず、友達に対して名前だけで
+  なく在席（`PRESENCE_LOGS`由来のisPresent）も非表示にする。デフォルトは
+  `false`
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
@@ -140,7 +147,11 @@ erDiagram
   登録する前提。値は最も近い整数に丸める）
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
-  `notify_enabled`（US-007）・`muted`（US-008）を関係ごとに個別管理できる
+  `notify_enabled`（US-007）・`muted`（US-008）・`notify_only_when_copresent`
+  （US-016、Issue #14。デフォルトfalse。trueの間は、自分がその友達の入室先
+  エリアに在席している時だけ入室通知を受け取る。`muted`と同様、受信側が
+  自分の行に設定する値）を関係ごとに個別管理できる。実際の通知イベント自体の
+  記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）

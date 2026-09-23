@@ -16,6 +16,20 @@ import { Friendship } from '../mocks/presence';
 // 送信を実装する際は、送信者（入室した本人）の行のnotify_enabledと、
 // 受信者（通知を受け取る側）の行のmutedは別々の行になる点に注意する
 // （呼び出し側で正しい行を組み合わせて渡すこと）
-export function shouldSendEntryNotification(friendship: Friendship): boolean {
-  return friendship.notify_enabled && !friendship.muted;
+// US-016（Issue #14）：notify_only_when_copresentがtrueの間は、通知の受信者
+// （friendshipの行の持ち主）が、入室した友達と同じエリアに在席している時だけ
+// 通知する。isRecipientPresentInSameAreaは、呼び出し側が「受信者が、入室した
+// エリアに在席中か」を判定して渡す（PRESENCE_LOGS参照。この関数自体は
+// 在席判定ロジックを持たない）
+export function shouldSendEntryNotification(
+  friendship: Friendship,
+  isRecipientPresentInSameArea: boolean
+): boolean {
+  if (!friendship.notify_enabled || friendship.muted) {
+    return false;
+  }
+  if (friendship.notify_only_when_copresent && !isRecipientPresentInSameArea) {
+    return false;
+  }
+  return true;
 }
