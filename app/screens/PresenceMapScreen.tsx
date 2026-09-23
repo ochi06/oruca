@@ -65,13 +65,16 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const { data: users, error: usersError } = await supabase
     .from('users')
-    .select('id, name, icon_url, status, created_at, updated_at')
+    .select('id, name, icon_url, status, is_anonymous, created_at, updated_at')
     .in('id', userIds.length > 0 ? userIds : ['']);
   if (usersError) throw usersError;
 
   // usersはRLS（FRIEND_AREA_LINKS.status='approved'の相手、または自分自身）で
-  // 既に絞り込まれているため、ここではその結果をそのまま「表示してよい相手」として扱う
-  const visibleUserIds = new Set(users?.map((user) => user.id) ?? []);
+  // 既に絞り込まれているため、ここではその結果をそのまま「表示してよい相手」として扱う。
+  // ただし匿名モード中（is_anonymous）の相手は、自分自身でない限り除外する（US-013）
+  const visibleUserIds = new Set(
+    users?.filter((user) => user.id === currentUserId || !user.is_anonymous).map((user) => user.id) ?? []
+  );
 
   const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
 
