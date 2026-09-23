@@ -10,6 +10,7 @@ export const otherUser: User = {
   name: '高橋',
   icon_url: null,
   status: null,
+  is_anonymous: false,
   created_at: '2026-08-16T00:00:00.000Z',
   updated_at: '2026-08-16T00:00:00.000Z',
 };

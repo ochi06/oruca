@@ -39,6 +39,8 @@ type PresenceState = DerivedPresenceState & {
 //   対象の friendId × areaId の組み合わせで存在する場合のみ名前を返す
 // - 承認されている場合は users から friendId の name を探して返す
 // - 承認されていない場合は null を返す（呼び出し側は null なら「非公開」と表示する）
+// - US-013：friendがis_anonymous（匿名モードON）の場合は、承認済みでも
+//   name は返さない（FRIEND_AREA_LINKSの承認より匿名モードが優先される）
 //
 // friendAreaLinks・users を引数で受け取る形にしているのは、単体テストで
 // 好きなデータを渡して検証できるようにするため（Supabaseから取得した
@@ -63,7 +65,10 @@ export function resolveDisplayName(
     return null;
   }
   const friend = users.find((user) => user.id === friendId);
-  return friend === undefined ? null : friend.name;
+  if (friend === undefined || friend.is_anonymous) {
+    return null;
+  }
+  return friend.name;
 }
 
 // 取得したデータ（friendships・presenceLogs・friendAreaLinks・users・area）から
@@ -90,13 +95,18 @@ export function buildInitialState(
     .map((f) => f.friend_id);
 
   const friends: FriendPresence[] = friendIds.map((friendId) => {
-    const isPresent = presenceLogs.some(
-      (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
-    );
+    const friendUser = users.find((user) => user.id === friendId);
+    // US-013：匿名モード中の友達は、名前だけでなく在席（isPresent）も
+    // 完全に非表示にする（開発者確認済み。一覧全体の在席人数presentCountには
+    // 影響しない。あくまで「友達から見えるかどうか」だけを変える）
+    const isPresent =
+      !friendUser?.is_anonymous &&
+      presenceLogs.some(
+        (log) => log.user_id === friendId && log.area_id === area.id && log.exited_at === null
+      );
     const displayName = resolveDisplayName(currentUserId, friendId, area.id, friendAreaLinks, users);
-    const friendUser = displayName === null ? undefined : users.find((user) => user.id === friendId);
-    const iconUrl = friendUser?.icon_url ?? null;
-    const status = friendUser?.status ?? null;
+    const iconUrl = displayName === null ? null : friendUser?.icon_url ?? null;
+    const status = displayName === null ? null : friendUser?.status ?? null;
     return { userId: friendId, displayName, iconUrl, status, isPresent };
   });
 
