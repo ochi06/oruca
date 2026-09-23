@@ -10,6 +10,9 @@ type NotifyPreferencesState = {
   toggleNotifyEnabled: (friendId: string) => void;
   // 特定の相手からの通知をミュートする（US-008、受信側の設定）
   toggleMuted: (friendId: string) => void;
+  // 自分がその友達の入室先エリアに在席している時だけ通知を受け取る
+  // （US-016、受信側の設定）
+  toggleNotifyOnlyWhenCopresent: (friendId: string) => void;
 };
 
 export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set) => ({
@@ -28,6 +31,15 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set) =>
     set((state) => ({
       friendships: state.friendships.map((friendship) =>
         friendship.friend_id === friendId ? { ...friendship, muted: !friendship.muted } : friendship
+      ),
+    })),
+
+  toggleNotifyOnlyWhenCopresent: (friendId) =>
+    set((state) => ({
+      friendships: state.friendships.map((friendship) =>
+        friendship.friend_id === friendId
+          ? { ...friendship, notify_only_when_copresent: !friendship.notify_only_when_copresent }
+          : friendship
       ),
     })),
 }));

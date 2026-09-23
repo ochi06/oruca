@@ -25,6 +25,7 @@ export type Friendship = {
   friend_id: string;
   notify_enabled: boolean;
   muted: boolean;
+  notify_only_when_copresent: boolean;
   status: 'active';
   created_at: string;
   updated_at: string;
@@ -64,9 +65,9 @@ export const mockUsers: User[] = [
 
 // 自分から見た友達関係。今回は user-a, user-b, user-c すべて友達とする
 export const mockFriendships: Friendship[] = [
-  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, notify_only_when_copresent: false, status: 'active', created_at: now, updated_at: now },
 ];
 
 // このエリアで名前つきで見せ合うことに合意しているか（approved のみ名前表示）
