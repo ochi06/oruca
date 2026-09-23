@@ -18,29 +18,31 @@ import MapView, {
   PoiClickEvent,
 } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Button } from '../components/Button';
-import { IconButton } from '../components/IconButton';
-import { Screen } from '../components/Screen';
-import { useToast } from '../components/Toast';
-import { useTheme } from '../theme/useTheme';
-import { ensureSignedIn } from '../lib/auth';
-import { supabase } from '../lib/supabase';
-import { Area, UserArea, mockAreas, mockUserAreas } from '../mocks/areas';
-import { CURRENT_USER_ID } from '../mocks/presence';
+import { Button } from '../../components/Button';
+import { IconButton } from '../../components/IconButton';
+import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
+import { useTheme } from '../../theme/useTheme';
+import { ensureSignedIn } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
+import { Area, UserArea, mockAreas, mockUserAreas } from '../../mocks/areas';
+import { CURRENT_USER_ID } from '../../mocks/presence';
 import {
   AREA_NAME_MAX_LENGTH,
   RADIUS_MIN_M,
   RADIUS_MAX_M,
-} from '../constants/area';
-import { darkMapStyle } from '../constants/mapStyle';
+} from '../../constants/area';
+import { darkMapStyle } from '../../constants/mapStyle';
 import {
   LatLng,
   bearingDegrees,
   destinationPoint,
   distanceInMeters,
   roundCoordinate,
-} from '../utils/geo';
+} from '../../utils/geo';
+import { MapStackParamList } from '../../navigation/types';
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
@@ -90,13 +92,9 @@ async function createAreaInBackend(
   }
 }
 
-type Props = {
-  // ホーム画面統合時に、通常モードへ戻るための呼び出し元コールバック。
-  // 単体動作確認の間は未指定でもよい。
-  onClose?: () => void;
-};
+type Props = NativeStackScreenProps<MapStackParamList, 'AreaRegistration'>;
 
-export default function AreaRegistrationScreen({ onClose }: Props) {
+export default function AreaRegistrationScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const { showToast } = useToast();
   const [pin, setPin] = useState<LatLng | null>(null);
@@ -205,7 +203,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       }
 
       resetForm();
-      onClose?.();
+      navigation.goBack();
       return;
     }
 
@@ -214,7 +212,7 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
       await createAreaInBackend(trimmedName, pin, radiusM);
       showToast(`「${trimmedName}」を登録しました`);
       resetForm();
-      onClose?.();
+      navigation.goBack();
     } catch (error) {
       console.error('エリア登録に失敗しました', error);
       showToast('エリアの登録に失敗しました');
@@ -279,15 +277,13 @@ export default function AreaRegistrationScreen({ onClose }: Props) {
           </Marker>
         )}
       </MapView>
-      {onClose && (
-        <IconButton
-          name="close-outline"
-          variant="secondary"
-          accessibilityLabel="エリア登録モードを閉じる"
-          style={styles.closeModeButton}
-          onPress={onClose}
-        />
-      )}
+      <IconButton
+        name="close-outline"
+        variant="secondary"
+        accessibilityLabel="エリア登録モードを閉じる"
+        style={styles.closeModeButton}
+        onPress={() => navigation.goBack()}
+      />
       {!isSearchOpen && (
         <IconButton
           name="search-outline"

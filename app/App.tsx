@@ -1,48 +1,23 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
 import { useFonts, NotoSansJP_400Regular, NotoSansJP_700Bold } from '@expo-google-fonts/noto-sans-jp';
 import { ToastProvider } from './components/Toast';
-import { DemoTabBar, DemoTab } from './components/DemoTabBar';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
 import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
+import { RootTabNavigator } from './navigation/RootTabNavigator';
 
 import LoginScreen from './screens/LoginScreen';
-import PresenceScreen from './screens/PresenceScreen';
-import FriendsScreen from './screens/friends/FriendsScreen';
-import GroupsScreen from './screens/groups/GroupsScreen';
-import PresenceMapScreen from './screens/PresenceMapScreen';
-import ProfileScreen from './screens/ProfileScreen';
-
-// react-navigation導入前のデモ用画面切り替え（Issue #45）。
-// US横断のreact-navigation導入時にこの一覧・切り替え処理は置き換える想定。
-// 「エリア登録」はマップタブ内のモード切り替えに統合したため、独立タブとしては
-// 持たない（docs/architecture.md「3. 画面構成・ナビゲーション」参照、Issue #64）。
-// 「ジオフェンス」タブも在席一覧・マップと表示が重複するため
-// 独立タブとしては持たず、位置監視ロジックのみuseGeofenceMonitorとして
-// ログイン後常時実行する（Issue #73）。
-// 「エリア参加」タブは「エリアに参加する」という概念自体が本来の設計
-// （docs/schema.md）に存在しないデモ用の近道だったため削除した（Issue #106）。
-// 「エリア管理」も「エリア登録」と同様、マップタブ内のモード切り替えに
-// 統合したため、独立タブとしては持たない（Issue #104）。
-const DEMO_TABS: DemoTab[] = [
-  { key: 'presence', label: '在席一覧', icon: 'people-outline' },
-  { key: 'friends', label: '友達', icon: 'person-add-outline' },
-  { key: 'groups', label: 'グループ', icon: 'people-circle-outline' },
-  { key: 'map', label: 'マップ', icon: 'navigate-outline' },
-  { key: 'profile', label: 'プロフィール', icon: 'person-circle-outline' },
-];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
     NotoSansJP_400Regular,
     NotoSansJP_700Bold,
   });
-  const [activeTab, setActiveTab] = useState<string>(DEMO_TABS[0].key);
   // undefined＝起動直後でまだ判定中、null＝未ログイン
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [signInError, setSignInError] = useState<Error | null>(null);
@@ -118,22 +93,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ToastProvider>
-        <View style={styles.content}>
-          {activeTab === 'presence' && <PresenceScreen />}
-          {activeTab === 'friends' && <FriendsScreen />}
-          {activeTab === 'groups' && <GroupsScreen />}
-          {activeTab === 'map' && <PresenceMapScreen />}
-          {activeTab === 'profile' && <ProfileScreen />}
-        </View>
-        <DemoTabBar tabs={DEMO_TABS} activeKey={activeTab} onSelect={setActiveTab} />
+        <NavigationContainer>
+          <RootTabNavigator />
+        </NavigationContainer>
         <StatusBar style="auto" />
       </ToastProvider>
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    flex: 1,
-  },
-});

@@ -1,4 +1,6 @@
 import { FlatList, StyleSheet, Text } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
@@ -7,12 +9,10 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useGroupStore } from '../../store/useGroupStore';
+import { FriendsGroupsStackParamList } from '../../navigation/types';
 
-type Props = {
-  onSelectGroup: (groupId: string) => void;
-};
-
-export default function GroupsListScreen({ onSelectGroup }: Props) {
+export default function GroupsListScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<FriendsGroupsStackParamList>>();
   const { colors } = useTheme();
   const groups = useGroupStore((state) => state.groups);
 
@@ -27,7 +27,10 @@ export default function GroupsListScreen({ onSelectGroup }: Props) {
           data={groups}
           keyExtractor={(group) => group.id}
           renderItem={({ item: group }) => (
-            <ListItem title={group.name} onPress={() => onSelectGroup(group.id)} />
+            <ListItem
+              title={group.name}
+              onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
+            />
           )}
         />
       )}

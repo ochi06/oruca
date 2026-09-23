@@ -1,7 +1,8 @@
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
-import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
 import { Screen } from '../../components/Screen';
@@ -12,12 +13,10 @@ import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
 import { otherUser } from '../../mocks/otp';
 import { useFriendAddStore } from '../../store/useFriendAddStore';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
+import { FriendsGroupsStackParamList } from '../../navigation/types';
 
-type Props = {
-  onAddFriend: () => void;
-};
-
-export default function FriendsListScreen({ onAddFriend }: Props) {
+export default function FriendsListScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<FriendsGroupsStackParamList>>();
   const { colors } = useTheme();
   const addedFriendIds = useFriendAddStore((state) => state.addedFriendIds);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
@@ -50,6 +49,7 @@ export default function FriendsListScreen({ onAddFriend }: Props) {
             return (
               <ListItem
                 title={user.name}
+                onPress={() => navigation.navigate('FriendDetail', { friendId: user.id })}
                 leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
                 trailing={
                   friendship ? (
@@ -80,10 +80,6 @@ export default function FriendsListScreen({ onAddFriend }: Props) {
           }}
         />
       )}
-
-      <View style={styles.footer}>
-        <Button label="友達追加" onPress={onAddFriend} />
-      </View>
     </Screen>
   );
 }
@@ -95,9 +91,6 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     marginBottom: spacing.md,
-  },
-  footer: {
-    marginTop: spacing.md,
   },
   toggles: {
     gap: spacing.xs,
