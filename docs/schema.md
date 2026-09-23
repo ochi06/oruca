@@ -58,6 +58,7 @@ erDiagram
     uuid friend_id FK
     boolean notify_enabled
     boolean muted
+    boolean notify_only_when_copresent
     string status
     timestamp created_at
     timestamp updated_at
@@ -146,7 +147,11 @@ erDiagram
   登録する前提。値は最も近い整数に丸める）
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
-  `notify_enabled`（US-007）・`muted`（US-008）を関係ごとに個別管理できる
+  `notify_enabled`（US-007）・`muted`（US-008）・`notify_only_when_copresent`
+  （US-016、Issue #14。デフォルトfalse。trueの間は、自分がその友達の入室先
+  エリアに在席している時だけ入室通知を受け取る。`muted`と同様、受信側が
+  自分の行に設定する値）を関係ごとに個別管理できる。実際の通知イベント自体の
+  記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
