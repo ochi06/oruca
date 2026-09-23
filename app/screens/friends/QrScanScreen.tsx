@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { ErrorState } from '../../components/ErrorState';
@@ -11,13 +12,14 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useFriendAddStore } from '../../store/useFriendAddStore';
+import { FriendsGroupsStackParamList } from '../../navigation/types';
 
-type Props = {
-  onBack: () => void;
-  onDone: () => void;
-};
+type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'QrScan'>;
 
-export default function QrScanScreen({ onBack, onDone }: Props) {
+export default function QrScanScreen({ navigation }: Props) {
+  const onBack = () => navigation.goBack();
+  // 友達追加成功後は、AddFriend・QrScanの2画面をまとめて抜けて一覧に戻る
+  const onDone = () => navigation.popToTop();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const verifyCode = useFriendAddStore((state) => state.verifyCode);

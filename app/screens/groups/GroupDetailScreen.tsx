@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
@@ -16,17 +17,17 @@ import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
-
-type Props = {
-  groupId: string;
-  onBack: () => void;
-};
+import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 function findUserName(userId: string): string {
   return mockUsers.find((user) => user.id === userId)?.name ?? '不明なユーザー';
 }
 
-export default function GroupDetailScreen({ groupId, onBack }: Props) {
+type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupDetail'>;
+
+export default function GroupDetailScreen({ route, navigation }: Props) {
+  const { groupId } = route.params;
+  const onBack = () => navigation.goBack();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const group = useGroupStore((state) => state.groups.find((g) => g.id === groupId));

@@ -2,26 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, MapStyleElement, Marker } from 'react-native-maps';
 
-import { Avatar } from '../components/Avatar';
-import { Button } from '../components/Button';
-import { EmptyState } from '../components/EmptyState';
-import { ErrorState } from '../components/ErrorState';
-import { IconButton } from '../components/IconButton';
-import { LoadingIndicator } from '../components/LoadingIndicator';
-import { Screen } from '../components/Screen';
-import { useTheme } from '../theme/useTheme';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
-import { darkMapStyle } from '../constants/mapStyle';
-import { ensureSignedIn } from '../lib/auth';
-import { supabase } from '../lib/supabase';
-import { Area } from '../mocks/areas';
-import AreaRegistrationScreen from './AreaRegistrationScreen';
-import AreaManagementScreen from './areas/AreaManagementScreen';
-import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../store/usePresenceStore';
-import { computeRegionForAreas, Region } from '../utils/mapRegion';
-
-type ScreenMode = 'presence' | 'register' | 'manage';
+import { Avatar } from '../../components/Avatar';
+import { Button } from '../../components/Button';
+import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
+import { IconButton } from '../../components/IconButton';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Screen } from '../../components/Screen';
+import { useTheme } from '../../theme/useTheme';
+import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
+import { darkMapStyle } from '../../constants/mapStyle';
+import { ensureSignedIn } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
+import { Area } from '../../mocks/areas';
+import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../../store/usePresenceStore';
+import { computeRegionForAreas, Region } from '../../utils/mapRegion';
+import { MapStackParamList } from '../../navigation/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
@@ -78,9 +76,10 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
   return { areas: (areas ?? []) as Area[], markers };
 }
 
-export default function PresenceMapScreen() {
+type Props = NativeStackScreenProps<MapStackParamList, 'Map'>;
+
+export default function MapScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
-  const [mode, setMode] = useState<ScreenMode>('presence');
   const [state, setState] = useState<LoadState>('loading');
   const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [] });
 
@@ -100,19 +99,11 @@ export default function PresenceMapScreen() {
     load();
   }, [load]);
 
-  const closeMode = () => {
-    setMode('presence');
-    // 新規エリア登録・エリア管理（編集・削除）の直後なので、地図の表示も最新化する
-    load();
-  };
-
-  if (mode === 'register') {
-    return <AreaRegistrationScreen onClose={closeMode} />;
-  }
-
-  if (mode === 'manage') {
-    return <AreaManagementScreen onClose={closeMode} />;
-  }
+  useEffect(() => {
+    // 新規エリア登録・エリア管理（編集・削除）から戻ってきた際に地図を最新化する
+    const unsubscribe = navigation.addListener('focus', load);
+    return unsubscribe;
+  }, [navigation, load]);
 
   if (state === 'loading') {
     return (
@@ -135,7 +126,7 @@ export default function PresenceMapScreen() {
       <Screen style={styles.container}>
         <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
         <EmptyState icon="map-outline" message="参加しているエリアがまだありません" />
-        <Button label="新規エリア登録" onPress={() => setMode('register')} />
+        <Button label="新規エリア登録" onPress={() => navigation.navigate('AreaRegistration')} />
       </Screen>
     );
   }
@@ -186,13 +177,13 @@ export default function PresenceMapScreen() {
         variant="secondary"
         accessibilityLabel="エリア管理"
         style={styles.manageAreaButton}
-        onPress={() => setMode('manage')}
+        onPress={() => navigation.navigate('AreaManagement')}
       />
       <IconButton
         name="add-outline"
         accessibilityLabel="新規エリア登録"
         style={styles.addAreaButton}
-        onPress={() => setMode('register')}
+        onPress={() => navigation.navigate('AreaRegistration')}
       />
     </Screen>
   );

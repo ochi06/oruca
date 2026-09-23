@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -11,18 +12,18 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useFriendAddStore } from '../../store/useFriendAddStore';
 import { isOtpExpired } from '../../utils/otp';
-
-type Props = {
-  onBack: () => void;
-  onScanQr: () => void;
-};
+import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 // OTP残り秒数（0未満は表示上0にまるめる）
 function remainingSeconds(expiresAt: string, now: Date): number {
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now.getTime()) / 1000));
 }
 
-export default function AddFriendScreen({ onBack, onScanQr }: Props) {
+type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'AddFriend'>;
+
+export default function AddFriendScreen({ navigation }: Props) {
+  const onBack = () => navigation.goBack();
+  const onScanQr = () => navigation.navigate('QrScan');
   const { colors } = useTheme();
   const { showToast } = useToast();
   const myOtp = useFriendAddStore((state) => state.myOtp);

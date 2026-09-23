@@ -1,17 +1,17 @@
 import { useEffect } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '../components/Avatar';
-import { ErrorState } from '../components/ErrorState';
-import { ListItem } from '../components/ListItem';
-import { LoadingIndicator } from '../components/LoadingIndicator';
-import { Screen } from '../components/Screen';
-import { useTheme } from '../theme/useTheme';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
-import { formatPresenceCount } from '../utils/format';
-import { usePresenceStore } from '../store/usePresenceStore';
-import { userStatusLabel } from '../constants/status';
+import { Avatar } from '../../components/Avatar';
+import { ErrorState } from '../../components/ErrorState';
+import { ListItem } from '../../components/ListItem';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Screen } from '../../components/Screen';
+import { useTheme } from '../../theme/useTheme';
+import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
+import { formatPresenceCount } from '../../utils/format';
+import { usePresenceStore } from '../../store/usePresenceStore';
+import { userStatusLabel } from '../../constants/status';
 
 export default function PresenceScreen() {
   const { colors } = useTheme();

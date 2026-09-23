@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Avatar } from '../components/Avatar';
-import { Button } from '../components/Button';
-import { ErrorState } from '../components/ErrorState';
-import { Input } from '../components/Input';
-import { LoadingIndicator } from '../components/LoadingIndicator';
-import { Screen } from '../components/Screen';
-import { useToast } from '../components/Toast';
-import { useTheme } from '../theme/useTheme';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
-import { USER_STATUS_OPTIONS, UserStatus } from '../constants/status';
+import { Avatar } from '../../components/Avatar';
+import { Button } from '../../components/Button';
+import { ErrorState } from '../../components/ErrorState';
+import { IconButton } from '../../components/IconButton';
+import { Input } from '../../components/Input';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
+import { useTheme } from '../../theme/useTheme';
+import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
+import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
 import {
   DEFAULT_USER_NAME,
   ensureSignedIn,
@@ -22,7 +24,8 @@ import {
   updateUserIcon,
   updateUserName,
   updateUserStatus,
-} from '../lib/auth';
+} from '../../lib/auth';
+import { SettingsStackParamList } from '../../navigation/types';
 
 // エリア名（AREA_NAME_MAX_LENGTH）と同程度の上限を設ける。DB側に長さ制約は
 // 無いが、一覧・アイコン横での表示崩れを防ぐための画面側のガード
@@ -30,7 +33,9 @@ const DISPLAY_NAME_MAX_LENGTH = 30;
 
 type LoadState = 'loading' | 'loaded' | 'error';
 
-export default function ProfileScreen() {
+type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsTop'>;
+
+export default function SettingsScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [state, setState] = useState<LoadState>('loading');
@@ -166,7 +171,15 @@ export default function ProfileScreen() {
 
   return (
     <Screen style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>プロフィール</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>設定</Text>
+        <IconButton
+          name="notifications-outline"
+          variant="secondary"
+          accessibilityLabel="通知ボックス"
+          onPress={() => navigation.navigate('NotificationBox')}
+        />
+      </View>
       <View style={styles.avatarSection}>
         <Avatar iconUrl={iconUrl} name={name} size={96} />
 
@@ -229,9 +242,14 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   title: {
     ...typography.heading,
-    marginBottom: spacing.lg,
   },
   avatarSection: {
     alignItems: 'center',
