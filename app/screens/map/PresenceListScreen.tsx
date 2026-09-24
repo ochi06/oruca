@@ -1,66 +1,41 @@
-import { useEffect } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
-import { ErrorState } from '../../components/ErrorState';
 import { ListItem } from '../../components/ListItem';
-import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { formatPresenceCount } from '../../utils/format';
-import { usePresenceStore } from '../../store/usePresenceStore';
 import { userStatusLabel } from '../../constants/status';
+import { MapStackParamList } from '../../navigation/types';
 
-export default function PresenceScreen() {
+type Props = NativeStackScreenProps<MapStackParamList, 'PresenceList'>;
+
+// マップのポップアップ「もっと見る」から遷移するフルリスト（Issue #120）。
+// マップ画面が取得済みのそのエリアの在席者一覧をそのまま表示するため、
+// この画面自体は再フェッチせず、開いた時点のスナップショット表示になる
+// （Realtimeでの自動更新はされない。再度マップに戻ってタップし直せば最新化される）
+export default function PresenceListScreen({ route }: Props) {
+  const { areaName, users } = route.params;
   const { colors } = useTheme();
-  const { areaName, friends, presentCount, status, errorMessage, initialize } = usePresenceStore();
-
-  useEffect(() => {
-    initialize();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (status === 'idle' || status === 'loading') {
-    return (
-      <Screen style={styles.container}>
-        <LoadingIndicator />
-      </Screen>
-    );
-  }
-
-  if (status === 'error') {
-    return (
-      <Screen style={styles.container}>
-        <ErrorState message={errorMessage ?? undefined} onRetry={initialize} />
-      </Screen>
-    );
-  }
 
   return (
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>{areaName}</Text>
       <Text style={[styles.count, { color: colors.textSub }]}>
-        {formatPresenceCount(presentCount)}
+        {formatPresenceCount(users.length)}
       </Text>
 
       <FlatList
-        data={friends}
-        keyExtractor={(friend) => friend.userId}
-        renderItem={({ item: friend }) => (
+        data={users}
+        keyExtractor={(user) => user.userId}
+        renderItem={({ item: user }) => (
           <ListItem
-            title={friend.displayName ?? '非公開'}
-            subtitle={userStatusLabel(friend.status) ?? undefined}
-            leading={<Avatar name={friend.displayName ?? '?'} iconUrl={friend.iconUrl} />}
-            trailing={
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: friend.isPresent ? colors.green : colors.textSub },
-                ]}
-              />
-            }
+            title={user.displayName ?? '非公開'}
+            subtitle={userStatusLabel(user.status) ?? undefined}
+            leading={<Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />}
           />
         )}
       />
@@ -78,10 +53,5 @@ const styles = StyleSheet.create({
   count: {
     ...typography.body,
     marginBottom: spacing.md,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
 });

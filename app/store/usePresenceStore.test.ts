@@ -1,4 +1,10 @@
-import { resolveDisplayName, buildInitialState, buildPresenceMarkers, PresenceLocation } from './usePresenceStore';
+import {
+  resolveDisplayName,
+  buildInitialState,
+  buildPresenceMarkers,
+  buildAreaPresentUsers,
+  PresenceLocation,
+} from './usePresenceStore';
 import { Friendship, FriendAreaLink, PresenceLog, User } from '../mocks/presence';
 import { Area } from '../mocks/areas';
 
@@ -208,6 +214,42 @@ describe('buildPresenceMarkers', () => {
     ];
 
     const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('buildAreaPresentUsers', () => {
+  test('visibleUserIdsに含まれるユーザーは名前・アイコン・ステータスつきで返す', () => {
+    const userWithStatus: User = { ...users[0], status: 'working' };
+
+    const result = buildAreaPresentUsers(CURRENT_USER_ID, ['user-a'], new Set(['user-a']), [userWithStatus]);
+
+    expect(result).toEqual([
+      { userId: 'user-a', displayName: '田中', iconUrl: 'https://example.com/a.png', status: 'working' },
+    ]);
+  });
+
+  test('visibleUserIdsに含まれないユーザーはdisplayName・iconUrl・statusともnullにする', () => {
+    const result = buildAreaPresentUsers(CURRENT_USER_ID, ['user-a'], new Set(), users);
+
+    expect(result).toEqual([
+      { userId: 'user-a', displayName: null, iconUrl: null, status: null },
+    ]);
+  });
+
+  test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: 'focus', is_anonymous: false, created_at: now, updated_at: now };
+
+    const result = buildAreaPresentUsers(CURRENT_USER_ID, [CURRENT_USER_ID], new Set(), [selfUser]);
+
+    expect(result).toEqual([
+      { userId: CURRENT_USER_ID, displayName: '自分', iconUrl: null, status: 'focus' },
+    ]);
+  });
+
+  test('areaUserIdsが空なら空配列を返す', () => {
+    const result = buildAreaPresentUsers(CURRENT_USER_ID, [], new Set(), users);
 
     expect(result).toEqual([]);
   });
