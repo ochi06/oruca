@@ -239,7 +239,7 @@ describe('buildAreaPresentUsers', () => {
   });
 
   test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
-    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: 'focus', is_anonymous: false, created_at: now, updated_at: now };
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: 'focus', is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now };
 
     const result = buildAreaPresentUsers(CURRENT_USER_ID, [CURRENT_USER_ID], new Set(), [selfUser]);
 
