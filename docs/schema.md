@@ -32,6 +32,7 @@ erDiagram
     string icon_url
     string status
     boolean is_anonymous
+    boolean allow_entry_notifications
     timestamp created_at
     timestamp updated_at
   }
@@ -59,6 +60,7 @@ erDiagram
     boolean notify_enabled
     boolean muted
     boolean notify_only_when_copresent
+    boolean want_to_meet
     string status
     timestamp created_at
     timestamp updated_at
@@ -139,7 +141,12 @@ erDiagram
   エリア単位ではなくアカウント全体で1つのON/OFF（2026-09-22、開発者確認済み）。
   `true`の間は`FRIEND_AREA_LINKS`の承認状態に関わらず、友達に対して名前だけで
   なく在席（`PRESENCE_LOGS`由来のisPresent）も非表示にする。デフォルトは
-  `false`
+  `false`。`allow_entry_notifications`はUS-017（会いたい人の入室通知、
+  Issue #15）専用のグローバル許可（アカウント全体で1つ、2026-09-24、
+  開発者確認済み）。「自分の入室を、自分を`FRIENDSHIPS.want_to_meet`で
+  登録している相手に通知してよいか」。デフォルト`true`（オプトアウト方式、
+  `notify_enabled`と同じ）。既存の友達ごとの`notify_enabled`（US-007/016）
+  とは別物で、通常の入室通知には影響しない
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
@@ -150,8 +157,13 @@ erDiagram
   `notify_enabled`（US-007）・`muted`（US-008）・`notify_only_when_copresent`
   （US-016、Issue #14。デフォルトfalse。trueの間は、自分がその友達の入室先
   エリアに在席している時だけ入室通知を受け取る。`muted`と同様、受信側が
-  自分の行に設定する値）を関係ごとに個別管理できる。実際の通知イベント自体の
-  記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
+  自分の行に設定する値）・`want_to_meet`（US-017、Issue #15。デフォルト
+  false。trueの間は、`notify_only_when_copresent`の制限を上書きし、共在
+  していなくても入室通知を受け取る。ただし相手（friend_id）の
+  `USERS.allow_entry_notifications`がfalseなら通知しない。優先度は
+  `muted`（最優先）→`want_to_meet`（共在制限を上書き）の順。`muted`と同様、
+  受信側が自分の行に設定する値）を関係ごとに個別管理できる。実際の通知
+  イベント自体の記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
