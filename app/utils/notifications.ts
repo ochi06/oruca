@@ -33,3 +33,28 @@ export function shouldSendEntryNotification(
   }
   return true;
 }
+
+// US-017（Issue #15）：「会いたい人」通知。友達を会いたい人として登録している
+// （friendship.want_to_meetがtrue）間は、共在していなくても入室通知を受け取れる
+// （notify_only_when_copresentの制限を上書きする）。
+//
+// これはshouldSendEntryNotification（通常の入室通知、友達ごとのnotify_enabledに
+// 依存）とは別の独立した通知経路。会いたい人登録は誰にでもできてよく、実際に
+// 通知が届くかどうかは、入室した本人がアカウント全体で設定する
+// USERS.allow_entry_notifications（enteringUserAllowsEntryNotifications）
+// 次第、という設計（2026-09-24、開発者確認済み）。
+//
+// 優先度：muted（受信者がこの友達をミュートしている）が最優先で、
+// mutedがtrueなら他の条件に関わらず通知しない。
+export function shouldSendWantToMeetNotification(
+  friendship: Friendship,
+  enteringUserAllowsEntryNotifications: boolean
+): boolean {
+  if (friendship.muted) {
+    return false;
+  }
+  if (!friendship.want_to_meet) {
+    return false;
+  }
+  return enteringUserAllowsEntryNotifications;
+}
