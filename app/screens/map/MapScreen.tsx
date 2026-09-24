@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import MapView, { Circle, MapStyleElement, Marker } from 'react-native-maps';
+import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
@@ -16,10 +16,18 @@ import { darkMapStyle } from '../../constants/mapStyle';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { Area } from '../../mocks/areas';
-import { buildPresenceMarkers, PresenceLocation, PresenceMarker } from '../../store/usePresenceStore';
+import {
+  AreaPresentUser,
+  buildAreaPresentUsers,
+  buildPresenceMarkers,
+  PresenceLocation,
+  PresenceMarker,
+} from '../../store/usePresenceStore';
 import { computeRegionForAreas, Region } from '../../utils/mapRegion';
+import { distanceInMeters } from '../../utils/geo';
 import { MapStackParamList } from '../../navigation/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AreaPresencePopup } from './AreaPresencePopup';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 
@@ -28,6 +36,8 @@ type LoadState = 'loading' | 'loaded' | 'error';
 type PresenceMapData = {
   areas: Area[];
   markers: PresenceMarker[];
+  // エリアID→そのエリアの在席者一覧（Issue #120のポップアップ・フルリスト用）
+  areaPresence: Record<string, AreaPresentUser[]>;
 };
 
 // 自分が参加している全エリア（USER_AREAS）と、その中の在席者をまとめて取得する（Issue #62）
@@ -42,7 +52,7 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const areaIds = Array.from(new Set((userAreas ?? []).map((row) => row.area_id)));
   if (areaIds.length === 0) {
-    return { areas: [], markers: [] };
+    return { areas: [], markers: [], areaPresence: {} };
   }
 
   const { data: areas, error: areasError } = await supabase
@@ -53,12 +63,12 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const { data: locations, error: presenceError } = await supabase
     .from('presence_logs')
-    .select('user_id, lat, lng')
+    .select('user_id, area_id, lat, lng')
     .in('area_id', areaIds)
     .is('exited_at', null);
   if (presenceError) throw presenceError;
 
-  const presenceLocations = (locations ?? []) as PresenceLocation[];
+  const presenceLocations = (locations ?? []) as (PresenceLocation & { area_id: string })[];
   const userIds = Array.from(new Set(presenceLocations.map((location) => location.user_id)));
 
   const { data: users, error: usersError } = await supabase
@@ -76,7 +86,15 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
 
-  return { areas: (areas ?? []) as Area[], markers };
+  const areaPresence: Record<string, AreaPresentUser[]> = {};
+  for (const areaId of areaIds) {
+    const areaUserIds = Array.from(
+      new Set(presenceLocations.filter((location) => location.area_id === areaId).map((location) => location.user_id))
+    );
+    areaPresence[areaId] = buildAreaPresentUsers(currentUserId, areaUserIds, visibleUserIds, users ?? []);
+  }
+
+  return { areas: (areas ?? []) as Area[], markers, areaPresence };
 }
 
 type Props = NativeStackScreenProps<MapStackParamList, 'Map'>;
@@ -84,7 +102,8 @@ type Props = NativeStackScreenProps<MapStackParamList, 'Map'>;
 export default function MapScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const [state, setState] = useState<LoadState>('loading');
-  const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [] });
+  const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [], areaPresence: {} });
+  const [selectedArea, setSelectedArea] = useState<Area | null>(null);
 
   const load = useCallback(() => {
     setState('loading');
@@ -139,6 +158,17 @@ export default function MapScreen({ navigation }: Props) {
     data.areas.map((area) => ({ latitude: area.center_lat, longitude: area.center_lng }))
   );
 
+  // react-native-mapsのCircleはタップイベントを持たないため、MapView全体のonPressで
+  // タップ座標と各エリアの中心との距離を比較し、半径内に収まるエリアを選択する（Issue #120）
+  const handleMapPress = (event: MapPressEvent) => {
+    const tapped = event.nativeEvent.coordinate;
+    const hitArea = data.areas.find(
+      (area) =>
+        distanceInMeters(tapped, { latitude: area.center_lat, longitude: area.center_lng }) <= area.radius_m
+    );
+    setSelectedArea(hitArea ?? null);
+  };
+
   return (
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
@@ -146,6 +176,7 @@ export default function MapScreen({ navigation }: Props) {
         style={styles.map}
         initialRegion={region}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
+        onPress={handleMapPress}
       >
         {data.areas.map((area) => (
           <Circle
@@ -188,6 +219,18 @@ export default function MapScreen({ navigation }: Props) {
         style={styles.addAreaButton}
         onPress={() => navigation.navigate('AreaRegistration')}
       />
+      {selectedArea && (
+        <AreaPresencePopup
+          areaName={selectedArea.name}
+          users={data.areaPresence[selectedArea.id] ?? []}
+          onClose={() => setSelectedArea(null)}
+          onSeeAll={() => {
+            const users = data.areaPresence[selectedArea.id] ?? [];
+            setSelectedArea(null);
+            navigation.navigate('PresenceList', { areaName: selectedArea.name, users });
+          }}
+        />
+      )}
     </Screen>
   );
 }
