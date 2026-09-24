@@ -1,4 +1,4 @@
-import { shouldSendEntryNotification } from './notifications';
+import { shouldSendEntryNotification, shouldSendWantToMeetNotification } from './notifications';
 import { Friendship } from '../mocks/presence';
 
 const now = '2026-08-16T00:00:00.000Z';
@@ -11,6 +11,7 @@ function makeFriendship(overrides: Partial<Friendship> = {}): Friendship {
     notify_enabled: true,
     muted: false,
     notify_only_when_copresent: false,
+    want_to_meet: false,
     status: 'active',
     created_at: now,
     updated_at: now,
@@ -73,5 +74,34 @@ describe('shouldSendEntryNotification', () => {
         true
       )
     ).toBe(false);
+  });
+});
+
+describe('shouldSendWantToMeetNotification', () => {
+  test('want_to_meetがtrueで、入室した本人がallow_entry_notifications=trueなら通知する', () => {
+    expect(shouldSendWantToMeetNotification(makeFriendship({ want_to_meet: true }), true)).toBe(true);
+  });
+
+  test('want_to_meetがtrueでも、入室した本人がallow_entry_notifications=falseなら通知しない', () => {
+    expect(shouldSendWantToMeetNotification(makeFriendship({ want_to_meet: true }), false)).toBe(false);
+  });
+
+  test('want_to_meetがfalseなら、allow_entry_notificationsがtrueでも通知しない', () => {
+    expect(shouldSendWantToMeetNotification(makeFriendship({ want_to_meet: false }), true)).toBe(false);
+  });
+
+  test('want_to_meetがtrueでも、mutedがtrueなら通知しない（mutedが優先）', () => {
+    expect(
+      shouldSendWantToMeetNotification(makeFriendship({ want_to_meet: true, muted: true }), true)
+    ).toBe(false);
+  });
+
+  test('共在していなくても（notify_only_when_copresentの制限とは無関係に）通知できる', () => {
+    expect(
+      shouldSendWantToMeetNotification(
+        makeFriendship({ want_to_meet: true, notify_only_when_copresent: true }),
+        true
+      )
+    ).toBe(true);
   });
 });
