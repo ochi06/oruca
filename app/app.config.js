@@ -54,7 +54,21 @@ module.exports = {
             'oruca は、プロフィールアイコンを設定するために写真ライブラリへのアクセスを使用します。',
         },
       ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/icon.png',
+          color: '#2E6F9E',
+        },
+      ],
       './plugins/withFixMapsPodname',
     ],
+    extra: {
+      eas: {
+        // Issue #131：Push通知（getExpoPushTokenAsync）にEASのprojectIdが必須のため、
+        // `eas init --non-interactive --account nadzuki`で作成したプロジェクトに紐付けた
+        projectId: 'badd691d-b7c9-40c3-85eb-8de622097620',
+      },
+    },
   },
 };
