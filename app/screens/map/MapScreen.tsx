@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
@@ -11,8 +15,8 @@ import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 import { darkMapStyle } from '../../constants/mapStyle';
+import { userStatusIcon } from '../../constants/status';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { Area } from '../../mocks/areas';
@@ -25,8 +29,7 @@ import {
 } from '../../store/usePresenceStore';
 import { computeRegionForAreas, Region } from '../../utils/mapRegion';
 import { distanceInMeters } from '../../utils/geo';
-import { MapStackParamList } from '../../navigation/types';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MapStackParamList, RootTabParamList } from '../../navigation/types';
 import { AreaPresencePopup } from './AreaPresencePopup';
 
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
@@ -34,6 +37,7 @@ const EMPTY_MAP_STYLE: MapStyleElement[] = [];
 type LoadState = 'loading' | 'loaded' | 'error';
 
 type PresenceMapData = {
+  currentUserId: string;
   areas: Area[];
   markers: PresenceMarker[];
   // エリアID→そのエリアの在席者一覧（Issue #120のポップアップ・フルリスト用）
@@ -52,7 +56,7 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const areaIds = Array.from(new Set((userAreas ?? []).map((row) => row.area_id)));
   if (areaIds.length === 0) {
-    return { areas: [], markers: [], areaPresence: {} };
+    return { currentUserId, areas: [], markers: [], areaPresence: {} };
   }
 
   const { data: areas, error: areasError } = await supabase
@@ -94,15 +98,24 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
     areaPresence[areaId] = buildAreaPresentUsers(currentUserId, areaUserIds, visibleUserIds, users ?? []);
   }
 
-  return { areas: (areas ?? []) as Area[], markers, areaPresence };
+  return { currentUserId, areas: (areas ?? []) as Area[], markers, areaPresence };
 }
 
-type Props = NativeStackScreenProps<MapStackParamList, 'Map'>;
+// タブをまたいでネストしたStack Navigatorの画面（友達・グループタブのFriendDetail）へ
+// 直接遷移できるように、MapStackとRootTabの両方のnavigation型を合成する
+type MapScreenNavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<MapStackParamList, 'Map'>,
+  BottomTabNavigationProp<RootTabParamList>
+>;
+
+type Props = NativeStackScreenProps<MapStackParamList, 'Map'> & {
+  navigation: MapScreenNavigationProp;
+};
 
 export default function MapScreen({ navigation }: Props) {
   const { colors, isDark } = useTheme();
   const [state, setState] = useState<LoadState>('loading');
-  const [data, setData] = useState<PresenceMapData>({ areas: [], markers: [], areaPresence: {} });
+  const [data, setData] = useState<PresenceMapData>({ currentUserId: '', areas: [], markers: [], areaPresence: {} });
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
 
   const load = useCallback(() => {
@@ -146,7 +159,6 @@ export default function MapScreen({ navigation }: Props) {
   if (data.areas.length === 0) {
     return (
       <Screen style={styles.container}>
-        <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
         <EmptyState icon="map-outline" message="参加しているエリアがまだありません" />
         <Button label="新規エリア登録" onPress={() => navigation.navigate('AreaRegistration')} />
       </Screen>
@@ -169,9 +181,18 @@ export default function MapScreen({ navigation }: Props) {
     setSelectedArea(hitArea ?? null);
   };
 
+  // アイコンをタップした相手の友達詳細画面へ、タブをまたいで遷移する（Issue #120フォローアップ）。
+  // 承認されていない相手（displayNameがnull）・自分自身はタップしても何もしない
+  const handleMarkerPress = (marker: PresenceMarker) => {
+    if (!marker.displayName || marker.userId === data.currentUserId) return;
+    navigation.getParent<BottomTabNavigationProp<RootTabParamList>>()?.navigate('FriendsGroupsTab', {
+      screen: 'FriendDetail',
+      params: { friendId: marker.userId },
+    });
+  };
+
   return (
     <Screen style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>マップ</Text>
       <MapView
         style={styles.map}
         initialRegion={region}
@@ -187,24 +208,30 @@ export default function MapScreen({ navigation }: Props) {
             fillColor={`${colors.blue}33`}
           />
         ))}
-        {data.markers.map((marker) => (
-          <Marker
-            key={marker.userId}
-            coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            {marker.displayName ? (
-              <View style={styles.namedMarker}>
-                <Avatar name={marker.displayName} iconUrl={marker.iconUrl} size={32} />
-                <Text style={[styles.markerLabel, { color: colors.text, backgroundColor: colors.surface }]}>
-                  {marker.displayName}
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.dotMarker, { backgroundColor: colors.textSub, borderColor: colors.surface }]} />
-            )}
-          </Marker>
-        ))}
+        {data.markers.map((marker) => {
+          const statusIcon = userStatusIcon(marker.status);
+          return (
+            <Marker
+              key={marker.userId}
+              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              onPress={() => handleMarkerPress(marker)}
+            >
+              {marker.displayName ? (
+                <View style={styles.namedMarker}>
+                  <Avatar name={marker.displayName} iconUrl={marker.iconUrl} size={32} />
+                  {statusIcon && (
+                    <View style={[styles.statusBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}>
+                      <Ionicons name={statusIcon} size={10} color={colors.blue} />
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={[styles.dotMarker, { backgroundColor: colors.textSub, borderColor: colors.surface }]} />
+              )}
+            </Marker>
+          );
+        })}
       </MapView>
       <IconButton
         name="settings-outline"
@@ -239,10 +266,6 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
   },
-  title: {
-    ...typography.heading,
-    marginBottom: spacing.md,
-  },
   map: {
     flex: 1,
     borderRadius: 16,
@@ -250,13 +273,18 @@ const styles = StyleSheet.create({
   },
   namedMarker: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  markerLabel: {
-    ...typography.caption,
-    marginTop: 2,
-    paddingHorizontal: spacing.xs,
-    borderRadius: 4,
-    overflow: 'hidden',
+  statusBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dotMarker: {
     width: 14,

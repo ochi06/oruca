@@ -134,6 +134,7 @@ export type PresenceMarker = {
   longitude: number;
   displayName: string | null; // nullの場合、画面側では色つきドットのみ表示する
   iconUrl: string | null;
+  status: UserStatus | null; // 承認済みでなければnull（名前・アイコンと同じ理由）
 };
 
 // Issue #120：エリアタップのポップアップ・フルリストで使う「そのエリアの在席者」1人分。
@@ -178,10 +179,20 @@ export function buildPresenceMarkers(
   visibleUserIds: Set<string>,
   users: User[]
 ): PresenceMarker[] {
+  // 同じuser_idが複数のエリアに同時在席している場合（エリアが重なっている等）、
+  // presenceLocationsに同じuser_idの行が複数含まれうる。地図上では1人1マーカーに
+  // なるべきなので、最初の1件だけを採用して重複を防ぐ（Issue #127）
+  const seenUserIds = new Set<string>();
+
   return presenceLocations
     .filter((location): location is PresenceLocation & { lat: number; lng: number } =>
       location.lat !== null && location.lng !== null
     )
+    .filter((location) => {
+      if (seenUserIds.has(location.user_id)) return false;
+      seenUserIds.add(location.user_id);
+      return true;
+    })
     .map((location) => {
       const isVisible = location.user_id === currentUserId || visibleUserIds.has(location.user_id);
       const user = users.find((u) => u.id === location.user_id);
@@ -191,6 +202,7 @@ export function buildPresenceMarkers(
         longitude: location.lng,
         displayName: isVisible ? user?.name ?? null : null,
         iconUrl: isVisible ? user?.icon_url ?? null : null,
+        status: isVisible ? user?.status ?? null : null,
       };
     });
 }
