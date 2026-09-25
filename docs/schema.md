@@ -33,6 +33,7 @@ erDiagram
     string status
     boolean is_anonymous
     boolean allow_entry_notifications
+    string push_token
     timestamp created_at
     timestamp updated_at
   }
@@ -146,7 +147,11 @@ erDiagram
   開発者確認済み）。「自分の入室を、自分を`FRIENDSHIPS.want_to_meet`で
   登録している相手に通知してよいか」。デフォルト`true`（オプトアウト方式、
   `notify_enabled`と同じ）。既存の友達ごとの`notify_enabled`（US-007/016）
-  とは別物で、通常の入室通知には影響しない
+  とは別物で、通常の入室通知には影響しない。
+  `push_token`はIssue #131（プッシュ通知の実配信基盤）用。`expo-notifications`の
+  `getExpoPushTokenAsync()`で取得したExpoPushToken文字列を、ログイン中の端末で
+  最後に取得した1件だけ保存する（複数端末対応は将来課題）。本人のみ更新可能
+  （既存RLSポリシーでカバー）。送信側のEdge Functionはservice roleで読み取る
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、

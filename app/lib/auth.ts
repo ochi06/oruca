@@ -91,6 +91,15 @@ export async function updateUserStatus(userId: string, status: UserStatus | null
   }
 }
 
+// 自分のusers.push_tokenを更新する（Issue #131）。複数端末対応はせず、
+// 最後にログインした端末のExpoPushTokenで上書きする単純な設計
+export async function updateUserPushToken(userId: string, pushToken: string): Promise<void> {
+  const { error } = await supabase.from('users').update({ push_token: pushToken }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分の現在のusers.icon_urlを取得する
 export async function fetchUserIconUrl(userId: string): Promise<string | null> {
   const { data, error } = await supabase.from('users').select('icon_url').eq('id', userId).maybeSingle();

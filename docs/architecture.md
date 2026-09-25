@@ -30,6 +30,22 @@ OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo
 - **プッシュ通知配信**：Edge Functionsの判断を起点に、Expo Push経由で
   APNs/FCMへ、最終的に端末に届く
 
+### 実装済み：入室通知の配信経路（Issue #131、2026-09-25）
+
+- クライアントは`expo-notifications`でExpoPushTokenを取得し、
+  `USERS.push_token`に保存する（`app/hooks/usePushNotificationRegistration.ts`）
+- `PRESENCE_LOGS`へのINSERT（＝入室）をSupabase Database Webhookでフックし、
+  Edge Function`send-entry-notifications`を起動する（クライアントを信用せず、
+  判定・送信はすべてservice role側で行う）
+- 通知すべきかの判定（`shouldSendEntryNotification`・
+  `shouldSendWantToMeetNotification`）は`app/utils/notifications.ts`と
+  `supabase/functions/_shared/notifications.ts`の2箇所に同じロジックを置いている
+  （クライアント/Edge Functionでランタイムが異なり、現状ビルド構成を共有できない
+  ため。ルール変更時は両方を更新する必要がある）
+- Database Webhookのトリガー自体（presence_logsのINSERT→Edge Function呼び出し）は
+  環境（dev/prod）ごとにSupabaseダッシュボードから設定する運用とし、
+  マイグレーションには含めていない（Edge FunctionのURLが環境ごとに異なるため）
+
 ## 実装方針（この図から導かれる判断基準）
 
 - ジオフェンス判定・PRESENCE_LOGSへの書き込みは**クライアント側**で行う

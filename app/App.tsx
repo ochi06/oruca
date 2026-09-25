@@ -9,6 +9,7 @@ import { ErrorState } from './components/ErrorState';
 import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
+import { usePushNotificationRegistration } from './hooks/usePushNotificationRegistration';
 import { RootTabNavigator } from './navigation/RootTabNavigator';
 
 import LoginScreen from './screens/LoginScreen';
@@ -25,6 +26,8 @@ export default function App() {
   // ログイン完了後は、どのタブを表示していても常時マウントされるApp本体から
   // 呼び出すことで、タブ切り替えによるアンマウントで監視が止まらないようにする
   useGeofenceMonitor(!!userId);
+  // 同じ理由で、Pushトークンの登録も常時マウントされるApp本体から呼び出す（Issue #131）
+  usePushNotificationRegistration(!!userId);
 
   // ログイン状態の監視（ADR-0010）。起動時の既存セッション確認と、以後の
   // ログイン・ログアウトの両方をこのリスナー1つでまとめて扱う
