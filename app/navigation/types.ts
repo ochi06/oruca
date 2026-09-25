@@ -1,6 +1,7 @@
 // react-navigation本導入（Issue #114）に伴う各Stack/Tabのparam list。
 // 画面追加時はここに型を足してから、対応するNavigatorに登録する。
 
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { Area } from '../mocks/areas';
 import { AreaPresentUser } from '../store/usePresenceStore';
 
@@ -31,7 +32,10 @@ export type SettingsStackParamList = {
 };
 
 export type RootTabParamList = {
-  MapTab: undefined;
-  FriendsGroupsTab: undefined;
-  SettingsTab: undefined;
+  // ネストしたStack Navigatorの画面へタブをまたいで直接遷移できるように
+  // （Issue #120フォローアップ：マップのマーカータップ→友達詳細）、
+  // 各タブの中身をNavigatorScreenParamsとして持たせる
+  MapTab: NavigatorScreenParams<MapStackParamList>;
+  FriendsGroupsTab: NavigatorScreenParams<FriendsGroupsStackParamList>;
+  SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };

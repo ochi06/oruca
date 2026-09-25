@@ -171,19 +171,20 @@ describe('buildInitialState', () => {
 });
 
 describe('buildPresenceMarkers', () => {
-  test('visibleUserIdsに含まれるユーザーは名前・アイコンつきで返す', () => {
+  test('visibleUserIdsに含まれるユーザーは名前・アイコン・ステータスつきで返す', () => {
+    const usersWithStatus: User[] = [{ ...users[0], status: 'working' }, users[1]];
     const locations: PresenceLocation[] = [
       { user_id: 'user-a', lat: 35.0, lng: 135.0 },
     ];
 
-    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), usersWithStatus);
 
     expect(result).toEqual([
-      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: '田中', iconUrl: 'https://example.com/a.png' },
+      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: '田中', iconUrl: 'https://example.com/a.png', status: 'working' },
     ]);
   });
 
-  test('visibleUserIdsに含まれないユーザーはdisplayName・iconUrlともnullにする', () => {
+  test('visibleUserIdsに含まれないユーザーはdisplayName・iconUrl・statusともnullにする', () => {
     const locations: PresenceLocation[] = [
       { user_id: 'user-a', lat: 35.0, lng: 135.0 },
     ];
@@ -191,7 +192,7 @@ describe('buildPresenceMarkers', () => {
     const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(), users);
 
     expect(result).toEqual([
-      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: null, iconUrl: null },
+      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: null, iconUrl: null, status: null },
     ]);
   });
 
@@ -204,7 +205,7 @@ describe('buildPresenceMarkers', () => {
     const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(), [selfUser]);
 
     expect(result).toEqual([
-      { userId: CURRENT_USER_ID, latitude: 35.0, longitude: 135.0, displayName: '自分', iconUrl: null },
+      { userId: CURRENT_USER_ID, latitude: 35.0, longitude: 135.0, displayName: '自分', iconUrl: null, status: null },
     ]);
   });
 
@@ -216,6 +217,22 @@ describe('buildPresenceMarkers', () => {
     const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
 
     expect(result).toEqual([]);
+  });
+
+  test('Issue #127：同じuser_idの行が複数あっても最初の1件だけをマーカーにする（key重複防止）', () => {
+    // 重なり合う2つのエリアに同時在席している場合など、同じユーザーが
+    // 複数行のPRESENCE_LOGSを持つケースを想定
+    const locations: PresenceLocation[] = [
+      { user_id: 'user-a', lat: 35.0, lng: 135.0 },
+      { user_id: 'user-a', lat: 35.0001, lng: 135.0001 },
+    ];
+
+    const result = buildPresenceMarkers(CURRENT_USER_ID, locations, new Set(['user-a']), users);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(
+      { userId: 'user-a', latitude: 35.0, longitude: 135.0, displayName: '田中', iconUrl: 'https://example.com/a.png', status: null }
+    );
   });
 });
 
