@@ -13,6 +13,7 @@ function buildFixture(): { group: Group; members: GroupMember[] } {
     owner_user_id: OWNER_ID,
     name: 'テストグループ',
     invite_code: 'ABCD12',
+    is_public: false,
     created_at: now,
     updated_at: now,
   };
@@ -55,7 +56,7 @@ beforeEach(() => {
 
 describe('createGroup', () => {
   it('groupsに新しいグループを追加し、作成者をowner_user_idにする', () => {
-    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID, false);
 
     expect(newGroup.name).toBe('新しいグループ');
     expect(newGroup.owner_user_id).toBe(OWNER_ID);
@@ -63,7 +64,7 @@ describe('createGroup', () => {
   });
 
   it('作成者を承認済みメンバーとしても登録する', () => {
-    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID, false);
 
     const ownerMember = useGroupStore
       .getState()
@@ -73,7 +74,7 @@ describe('createGroup', () => {
   });
 
   it('既存のgroups/membersは維持したまま追加する', () => {
-    useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+    useGroupStore.getState().createGroup('新しいグループ', OWNER_ID, false);
 
     expect(useGroupStore.getState().groups.some((g) => g.id === 'group-1')).toBe(true);
     expect(useGroupStore.getState().members.some((m) => m.id === 'member-owner')).toBe(true);
@@ -118,6 +119,28 @@ describe('inviteMember', () => {
 
   it('存在しないグループへの招待はnot_foundを返す', () => {
     const result = useGroupStore.getState().inviteMember('group-unknown', INVITEE_ID, MEMBER_ID);
+
+    expect(result).toEqual({ status: 'not_found' });
+  });
+});
+
+describe('requestToJoinGroup', () => {
+  it('未所属のグループに参加を申請すると、invited_by=nullのpending行を追加する', () => {
+    const result = useGroupStore.getState().requestToJoinGroup('group-1', INVITEE_ID);
+
+    expect(result).toEqual({ status: 'success' });
+    const requested = useGroupStore.getState().members.find((m) => m.user_id === INVITEE_ID);
+    expect(requested).toMatchObject({ group_id: 'group-1', status: 'pending', invited_by: null });
+  });
+
+  it('既にpending/approvedなメンバーは申請できない', () => {
+    const result = useGroupStore.getState().requestToJoinGroup('group-1', MEMBER_ID);
+
+    expect(result).toEqual({ status: 'already_member' });
+  });
+
+  it('存在しないグループへの申請はnot_foundを返す', () => {
+    const result = useGroupStore.getState().requestToJoinGroup('group-unknown', INVITEE_ID);
 
     expect(result).toEqual({ status: 'not_found' });
   });

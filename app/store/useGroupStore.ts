@@ -11,10 +11,11 @@ export type GroupActionResult =
   // 自分が最後の管理者（owner_user_id）のため退会できない（Issue #11）
   | { status: 'last_admin' };
 
+// inviteMember（他薦）・requestToJoinGroup（自薦）の両方で使う結果型。
+// 「既にpending/approvedな行が存在する」を弾く判定は共通（rejected済みならやり直せる）
 export type InviteMemberResult =
   | { status: 'success' }
   | { status: 'not_found' }
-  // 既にpending/approvedな行が存在する（rejected済みなら再招待できる）
   | { status: 'already_member' };
 
 type GroupState = {
@@ -22,10 +23,13 @@ type GroupState = {
   members: GroupMember[];
   // グループを新規作成し、作成者を管理者(owner_user_id)かつ承認済みメンバーとして
   // 登録する（Issue #116）。グループ名の検証（空・文字数上限）は呼び出し側（画面）で行う
-  createGroup: (name: string, ownerUserId: string) => Group;
+  createGroup: (name: string, ownerUserId: string, isPublic: boolean) => Group;
   // 既存メンバーが友達を招待する（Issue #117）。承認は不要（管理者権限チェックなし）。
   // status: 'pending'のGROUP_MEMBERS行を作り、invited_byに招待者を記録する
   inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => InviteMemberResult;
+  // 自分から公開グループに参加を申請する（Issue #119）。invited_byはnull
+  // （招待されたのではなく自分の意思で申請したことを表す）。管理者の承認待ち
+  requestToJoinGroup: (groupId: string, userId: string) => InviteMemberResult;
   // 招待された本人が承諾する（Issue #117）。requestingUserIdが行の持ち主と
   // 一致する場合のみ許可する（他人の招待を勝手に承諾させないため）
   acceptInvitation: (memberId: string, requestingUserId: string) => GroupActionResult;
@@ -54,7 +58,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   groups: mockGroups,
   members: mockGroupMembers,
 
-  createGroup: (name, ownerUserId) => {
+  createGroup: (name, ownerUserId, isPublic) => {
     const { groups, members } = get();
     const nowIso = new Date().toISOString();
 
@@ -63,6 +67,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       owner_user_id: ownerUserId,
       name,
       invite_code: generateInviteCode(),
+      is_public: isPublic,
       created_at: nowIso,
       updated_at: nowIso,
     };
@@ -102,6 +107,33 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       group_id: groupId,
       user_id: friendUserId,
       invited_by: invitedByUserId,
+      status: 'pending',
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    set({ members: [...members, newMember] });
+    return { status: 'success' };
+  },
+
+  requestToJoinGroup: (groupId, userId) => {
+    const { groups, members } = get();
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) {
+      return { status: 'not_found' };
+    }
+    const alreadyMember = members.some(
+      (m) => m.group_id === groupId && m.user_id === userId && m.status !== 'rejected'
+    );
+    if (alreadyMember) {
+      return { status: 'already_member' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const newMember: GroupMember = {
+      id: `member-mock-${members.length + 1}`,
+      group_id: groupId,
+      user_id: userId,
+      invited_by: null,
       status: 'pending',
       created_at: nowIso,
       updated_at: nowIso,

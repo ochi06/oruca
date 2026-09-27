@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -23,6 +23,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const { showToast } = useToast();
   const createGroup = useGroupStore((state) => state.createGroup);
   const [name, setName] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [creating, setCreating] = useState(false);
 
   function handleCreate() {
@@ -37,7 +38,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
     }
 
     setCreating(true);
-    const newGroup = createGroup(trimmedName, CURRENT_USER_ID);
+    const newGroup = createGroup(trimmedName, CURRENT_USER_ID, isPublic);
     showToast(`「${newGroup.name}」を作成しました`);
     // 一覧に戻らず、作成したグループの詳細画面へそのまま遷移する
     navigation.replace('GroupDetail', { groupId: newGroup.id });
@@ -54,6 +55,16 @@ export default function GroupCreateScreen({ navigation }: Props) {
         editable={!creating}
         autoFocus
       />
+      <View style={styles.publicRow}>
+        <Text style={{ color: colors.text }}>公開グループにする（検索して参加申請できる）</Text>
+        <Switch
+          value={isPublic}
+          onValueChange={setIsPublic}
+          disabled={creating}
+          trackColor={{ true: colors.blue, false: colors.lightblue }}
+          accessibilityLabel="公開グループにする"
+        />
+      </View>
       <Button
         label={creating ? '作成中…' : '作成する'}
         onPress={handleCreate}
@@ -72,6 +83,13 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     marginBottom: spacing.lg,
+  },
+  publicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
   createButton: {
     marginTop: spacing.md,
