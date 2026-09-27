@@ -9,28 +9,18 @@ import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
-import { otherUser } from '../../mocks/otp';
-import { useFriendAddStore } from '../../store/useFriendAddStore';
+import { CURRENT_USER_ID } from '../../mocks/presence';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
+import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 export default function FriendsListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<FriendsGroupsStackParamList>>();
   const { colors } = useTheme();
-  const addedFriendIds = useFriendAddStore((state) => state.addedFriendIds);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
   const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
   const toggleMuted = useNotifyPreferencesStore((state) => state.toggleMuted);
-
-  const friendIds = friendships
-    .filter((f) => f.user_id === CURRENT_USER_ID && f.status === 'active')
-    .map((f) => f.friend_id);
-  const allUsers = [...mockUsers, otherUser];
-  const friends = [...friendIds, ...addedFriendIds]
-    .filter((id, index, ids) => ids.indexOf(id) === index)
-    .map((id) => allUsers.find((user) => user.id === id))
-    .filter((user): user is (typeof allUsers)[number] => user !== undefined);
+  const friends = useFriendUsers();
 
   return (
     <Screen style={styles.container}>

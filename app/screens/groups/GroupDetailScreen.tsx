@@ -17,6 +17,7 @@ import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
+import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 function findUserName(userId: string): string {
@@ -34,12 +35,15 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const members = useGroupStore(
     useShallow((state) => state.members.filter((m) => m.group_id === groupId)),
   );
+  const inviteMember = useGroupStore((state) => state.inviteMember);
   const approveMember = useGroupStore((state) => state.approveMember);
   const rejectMember = useGroupStore((state) => state.rejectMember);
   const removeMember = useGroupStore((state) => state.removeMember);
   const leaveGroup = useGroupStore((state) => state.leaveGroup);
   const transferOwnership = useGroupStore((state) => state.transferOwnership);
+  const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
+  const [isInviting, setIsInviting] = useState(false);
 
   if (!group) {
     return (
@@ -53,6 +57,22 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const isAdmin = isGroupAdmin(group, CURRENT_USER_ID);
   const pendingMembers = members.filter((m) => m.status === 'pending');
   const approvedMembers = members.filter((m) => m.status === 'approved');
+  // rejected済みの友達は再招待できるので除外しない（inviteMember側の判定と合わせる）
+  const invitableFriends = friends.filter(
+    (friend) => !members.some((m) => m.user_id === friend.id && m.status !== 'rejected')
+  );
+
+  function handleInvite(friendId: string) {
+    const result = inviteMember(groupId, friendId, CURRENT_USER_ID);
+    if (result.status === 'already_member') {
+      showToast('既に招待済み、またはメンバーです');
+      return;
+    }
+    if (result.status === 'success') {
+      showToast('招待しました');
+      setIsInviting(false);
+    }
+  }
 
   function handleApprove(memberId: string) {
     const result = approveMember(groupId, memberId, CURRENT_USER_ID);
@@ -114,6 +134,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     <Screen style={styles.container}>
       <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
       <Text style={[styles.title, { color: colors.text }]}>{group.name}</Text>
+
+      <Button label="友達を招待する" onPress={() => setIsInviting(true)} style={styles.inviteButton} />
 
       {isAdmin && (
         <View style={styles.section}>
@@ -203,6 +225,23 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           <Button label="譲る" onPress={handleConfirmTransfer} style={styles.modalButton} />
         </View>
       </Modal>
+
+      <Modal visible={isInviting} onClose={() => setIsInviting(false)} title="友達を招待する">
+        {invitableFriends.length === 0 ? (
+          <EmptyState icon="person-add-outline" message="招待できる友達がいません" />
+        ) : (
+          invitableFriends.map((friend) => (
+            <ListItem
+              key={friend.id}
+              title={friend.name}
+              leading={<Avatar name={friend.name} iconUrl={friend.icon_url} />}
+              trailing={
+                <Button label="招待する" onPress={() => handleInvite(friend.id)} style={styles.actionButton} />
+              }
+            />
+          ))
+        )}
+      </Modal>
     </Screen>
   );
 }
@@ -232,6 +271,9 @@ const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
     marginBottom: spacing.md,
+  },
+  inviteButton: {
+    marginBottom: spacing.lg,
   },
   leaveButton: {
     marginTop: spacing.md,

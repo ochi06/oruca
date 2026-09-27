@@ -5,6 +5,7 @@ const now = '2026-09-19T00:00:00.000Z';
 const OWNER_ID = 'user-owner';
 const MEMBER_ID = 'user-member';
 const OTHER_MEMBER_ID = 'user-other';
+const INVITEE_ID = 'user-invitee';
 
 function buildFixture(): { group: Group; members: GroupMember[] } {
   const group: Group = {
@@ -76,6 +77,94 @@ describe('createGroup', () => {
 
     expect(useGroupStore.getState().groups.some((g) => g.id === 'group-1')).toBe(true);
     expect(useGroupStore.getState().members.some((m) => m.id === 'member-owner')).toBe(true);
+  });
+});
+
+describe('inviteMember', () => {
+  it('招待されていない友達を招待すると、pendingなGROUP_MEMBERS行を追加する', () => {
+    const result = useGroupStore.getState().inviteMember('group-1', INVITEE_ID, MEMBER_ID);
+
+    expect(result).toEqual({ status: 'success' });
+    const invited = useGroupStore.getState().members.find((m) => m.user_id === INVITEE_ID);
+    expect(invited).toMatchObject({ group_id: 'group-1', status: 'pending', invited_by: MEMBER_ID });
+  });
+
+  it('既にpending/approvedなメンバーは招待できない', () => {
+    const result = useGroupStore.getState().inviteMember('group-1', MEMBER_ID, OWNER_ID);
+
+    expect(result).toEqual({ status: 'already_member' });
+  });
+
+  it('rejected済みの相手は再招待できる', () => {
+    useGroupStore.setState({
+      members: [
+        ...useGroupStore.getState().members,
+        {
+          id: 'member-rejected',
+          group_id: 'group-1',
+          user_id: INVITEE_ID,
+          invited_by: MEMBER_ID,
+          status: 'rejected',
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+    });
+
+    const result = useGroupStore.getState().inviteMember('group-1', INVITEE_ID, MEMBER_ID);
+
+    expect(result).toEqual({ status: 'success' });
+  });
+
+  it('存在しないグループへの招待はnot_foundを返す', () => {
+    const result = useGroupStore.getState().inviteMember('group-unknown', INVITEE_ID, MEMBER_ID);
+
+    expect(result).toEqual({ status: 'not_found' });
+  });
+});
+
+describe('acceptInvitation / declineInvitation', () => {
+  beforeEach(() => {
+    useGroupStore.setState({
+      members: [
+        ...useGroupStore.getState().members,
+        {
+          id: 'member-invitation',
+          group_id: 'group-1',
+          user_id: INVITEE_ID,
+          invited_by: MEMBER_ID,
+          status: 'pending',
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+    });
+  });
+
+  it('招待された本人は承諾できる', () => {
+    const result = useGroupStore.getState().acceptInvitation('member-invitation', INVITEE_ID);
+
+    expect(result).toEqual({ status: 'success' });
+    expect(useGroupStore.getState().members.find((m) => m.id === 'member-invitation')?.status).toBe('approved');
+  });
+
+  it('招待された本人は辞退できる', () => {
+    const result = useGroupStore.getState().declineInvitation('member-invitation', INVITEE_ID);
+
+    expect(result).toEqual({ status: 'success' });
+    expect(useGroupStore.getState().members.find((m) => m.id === 'member-invitation')?.status).toBe('rejected');
+  });
+
+  it('本人以外は承諾できない', () => {
+    const result = useGroupStore.getState().acceptInvitation('member-invitation', OTHER_MEMBER_ID);
+
+    expect(result).toEqual({ status: 'forbidden' });
+  });
+
+  it('本人以外は辞退できない', () => {
+    const result = useGroupStore.getState().declineInvitation('member-invitation', OTHER_MEMBER_ID);
+
+    expect(result).toEqual({ status: 'forbidden' });
   });
 });
 
