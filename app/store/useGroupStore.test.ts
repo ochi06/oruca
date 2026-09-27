@@ -52,6 +52,33 @@ beforeEach(() => {
   useGroupStore.setState({ groups: [group], members });
 });
 
+describe('createGroup', () => {
+  it('groupsに新しいグループを追加し、作成者をowner_user_idにする', () => {
+    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+
+    expect(newGroup.name).toBe('新しいグループ');
+    expect(newGroup.owner_user_id).toBe(OWNER_ID);
+    expect(useGroupStore.getState().groups).toContainEqual(newGroup);
+  });
+
+  it('作成者を承認済みメンバーとしても登録する', () => {
+    const newGroup = useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+
+    const ownerMember = useGroupStore
+      .getState()
+      .members.find((m) => m.group_id === newGroup.id && m.user_id === OWNER_ID);
+    expect(ownerMember?.status).toBe('approved');
+    expect(ownerMember?.invited_by).toBeNull();
+  });
+
+  it('既存のgroups/membersは維持したまま追加する', () => {
+    useGroupStore.getState().createGroup('新しいグループ', OWNER_ID);
+
+    expect(useGroupStore.getState().groups.some((g) => g.id === 'group-1')).toBe(true);
+    expect(useGroupStore.getState().members.some((m) => m.id === 'member-owner')).toBe(true);
+  });
+});
+
 describe('leaveGroup', () => {
   it('管理者ではない承認済みメンバーは退会できる', () => {
     const result = useGroupStore.getState().leaveGroup('group-1', MEMBER_ID);

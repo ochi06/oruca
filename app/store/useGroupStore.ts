@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { Group, GroupMember, mockGroupMembers, mockGroups } from '../mocks/groups';
 import { isGroupAdmin } from '../utils/groupAuth';
+import { generateInviteCode } from '../utils/groupInvite';
 
 export type GroupActionResult =
   | { status: 'success' }
@@ -13,6 +14,9 @@ export type GroupActionResult =
 type GroupState = {
   groups: Group[];
   members: GroupMember[];
+  // グループを新規作成し、作成者を管理者(owner_user_id)かつ承認済みメンバーとして
+  // 登録する（Issue #116）。グループ名の検証（空・文字数上限）は呼び出し側（画面）で行う
+  createGroup: (name: string, ownerUserId: string) => Group;
   approveMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
   rejectMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
   removeMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
@@ -34,6 +38,35 @@ function findGroupAndMember(groups: Group[], members: GroupMember[], groupId: st
 export const useGroupStore = create<GroupState>((set, get) => ({
   groups: mockGroups,
   members: mockGroupMembers,
+
+  createGroup: (name, ownerUserId) => {
+    const { groups, members } = get();
+    const nowIso = new Date().toISOString();
+
+    const newGroup: Group = {
+      id: `group-mock-${groups.length + 1}`,
+      owner_user_id: ownerUserId,
+      name,
+      invite_code: generateInviteCode(),
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    const ownerMember: GroupMember = {
+      id: `member-mock-${members.length + 1}`,
+      group_id: newGroup.id,
+      user_id: ownerUserId,
+      invited_by: null,
+      status: 'approved',
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    set({
+      groups: [...groups, newGroup],
+      members: [...members, ownerMember],
+    });
+    return newGroup;
+  },
 
   approveMember: (groupId, memberId, requestingUserId) => {
     const { groups, members } = get();
