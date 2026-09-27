@@ -87,6 +87,7 @@ erDiagram
     uuid owner_user_id FK
     string name
     string invite_code
+    boolean is_public
     timestamp created_at
     timestamp updated_at
   }
@@ -174,7 +175,10 @@ erDiagram
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
 - **GROUPS**：US-006・US-010のグループ本体。`owner_user_id`が唯一の管理者
   （複数管理者は未対応、今後必要になれば別途検討）。`invite_code`は招待コードを
-  知っていれば誰でも参加申請できる仕組み（Issue #65のエリア参加の仕組みに準拠）
+  知っていれば誰でも参加申請できる仕組み（Issue #65のエリア参加の仕組みに準拠）。
+  `is_public`はIssue #119（グループを検索して参加申請する画面）用。`true`の
+  グループのみ検索対象になる（`AREAS.is_public`と同じ考え方）。デフォルトは
+  `false`（作成時に検索対象にするかを選ぶ）
 - **GROUP_MEMBERS**：グループへの参加申請・メンバーシップ。`status`は
   pending（申請中）→approved（承認済み）／rejected（却下）の二段階。
   `invited_by`は既存メンバーが友達を直接招待した場合の招待者（招待コードでの
