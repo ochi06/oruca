@@ -183,8 +183,11 @@ export function useGeofenceMonitor(enabled: boolean): void {
         return;
       }
 
+      // Issue #90: Balancedだとネットワークベース測位に倒れ、環境によっては
+      // OSレベルの位置情報登録自体がサイレントに失敗する（エミュレーターで確認）。
+      // Highに固定してGPS優先の測位を強制する
       const subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
+        { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
         (result) => {
           handleLocation({
             latitude: result.coords.latitude,
