@@ -1,15 +1,107 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+import { Button } from '../../components/Button';
+import { EmptyState } from '../../components/EmptyState';
+import { ListItem } from '../../components/ListItem';
+import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
+import { useTheme } from '../../theme/useTheme';
+import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
+import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
+import { useGroupStore } from '../../store/useGroupStore';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
-// 中身は未実装（届いた招待の一覧から承諾/辞退、Issue #117）。
-// 設定タブの通知ボックスからも同じ画面に遷移する想定。
-// Issue #114のスコープはナビゲーションの箱のみ
+function findUserName(userId: string): string {
+  return mockUsers.find((user) => user.id === userId)?.name ?? '不明なユーザー';
+}
+
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupJoin'>;
 
+// 届いた招待（GROUP_MEMBERS.invited_byが自分以外＝誰かからの招待）の
+// 一覧から参加/辞退を選ぶ画面（Issue #117）。自分から申請した場合
+// （invited_by === null、Issue #119「グループ参加申請」）はここには出さない
 export default function GroupJoinScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const { showToast } = useToast();
+  const groups = useGroupStore((state) => state.groups);
+  const invitations = useGroupStore(
+    useShallow((state) =>
+      state.members.filter(
+        (m) => m.user_id === CURRENT_USER_ID && m.status === 'pending' && m.invited_by !== null
+      )
+    )
+  );
+  const acceptInvitation = useGroupStore((state) => state.acceptInvitation);
+  const declineInvitation = useGroupStore((state) => state.declineInvitation);
+
+  function handleAccept(memberId: string) {
+    const result = acceptInvitation(memberId, CURRENT_USER_ID);
+    if (result.status === 'success') {
+      showToast('グループに参加しました');
+    }
+  }
+
+  function handleDecline(memberId: string) {
+    const result = declineInvitation(memberId, CURRENT_USER_ID);
+    if (result.status === 'success') {
+      showToast('招待を辞退しました');
+    }
+  }
+
   return (
-    <PlaceholderScreen message="グループ参加（招待の承諾）は準備中です" onBack={() => navigation.goBack()} />
+    <Screen style={styles.container}>
+      <Text style={[styles.title, { color: colors.text }]}>グループ参加</Text>
+
+      {invitations.length === 0 ? (
+        <EmptyState icon="mail-open-outline" message="届いている招待はありません" />
+      ) : (
+        invitations.map((invitation) => {
+          const group = groups.find((g) => g.id === invitation.group_id);
+          return (
+            <ListItem
+              key={invitation.id}
+              title={group?.name ?? '不明なグループ'}
+              subtitle={`${findUserName(invitation.invited_by!)}からの招待`}
+              trailing={
+                <View style={styles.actions}>
+                  <Button label="参加する" onPress={() => handleAccept(invitation.id)} style={styles.actionButton} />
+                  <Button
+                    label="辞退する"
+                    variant="secondary"
+                    onPress={() => handleDecline(invitation.id)}
+                    style={styles.actionButton}
+                  />
+                </View>
+              }
+            />
+          );
+        })
+      )}
+
+      <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} style={styles.backButton} />
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: spacing.md,
+  },
+  title: {
+    ...typography.title,
+    marginBottom: spacing.md,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    paddingHorizontal: spacing.md,
+  },
+  backButton: {
+    marginTop: spacing.md,
+  },
+});
