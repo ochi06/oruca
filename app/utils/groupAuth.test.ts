@@ -1,5 +1,5 @@
-import { isGroupAdmin } from './groupAuth';
-import { Group } from '../mocks/groups';
+import { getGroupMateIds, isGroupAdmin } from './groupAuth';
+import { Group, GroupMember } from '../mocks/groups';
 
 describe('isGroupAdmin', () => {
   const group: Group = {
@@ -18,5 +18,57 @@ describe('isGroupAdmin', () => {
 
   it('作成者以外はfalseを返す', () => {
     expect(isGroupAdmin(group, 'user-a')).toBe(false);
+  });
+});
+
+describe('getGroupMateIds', () => {
+  const now = '2026-09-19T00:00:00.000Z';
+
+  function member(groupId: string, userId: string, status: GroupMember['status']): GroupMember {
+    return {
+      id: `${groupId}-${userId}`,
+      group_id: groupId,
+      user_id: userId,
+      invited_by: null,
+      status,
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  it('同じグループの承認済みメンバー（自分以外）を返す', () => {
+    const members = [
+      member('group-1', 'user-me', 'approved'),
+      member('group-1', 'user-a', 'approved'),
+      member('group-1', 'user-b', 'pending'),
+    ];
+
+    const result = getGroupMateIds('user-me', members);
+
+    expect(result).toEqual(new Set(['user-a']));
+  });
+
+  it('自分が承認済みでないグループのメンバーは含めない', () => {
+    const members = [
+      member('group-1', 'user-me', 'pending'),
+      member('group-1', 'user-a', 'approved'),
+    ];
+
+    const result = getGroupMateIds('user-me', members);
+
+    expect(result).toEqual(new Set());
+  });
+
+  it('複数グループにまたがるメンバーも重複なく1回だけ含める', () => {
+    const members = [
+      member('group-1', 'user-me', 'approved'),
+      member('group-2', 'user-me', 'approved'),
+      member('group-1', 'user-a', 'approved'),
+      member('group-2', 'user-a', 'approved'),
+    ];
+
+    const result = getGroupMateIds('user-me', members);
+
+    expect(result).toEqual(new Set(['user-a']));
   });
 });

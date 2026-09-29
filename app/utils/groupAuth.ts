@@ -6,8 +6,26 @@
 // という前提。この関数が見るのは認可（Authorization）＝「その人はこのグループで
 // 管理者操作をしてよいか」だけ、という違いを意識して実装する。
 
-import { Group } from '../mocks/groups';
+import { Group, GroupMember } from '../mocks/groups';
 
 export function isGroupAdmin(group: Group, userId: string): boolean {
   return group.owner_user_id === userId;
+}
+
+// 自分と同じグループ（承認済み）に所属している人のuser_id一覧（Issue #16）。
+// 複数グループにまたがって重複していても1回だけカウントする
+export function getGroupMateIds(currentUserId: string, members: GroupMember[]): Set<string> {
+  const myGroupIds = new Set(
+    members
+      .filter((m) => m.user_id === currentUserId && m.status === 'approved')
+      .map((m) => m.group_id)
+  );
+
+  const mateIds = new Set<string>();
+  for (const member of members) {
+    if (member.status === 'approved' && member.user_id !== currentUserId && myGroupIds.has(member.group_id)) {
+      mateIds.add(member.user_id);
+    }
+  }
+  return mateIds;
 }
