@@ -9,7 +9,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { formatPresenceCount } from '../../utils/format';
 import { userStatusLabel } from '../../constants/status';
-import { AreaPresentUser } from '../../store/usePresenceStore';
+import { AreaPresentUser } from '../../utils/presenceMarkers';
 
 const PREVIEW_COUNT = 3;
 

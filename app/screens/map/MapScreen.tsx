@@ -26,7 +26,7 @@ import {
   buildPresenceMarkers,
   PresenceLocation,
   PresenceMarker,
-} from '../../store/usePresenceStore';
+} from '../../utils/presenceMarkers';
 import { computeRegionForAreas, Region } from '../../utils/mapRegion';
 import { distanceInMeters } from '../../utils/geo';
 import { MapStackParamList, RootTabParamList } from '../../navigation/types';

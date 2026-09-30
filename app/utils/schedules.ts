@@ -1,7 +1,6 @@
 // docs/schema.md「設計上の重要な原則」2.：友達の情報を見せてよいかどうかは、
 // 必ず FRIEND_AREA_LINKS.status === 'approved' をチェックしてから判断すること。
-// store/usePresenceStore.ts の resolveDisplayName と同じ考え方・同じ判定条件を、
-// AREA_SCHEDULES / AREA_SCHEDULE_OVERRIDES にも適用する（US-011）。
+// この考え方・判定条件を AREA_SCHEDULES / AREA_SCHEDULE_OVERRIDES にも適用する（US-011）。
 
 import { FriendAreaLink } from '../mocks/presence';
 import { AreaSchedule, AreaScheduleOverride } from '../mocks/schedules';
