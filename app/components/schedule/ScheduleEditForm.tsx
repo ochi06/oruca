@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '../Button';
@@ -22,21 +22,40 @@ export function ScheduleEditForm({ areaId }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
 
+  const status = useScheduleStore((state) => state.status);
+  const initialize = useScheduleStore((state) => state.initialize);
   const myNote = useScheduleStore((state) => state.myNote(areaId));
   const myOverrideNote = useScheduleStore((state) => state.myOverrideNote(areaId));
   const setMyNote = useScheduleStore((state) => state.setMyNote);
   const setMyOverrideNote = useScheduleStore((state) => state.setMyOverrideNote);
 
+  useEffect(() => {
+    initialize(areaId);
+  }, [initialize, areaId]);
+
   const [noteInput, setNoteInput] = useState(myNote ?? '');
   const [overrideInput, setOverrideInput] = useState(myOverrideNote ?? '');
+  const [hasSyncedFromStore, setHasSyncedFromStore] = useState(false);
 
-  function handleSaveNote() {
-    setMyNote(areaId, noteInput.trim());
+  // 取得完了時（status: 'ready'）に、既存の予定があれば入力欄へ反映する。
+  // データがSupabaseから非同期に届くため、マウント直後のuseStateの初期値
+  // だけでは間に合わない。エフェクトではなくレンダー中にsetStateする
+  // （https://react.dev/learn/you-might-not-need-an-effect の
+  // 「propが変わった時にstateを調整する」パターン）ことで、1回だけ
+  // 同期し、以降のユーザーの入力を上書きしないようにする
+  if (status === 'ready' && !hasSyncedFromStore) {
+    setHasSyncedFromStore(true);
+    setNoteInput(myNote ?? '');
+    setOverrideInput(myOverrideNote ?? '');
+  }
+
+  async function handleSaveNote() {
+    await setMyNote(areaId, noteInput.trim());
     showToast('基本の滞在予定を保存しました');
   }
 
-  function handleSaveOverride() {
-    setMyOverrideNote(areaId, overrideInput.trim());
+  async function handleSaveOverride() {
+    await setMyOverrideNote(areaId, overrideInput.trim());
     showToast('今日の予定を保存しました');
   }
 

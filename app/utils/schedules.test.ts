@@ -1,6 +1,5 @@
-import { resolveFriendSchedule } from './schedules';
+import { resolveFriendSchedule, AreaSchedule, AreaScheduleOverride } from './schedules';
 import { FriendAreaLink } from '../mocks/presence';
-import { AreaSchedule, AreaScheduleOverride } from '../mocks/schedules';
 
 const now = '2026-09-19T00:00:00.000Z';
 const CURRENT_USER_ID = 'user-me';

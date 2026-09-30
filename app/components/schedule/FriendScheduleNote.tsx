@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../../theme/useTheme';
@@ -15,7 +16,12 @@ type Props = {
 // 構成が固まるまでは、まだどの画面からも呼び出されていない
 export function FriendScheduleNote({ friendId, areaId }: Props) {
   const { colors } = useTheme();
+  const initialize = useScheduleStore((state) => state.initialize);
   const schedule = useScheduleStore((state) => state.friendSchedule(friendId, areaId));
+
+  useEffect(() => {
+    initialize(areaId);
+  }, [initialize, areaId]);
 
   if (schedule.note === null) {
     return (
