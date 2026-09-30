@@ -15,6 +15,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
+import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import {
   DEFAULT_USER_NAME,
   ensureSignedIn,
@@ -27,6 +28,12 @@ import {
 } from '../../lib/auth';
 import { SettingsStackParamList } from '../../navigation/types';
 
+const THEME_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'light', label: 'ライト' },
+  { value: 'dark', label: 'ダーク' },
+  { value: 'system', label: 'システムに従う' },
+];
+
 // エリア名（AREA_NAME_MAX_LENGTH）と同程度の上限を設ける。DB側に長さ制約は
 // 無いが、一覧・アイコン横での表示崩れを防ぐための画面側のガード
 const DISPLAY_NAME_MAX_LENGTH = 30;
@@ -38,6 +45,8 @@ type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsTop'>;
 export default function SettingsScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
+  const themeMode = useThemeModeStore((state) => state.mode);
+  const setThemeMode = useThemeModeStore((state) => state.setMode);
   const [state, setState] = useState<LoadState>('loading');
   const [name, setName] = useState(DEFAULT_USER_NAME);
   const [iconUrl, setIconUrl] = useState<string | null>(null);
@@ -229,6 +238,21 @@ export default function SettingsScreen({ navigation }: Props) {
               variant={status === option.value ? 'primary' : 'secondary'}
               onPress={() => handleSelectStatus(option.value)}
               disabled={updatingStatus}
+              style={styles.statusChip}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.statusSection}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>表示モード</Text>
+        <View style={styles.statusOptions}>
+          {THEME_MODE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              label={option.label}
+              variant={themeMode === option.value ? 'primary' : 'secondary'}
+              onPress={() => setThemeMode(option.value)}
               style={styles.statusChip}
             />
           ))}
