@@ -66,41 +66,43 @@ export default function LoginScreen() {
   if (sentTo) {
     return (
       <Screen style={styles.container} avoidKeyboard>
-        <Text style={[styles.title, { color: colors.text }]}>コードを入力してください</Text>
-        <Text style={[styles.body, { color: colors.textSub }]}>
-          {sentTo} 宛に{CODE_LENGTH}桁のログインコードを送信しました。
-        </Text>
+        <View style={styles.content}>
+          <Text style={[styles.title, { color: colors.text }]}>コードを入力してください</Text>
+          <Text style={[styles.body, { color: colors.textSub }]}>
+            {sentTo} 宛に{CODE_LENGTH}桁のログインコードを送信しました。
+          </Text>
 
-        <Input
-          style={styles.input}
-          value={code}
-          onChangeText={setCode}
-          placeholder="123456"
-          keyboardType="number-pad"
-          maxLength={CODE_LENGTH}
-          editable={!verifying}
-        />
-
-        {errorMessage ? (
-          <Text style={[styles.error, { color: colors.coral }]}>{errorMessage}</Text>
-        ) : null}
-
-        <Button
-          label={verifying ? 'ログイン中…' : 'ログイン'}
-          onPress={handleVerifyCode}
-          disabled={verifying}
-        />
-
-        <View style={styles.retryLink}>
-          <Button
-            label="別のアドレスで送り直す"
-            variant="secondary"
-            onPress={() => {
-              setSentTo(null);
-              setCode('');
-              setErrorMessage(null);
-            }}
+          <Input
+            style={styles.input}
+            value={code}
+            onChangeText={setCode}
+            placeholder="123456"
+            keyboardType="number-pad"
+            maxLength={CODE_LENGTH}
+            editable={!verifying}
           />
+
+          {errorMessage ? (
+            <Text style={[styles.error, { color: colors.coral }]}>{errorMessage}</Text>
+          ) : null}
+
+          <Button
+            label={verifying ? 'ログイン中…' : 'ログイン'}
+            onPress={handleVerifyCode}
+            disabled={verifying}
+          />
+
+          <View style={styles.retryLink}>
+            <Button
+              label="別のアドレスで送り直す"
+              variant="secondary"
+              onPress={() => {
+                setSentTo(null);
+                setCode('');
+                setErrorMessage(null);
+              }}
+            />
+          </View>
         </View>
       </Screen>
     );
@@ -108,42 +110,55 @@ export default function LoginScreen() {
 
   return (
     <Screen style={styles.container} avoidKeyboard>
-      <Text style={[styles.title, { color: colors.text }]}>oruca にログイン</Text>
-      <Text style={[styles.body, { color: colors.textSub }]}>
-        メールアドレスを入力すると、ログイン用のコードが届きます（パスワードは不要です）。
-      </Text>
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>oruca にログイン</Text>
+        <Text style={[styles.body, { color: colors.textSub }]}>
+          メールアドレスを入力すると、ログイン用のコードが届きます（パスワードは不要です）。
+        </Text>
 
-      <Input
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="you@example.com"
-        keyboardType="email-address"
-        inputMode="email"
-        autoComplete="email"
-        textContentType="emailAddress"
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!sending}
-      />
+        <Input
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          inputMode="email"
+          autoComplete="email"
+          textContentType="emailAddress"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!sending}
+        />
 
-      {errorMessage ? (
-        <Text style={[styles.error, { color: colors.coral }]}>{errorMessage}</Text>
-      ) : null}
+        {errorMessage ? (
+          <Text style={[styles.error, { color: colors.coral }]}>{errorMessage}</Text>
+        ) : null}
 
-      <Button
-        label={sending ? '送信中…' : 'ログインコードを送信'}
-        onPress={handleSendCode}
-        disabled={sending}
-      />
+        <Button
+          label={sending ? '送信中…' : 'ログインコードを送信'}
+          onPress={handleSendCode}
+          disabled={sending}
+        />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
     justifyContent: 'center',
+  },
+  // Screen.tsxはセーフエリアのinsetsをpaddingLeft/Right等の個別edgeで
+  // 適用しており、containerのpadding（全edge一括指定）は同じ画面内で
+  // 個別edge指定と競合すると個別edge側が優先される（RN/Yogaの仕様）。
+  // 端末によってinsets.left/rightは0になることが多く、その場合
+  // containerにpaddingを指定しても左右の余白が実質0になってしまう
+  // （Issue #96：タイトル先頭の「o」が画面端で欠ける不具合の原因）。
+  // Screen自体は複数画面で共有しているため、ここでは別ノード（content）に
+  // 左右余白を持たせることで、insetsの個別edge指定と衝突しないようにする
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
   },
   title: {
     fontSize: typography.title.fontSize,
