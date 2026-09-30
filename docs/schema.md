@@ -25,6 +25,10 @@ erDiagram
   AREAS ||--o{ AREA_SCHEDULES : scheduled_in
   USERS ||--o{ AREA_SCHEDULE_OVERRIDES : sets
   AREAS ||--o{ AREA_SCHEDULE_OVERRIDES : scheduled_in
+  USERS ||--o{ NOTIFICATIONS : "user_id (受信者)"
+  USERS ||--o{ NOTIFICATIONS : "related_user_id (入室した友達・招待者等)"
+  AREAS ||--o{ NOTIFICATIONS : concerns
+  GROUP_MEMBERS ||--o{ NOTIFICATIONS : concerns
 
   USERS {
     uuid id PK
@@ -126,6 +130,16 @@ erDiagram
     double lat
     double lng
   }
+  NOTIFICATIONS {
+    uuid id PK
+    uuid user_id FK
+    string type
+    uuid related_user_id FK
+    uuid area_id FK
+    uuid group_member_id FK
+    boolean is_read
+    timestamp created_at
+  }
 ```
 
 ## 各テーブルの役割
@@ -196,6 +210,17 @@ erDiagram
   `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
   正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
   精度・退室後の削除ポリシーは未決定（別途検討）
+- **NOTIFICATIONS**：通知イベントの記録・既読管理（Issue #126、2026-09-30、
+  開発者確認済み）。`type`は`entry`（US-007/016の通常入室通知）・
+  `want_to_meet`（US-017の会いたい人通知）・`arrival_summary`（US-021の
+  会える人一覧、Issue #16）・`group_invite`（グループへの招待、Issue #117）の
+  いずれか。`related_user_id`・`area_id`・`group_member_id`は`type`に応じて
+  使う列だけを埋め、他はnullにする（他テーブルと同じ明示列スタイルを踏襲し、
+  jsonb等の汎用payload列は使わない方針）。`arrival_summary`は「1入室イベントで
+  同時に会える人が複数いる」場合、会える人1人につき1行作る（＝同じarea_id・
+  同じcreated_atの行が複数できる）。表示側（通知ボックス）でarea_id×
+  created_atが一致する行をグループ化し、1枚のカードにまとめる。既読管理は
+  シンプルな`is_read`真偽値のみとし、既読日時は持たない
 
 ## 設計上の重要な原則
 
