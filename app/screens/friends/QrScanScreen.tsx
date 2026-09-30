@@ -27,11 +27,11 @@ export default function QrScanScreen({ navigation }: Props) {
   // 1回のスキャンで複数回verifyCodeが呼ばれる（連続フレームで同じQRを検出する）のを防ぐ
   const handledRef = useRef(false);
 
-  function handleScan(result: BarcodeScanningResult) {
+  async function handleScan(result: BarcodeScanningResult) {
     if (handledRef.current) return;
     handledRef.current = true;
 
-    const verifyResult = verifyCode(result.data.trim());
+    const verifyResult = await verifyCode(result.data.trim());
     switch (verifyResult.status) {
       case 'success':
         showToast(`${verifyResult.friendName}さんを友達に追加しました`);
@@ -47,6 +47,10 @@ export default function QrScanScreen({ navigation }: Props) {
         break;
       case 'not_found':
         showToast('コードが見つかりません');
+        onBack();
+        break;
+      case 'error':
+        showToast('通信に失敗しました。もう一度お試しください');
         onBack();
         break;
     }

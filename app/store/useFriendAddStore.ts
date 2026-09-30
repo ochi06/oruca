@@ -1,59 +1,47 @@
 import { create } from 'zustand';
 
-import { CURRENT_USER_ID } from '../mocks/presence';
-import { otherUser, seedOtherUserOtp } from '../mocks/otp';
-import { issueOtp, isOtpExpired, verifyOtp, OtpCode } from '../utils/otp';
+import { ensureSignedIn } from '../lib/auth';
+import { issueMyOtp, redeemOtp } from '../lib/friends';
+import { useNotifyPreferencesStore } from './useNotifyPreferencesStore';
+import { isOtpExpired, OtpCode } from '../utils/otp';
 
 export type AddFriendResult =
   | { status: 'success'; friendName: string }
   | { status: 'expired' }
   | { status: 'not_found' }
-  | { status: 'self' };
+  | { status: 'self' }
+  | { status: 'error' };
 
 type FriendAddState = {
-  myOtp: OtpCode;
-  issuedOtps: OtpCode[];
-  addedFriendIds: string[];
-  refreshMyOtpIfExpired: () => void;
-  verifyCode: (inputCode: string) => AddFriendResult;
+  myOtp: OtpCode | null;
+  refreshMyOtpIfExpired: () => Promise<void>;
+  verifyCode: (inputCode: string) => Promise<AddFriendResult>;
 };
 
 export const useFriendAddStore = create<FriendAddState>((set, get) => ({
-  myOtp: issueOtp(CURRENT_USER_ID, new Date()),
-  issuedOtps: [seedOtherUserOtp(new Date())],
-  addedFriendIds: [],
+  myOtp: null,
 
-  refreshMyOtpIfExpired: () => {
-    const now = new Date();
+  refreshMyOtpIfExpired: async () => {
     const { myOtp } = get();
-    if (isOtpExpired(myOtp, now)) {
-      set({ myOtp: issueOtp(CURRENT_USER_ID, now) });
+    if (myOtp && !isOtpExpired(myOtp, new Date())) {
+      return;
     }
+    const userId = await ensureSignedIn();
+    const otp = await issueMyOtp(userId);
+    set({ myOtp: otp });
   },
 
-  verifyCode: (inputCode) => {
-    const now = new Date();
-    const { myOtp, issuedOtps } = get();
-
-    if (inputCode === myOtp.code) {
-      return { status: 'self' };
-    }
-
-    const result = verifyOtp(inputCode, issuedOtps, now);
-    if (result.status !== 'valid') {
+  verifyCode: async (inputCode) => {
+    try {
+      const result = await redeemOtp(inputCode);
+      if (result.status === 'success') {
+        // 友達一覧に即反映させる（Issue #143）
+        await useNotifyPreferencesStore.getState().initialize();
+        return { status: 'success', friendName: result.friendName };
+      }
       return { status: result.status };
+    } catch {
+      return { status: 'error' };
     }
-
-    const friend = result.otp.user_id === otherUser.id ? otherUser : null;
-    if (friend === null) {
-      return { status: 'not_found' };
-    }
-
-    set((state) => ({
-      addedFriendIds: state.addedFriendIds.includes(friend.id)
-        ? state.addedFriendIds
-        : [...state.addedFriendIds, friend.id],
-    }));
-    return { status: 'success', friendName: friend.name };
   },
 }));

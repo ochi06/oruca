@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
@@ -34,6 +35,7 @@ export default function AddFriendScreen({ navigation }: Props) {
   const [inputCode, setInputCode] = useState('');
 
   useEffect(() => {
+    refreshMyOtpIfExpired();
     const timer = setInterval(() => {
       setNow(new Date());
       refreshMyOtpIfExpired();
@@ -41,8 +43,8 @@ export default function AddFriendScreen({ navigation }: Props) {
     return () => clearInterval(timer);
   }, [refreshMyOtpIfExpired]);
 
-  function handleVerify() {
-    const result = verifyCode(inputCode.trim());
+  async function handleVerify() {
+    const result = await verifyCode(inputCode.trim());
     switch (result.status) {
       case 'success':
         showToast(`${result.friendName}さんを友達に追加しました`);
@@ -58,10 +60,13 @@ export default function AddFriendScreen({ navigation }: Props) {
       case 'not_found':
         showToast('コードが見つかりません');
         break;
+      case 'error':
+        showToast('通信に失敗しました。もう一度お試しください');
+        break;
     }
   }
 
-  const secondsLeft = isOtpExpired(myOtp, now) ? 0 : remainingSeconds(myOtp.expires_at, now);
+  const secondsLeft = myOtp === null || isOtpExpired(myOtp, now) ? 0 : remainingSeconds(myOtp.expires_at, now);
 
   return (
     <Screen style={styles.container} avoidKeyboard>
@@ -71,10 +76,16 @@ export default function AddFriendScreen({ navigation }: Props) {
         <Text style={[styles.label, { color: colors.textSub }]}>
           自分のコードを見せる（あと{secondsLeft}秒）
         </Text>
-        <View style={styles.qrWrapper}>
-          <QRCode value={myOtp.code} size={160} />
-        </View>
-        <Text style={[styles.code, { color: colors.navy }]}>{myOtp.code}</Text>
+        {myOtp === null ? (
+          <LoadingIndicator />
+        ) : (
+          <>
+            <View style={styles.qrWrapper}>
+              <QRCode value={myOtp.code} size={160} />
+            </View>
+            <Text style={[styles.code, { color: colors.navy }]}>{myOtp.code}</Text>
+          </>
+        )}
       </View>
 
       <View style={styles.section}>
