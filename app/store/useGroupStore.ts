@@ -29,10 +29,10 @@ type GroupState = {
   createGroup: (name: string, ownerUserId: string, isPublic: boolean) => Promise<Group>;
   inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => Promise<InviteMemberResult>;
   requestToJoinGroup: (groupId: string, userId: string) => Promise<InviteMemberResult>;
-  // 招待された本人が辞退する（Issue #117）。承諾(pending→approved)は現状ownerのみ
-  // 更新できるRLSのため未接続（screens/groups/GroupJoinScreen.tsxのコメント参照）。
-  // 辞退は自分の行を削除する形でAPI側は実装している
+  // 招待された本人が辞退する（Issue #117）。自分の行を削除する形でAPI側は実装している
   declineInvitation: (memberId: string) => Promise<GroupActionResult>;
+  // 招待された本人が承諾する（Issue #117）
+  acceptInvitation: (memberId: string) => Promise<GroupActionResult>;
   approveMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
   rejectMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
   removeMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
@@ -91,6 +91,18 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     }
 
     await groupsApi.declineInvitation(memberId);
+    await get().initialize();
+    return { status: 'success' };
+  },
+
+  acceptInvitation: async (memberId) => {
+    const { members } = get();
+    const member = members.find((m) => m.id === memberId);
+    if (!member) {
+      return { status: 'not_found' };
+    }
+
+    await groupsApi.acceptInvitation(memberId);
     await get().initialize();
     return { status: 'success' };
   },

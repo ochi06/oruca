@@ -90,7 +90,8 @@ create policy "users can request to join or be invited by owner/members"
     )
   );
 
--- UPDATE: ownerのみ（pending→approved/rejectedの更新）
+-- UPDATE: owner（pending→approved/rejectedの更新）、または招待された本人が
+-- 自分への招待(invited_by is not null)をpendingの間に承諾/辞退する場合
 create policy "owners can update group_members status"
   on group_members for update
   using (
@@ -99,12 +100,21 @@ create policy "owners can update group_members status"
       where groups.id = group_members.group_id
         and groups.owner_user_id = auth.uid()
     )
+    or (
+      user_id = auth.uid()
+      and invited_by is not null
+      and status = 'pending'
+    )
   )
   with check (
     exists (
       select 1 from groups
       where groups.id = group_members.group_id
         and groups.owner_user_id = auth.uid()
+    )
+    or (
+      user_id = auth.uid()
+      and invited_by is not null
     )
   );
 

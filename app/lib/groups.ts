@@ -56,10 +56,17 @@ export async function requestToJoinGroup(groupId: string, userId: string): Promi
   if (error) throw error;
 }
 
-// 招待された本人が辞退する（Issue #117）。承諾(approved)への更新はownerのみ許可されている
-// （RLS: owners can update group_members status）ため、辞退は自分の行を削除する形で表現する
+// 招待された本人が辞退する（Issue #117）。自分の行を削除する形で表現する
 export async function declineInvitation(memberId: string): Promise<void> {
   const { error } = await supabase.from('group_members').delete().eq('id', memberId);
+  if (error) throw error;
+}
+
+// 招待された本人が承諾する（Issue #117）。RLSは招待された本人が自分の
+// pending行(invited_by is not null)をapprovedに更新することを許可している
+// （owners can update group_members status ポリシーの例外部分）
+export async function acceptInvitation(memberId: string): Promise<void> {
+  const { error } = await supabase.from('group_members').update({ status: 'approved' }).eq('id', memberId);
   if (error) throw error;
 }
 
