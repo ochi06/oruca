@@ -1,9 +1,31 @@
 // docs/schema.md「設計上の重要な原則」2.：友達の情報を見せてよいかどうかは、
 // 必ず FRIEND_AREA_LINKS.status === 'approved' をチェックしてから判断すること。
 // この考え方・判定条件を AREA_SCHEDULES / AREA_SCHEDULE_OVERRIDES にも適用する（US-011）。
+// Issue #159でSupabase接続する際、area_schedules/area_schedule_overrides
+// テーブル自体のRLSでも同じ条件（承認済みFRIEND_AREA_LINKS）を強制しているため
+// 二重の防御になっているが、クライアント側の可視性判定ロジックとしても
+// 引き続きこの関数を使う（テストしやすさ・presence側と同じ方針を踏襲）
 
 import { FriendAreaLink } from '../mocks/presence';
-import { AreaSchedule, AreaScheduleOverride } from '../mocks/schedules';
+
+export type AreaSchedule = {
+  id: string;
+  user_id: string;
+  area_id: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AreaScheduleOverride = {
+  id: string;
+  user_id: string;
+  area_id: string;
+  date: string; // YYYY-MM-DD
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export type FriendSchedule = {
   userId: string;

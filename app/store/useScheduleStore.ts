@@ -1,24 +1,42 @@
 import { create } from 'zustand';
 
-import { CURRENT_USER_ID, mockFriendAreaLinks, mockFriendships, mockUsers } from '../mocks/presence';
+import { ensureSignedIn } from '../lib/auth';
 import {
-  AreaSchedule,
-  AreaScheduleOverride,
-  mockAreaSchedules,
-  mockAreaScheduleOverrides,
-  TODAY,
-} from '../mocks/schedules';
-import { FriendSchedule, resolveFriendSchedule } from '../utils/schedules';
+  fetchAreaSchedules,
+  fetchAreaScheduleOverrides,
+  fetchFriendAreaLinks,
+  upsertMySchedule,
+  upsertMyScheduleOverride,
+} from '../lib/schedules';
+import { fetchFriendships } from '../lib/friends';
+import { FriendAreaLink } from '../mocks/presence';
+import { AreaSchedule, AreaScheduleOverride, FriendSchedule, resolveFriendSchedule } from '../utils/schedules';
+import { todayDateString } from '../utils/format';
 
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+// Issue #159 (US-011)：AREA_SCHEDULES/AREA_SCHEDULE_OVERRIDESを実Supabaseに
+// 接続する。UIは「1画面が1エリア分の予定を表示する」という使い方のみのため、
+// 直近にinitialize()したエリア1件分だけをキャッシュする（同時に複数エリアを
+// 表示する画面は現状無い）
 type ScheduleState = {
+  areaId: string | null;
+  currentUserId: string | null;
+  status: LoadStatus;
+  errorMessage: string | null;
   schedules: AreaSchedule[];
   overrides: AreaScheduleOverride[];
+  friendAreaLinks: FriendAreaLink[];
+  friendIds: string[];
+  // areaIdの予定データを取得する。既に同じエリアを読み込み済み
+  // （またはロード中）なら何もしない
+  initialize: (areaId: string) => Promise<void>;
   // 自分の基本滞在予定（無ければnull）
   myNote: (areaId: string) => string | null;
   // 自分の当日上書き予定（無ければnull）
   myOverrideNote: (areaId: string) => string | null;
-  setMyNote: (areaId: string, note: string) => void;
-  setMyOverrideNote: (areaId: string, note: string) => void;
+  setMyNote: (areaId: string, note: string) => Promise<void>;
+  setMyOverrideNote: (areaId: string, note: string) => Promise<void>;
   // 共通エリアを持つ友達（FRIENDSHIPS.status === 'active'）のうち、
   // このエリアで予定を見せ合うことに合意している（FRIEND_AREA_LINKS承認済み）人の予定一覧
   friendSchedules: (areaId: string) => FriendSchedule[];
@@ -27,108 +45,137 @@ type ScheduleState = {
 };
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
-  schedules: mockAreaSchedules,
-  overrides: mockAreaScheduleOverrides,
+  areaId: null,
+  currentUserId: null,
+  status: 'idle',
+  errorMessage: null,
+  schedules: [],
+  overrides: [],
+  friendAreaLinks: [],
+  friendIds: [],
+
+  initialize: async (areaId) => {
+    const state = get();
+    if (state.areaId === areaId && (state.status === 'loading' || state.status === 'ready')) {
+      return;
+    }
+    set({ status: 'loading', errorMessage: null, areaId });
+    try {
+      const currentUserId = await ensureSignedIn();
+      const today = todayDateString(new Date());
+      const [schedules, overrides, friendAreaLinks, friendships] = await Promise.all([
+        fetchAreaSchedules(areaId),
+        fetchAreaScheduleOverrides(areaId, today),
+        fetchFriendAreaLinks(areaId),
+        fetchFriendships(currentUserId),
+      ]);
+      set({
+        currentUserId,
+        schedules,
+        overrides,
+        friendAreaLinks,
+        friendIds: friendships.map((f) => f.friend_id),
+        status: 'ready',
+      });
+    } catch (error) {
+      set({
+        status: 'error',
+        errorMessage: error instanceof Error ? error.message : '滞在予定の取得に失敗しました',
+      });
+    }
+  },
 
   myNote: (areaId) => {
-    const schedule = get().schedules.find((s) => s.user_id === CURRENT_USER_ID && s.area_id === areaId);
+    const { schedules, currentUserId } = get();
+    const schedule = schedules.find((s) => s.user_id === currentUserId && s.area_id === areaId);
     return schedule?.note ?? null;
   },
 
   myOverrideNote: (areaId) => {
-    const override = get().overrides.find(
-      (o) => o.user_id === CURRENT_USER_ID && o.area_id === areaId && o.date === TODAY
+    const { overrides, currentUserId } = get();
+    const today = todayDateString(new Date());
+    const override = overrides.find(
+      (o) => o.user_id === currentUserId && o.area_id === areaId && o.date === today
     );
     return override?.note ?? null;
   },
 
-  setMyNote: (areaId, note) => {
-    const { schedules } = get();
-    const existing = schedules.find((s) => s.user_id === CURRENT_USER_ID && s.area_id === areaId);
-    const now = new Date().toISOString();
-    if (existing) {
-      set({
-        schedules: schedules.map((s) => (s.id === existing.id ? { ...s, note, updated_at: now } : s)),
-      });
-      return;
-    }
+  setMyNote: async (areaId, note) => {
+    const { currentUserId, schedules } = get();
+    if (!currentUserId) return;
+
+    await upsertMySchedule(currentUserId, areaId, note);
+    const nowIso = new Date().toISOString();
+    const existing = schedules.find((s) => s.user_id === currentUserId && s.area_id === areaId);
     set({
-      schedules: [
-        ...schedules,
-        {
-          id: `schedule-${CURRENT_USER_ID}-${areaId}`,
-          user_id: CURRENT_USER_ID,
-          area_id: areaId,
-          note,
-          created_at: now,
-          updated_at: now,
-        },
-      ],
+      schedules: existing
+        ? schedules.map((s) => (s.id === existing.id ? { ...s, note, updated_at: nowIso } : s))
+        : [
+            ...schedules,
+            {
+              id: `local-${currentUserId}-${areaId}`,
+              user_id: currentUserId,
+              area_id: areaId,
+              note,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+          ],
     });
   },
 
-  setMyOverrideNote: (areaId, note) => {
-    const { overrides } = get();
+  setMyOverrideNote: async (areaId, note) => {
+    const { currentUserId, overrides } = get();
+    if (!currentUserId) return;
+
+    const today = todayDateString(new Date());
+    await upsertMyScheduleOverride(currentUserId, areaId, today, note);
+    const nowIso = new Date().toISOString();
     const existing = overrides.find(
-      (o) => o.user_id === CURRENT_USER_ID && o.area_id === areaId && o.date === TODAY
+      (o) => o.user_id === currentUserId && o.area_id === areaId && o.date === today
     );
-    const now = new Date().toISOString();
-    if (existing) {
-      set({
-        overrides: overrides.map((o) => (o.id === existing.id ? { ...o, note, updated_at: now } : o)),
-      });
-      return;
-    }
     set({
-      overrides: [
-        ...overrides,
-        {
-          id: `override-${CURRENT_USER_ID}-${areaId}-${TODAY}`,
-          user_id: CURRENT_USER_ID,
-          area_id: areaId,
-          date: TODAY,
-          note,
-          created_at: now,
-          updated_at: now,
-        },
-      ],
+      overrides: existing
+        ? overrides.map((o) => (o.id === existing.id ? { ...o, note, updated_at: nowIso } : o))
+        : [
+            ...overrides,
+            {
+              id: `local-${currentUserId}-${areaId}-${today}`,
+              user_id: currentUserId,
+              area_id: areaId,
+              date: today,
+              note,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+          ],
     });
   },
 
   friendSchedules: (areaId) => {
-    const { schedules, overrides } = get();
-    const friendIds = mockFriendships
-      .filter((f) => f.user_id === CURRENT_USER_ID && f.status === 'active')
-      .map((f) => f.friend_id);
+    const { schedules, overrides, friendAreaLinks, friendIds, currentUserId } = get();
+    if (!currentUserId) return [];
+    const today = todayDateString(new Date());
 
     return friendIds.map((friendId) =>
-      resolveFriendSchedule(
-        CURRENT_USER_ID,
-        friendId,
-        areaId,
-        TODAY,
-        mockFriendAreaLinks,
-        schedules,
-        overrides
-      )
+      resolveFriendSchedule(currentUserId, friendId, areaId, today, friendAreaLinks, schedules, overrides)
     );
   },
 
   friendSchedule: (friendId, areaId) => {
-    const { schedules, overrides } = get();
+    const { schedules, overrides, friendAreaLinks, currentUserId } = get();
+    const today = todayDateString(new Date());
+    if (!currentUserId) {
+      return { userId: friendId, note: null, overrideNote: null };
+    }
     return resolveFriendSchedule(
-      CURRENT_USER_ID,
+      currentUserId,
       friendId,
       areaId,
-      TODAY,
-      mockFriendAreaLinks,
+      today,
+      friendAreaLinks,
       schedules,
       overrides
     );
   },
 }));
-
-// 表示名解決用。呼び出し側（画面）でuserIdからnameを引くために公開する
-export function findUserName(userId: string): string {
-  return mockUsers.find((user) => user.id === userId)?.name ?? '不明なユーザー';
-}
