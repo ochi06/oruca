@@ -1,23 +1,26 @@
-import { CURRENT_USER_ID, mockUsers, User } from '../mocks/presence';
-import { otherUser } from '../mocks/otp';
-import { useFriendAddStore } from '../store/useFriendAddStore';
+import { useEffect } from 'react';
+
+import { User } from '../mocks/presence';
 import { useNotifyPreferencesStore } from '../store/useNotifyPreferencesStore';
 
 // 自分の友達一覧をUser[]で返す（FriendsListScreenとグループ招待画面の
-// 両方で使うため切り出した）。バックエンド未接続のため、friendships
-// （useNotifyPreferencesStore）とOTP追加済みID（useFriendAddStore）を
-// 突き合わせてモックユーザーから引く
+// 両方で使うため切り出した、Issue #143）。データはuseNotifyPreferencesStoreが
+// Supabaseから取得したfriendships・usersを突き合わせて組み立てる。
+// どちらの画面が先にマウントされても実データを一度だけ取得すればよいように、
+// まだfetchしていない（status: 'idle'）場合はここでinitialize()を呼ぶ
 export function useFriendUsers(): User[] {
-  const addedFriendIds = useFriendAddStore((state) => state.addedFriendIds);
+  const status = useNotifyPreferencesStore((state) => state.status);
+  const initialize = useNotifyPreferencesStore((state) => state.initialize);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
+  const users = useNotifyPreferencesStore((state) => state.users);
 
-  const friendIds = friendships
-    .filter((f) => f.user_id === CURRENT_USER_ID && f.status === 'active')
-    .map((f) => f.friend_id);
-  const allUsers = [...mockUsers, otherUser];
+  useEffect(() => {
+    if (status === 'idle') {
+      initialize();
+    }
+  }, [status, initialize]);
 
-  return [...friendIds, ...addedFriendIds]
-    .filter((id, index, ids) => ids.indexOf(id) === index)
-    .map((id) => allUsers.find((user) => user.id === id))
+  return friendships
+    .map((f) => users.find((user) => user.id === f.friend_id))
     .filter((user): user is User => user !== undefined);
 }

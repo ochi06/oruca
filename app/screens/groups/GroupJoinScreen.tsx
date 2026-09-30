@@ -11,13 +11,10 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID, mockUsers } from '../../mocks/presence';
+import { CURRENT_USER_ID } from '../../mocks/presence';
 import { useGroupStore } from '../../store/useGroupStore';
+import { findUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
-
-function findUserName(userId: string): string {
-  return mockUsers.find((user) => user.id === userId)?.name ?? '不明なユーザー';
-}
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupJoin'>;
 

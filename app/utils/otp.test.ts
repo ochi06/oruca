@@ -1,11 +1,14 @@
-import {
-  generateOtpCode,
-  issueOtp,
-  isOtpExpired,
-  verifyOtp,
-  OTP_CODE_LENGTH,
-  OTP_TTL_MS,
-} from './otp';
+import { generateOtpCode, isOtpExpired, OTP_CODE_LENGTH, OTP_TTL_MS, OtpCode } from './otp';
+
+function makeOtp(userId: string, now: Date): OtpCode {
+  return {
+    id: `otp-${userId}-${now.getTime()}`,
+    user_id: userId,
+    code: '123456',
+    expires_at: new Date(now.getTime() + OTP_TTL_MS).toISOString(),
+    created_at: now.toISOString(),
+  };
+}
 
 describe('generateOtpCode', () => {
   test(`${OTP_CODE_LENGTH}桁の数字文字列を生成する`, () => {
@@ -25,19 +28,8 @@ describe('generateOtpCode', () => {
   });
 });
 
-describe('issueOtp', () => {
-  test('userIdに紐づくOTPを、発行から60秒後に失効する形で生成する', () => {
-    const now = new Date('2026-08-16T00:00:00.000Z');
-    const otp = issueOtp('user-a', now);
-
-    expect(otp.user_id).toBe('user-a');
-    expect(otp.created_at).toBe(now.toISOString());
-    expect(otp.expires_at).toBe(new Date(now.getTime() + OTP_TTL_MS).toISOString());
-  });
-});
-
 describe('isOtpExpired', () => {
-  const otp = issueOtp('user-a', new Date('2026-08-16T00:00:00.000Z'));
+  const otp = makeOtp('user-a', new Date('2026-08-16T00:00:00.000Z'));
 
   test('失効時刻より前は失効していない', () => {
     const now = new Date('2026-08-16T00:00:59.999Z');
@@ -52,25 +44,5 @@ describe('isOtpExpired', () => {
   test('失効時刻より後は失効している', () => {
     const now = new Date('2026-08-16T00:01:00.001Z');
     expect(isOtpExpired(otp, now)).toBe(true);
-  });
-});
-
-describe('verifyOtp', () => {
-  const now = new Date('2026-08-16T00:00:00.000Z');
-  const otp = issueOtp('user-a', now);
-
-  test('一致するコードが有効期限内なら valid を返す', () => {
-    const result = verifyOtp(otp.code, [otp], new Date(now.getTime() + 1000));
-    expect(result).toEqual({ status: 'valid', otp });
-  });
-
-  test('一致するコードが失効していれば expired を返す', () => {
-    const result = verifyOtp(otp.code, [otp], new Date(now.getTime() + OTP_TTL_MS));
-    expect(result).toEqual({ status: 'expired' });
-  });
-
-  test('一致するコードが無ければ not_found を返す', () => {
-    const result = verifyOtp('999999', [otp], now);
-    expect(result).toEqual({ status: 'not_found' });
   });
 });

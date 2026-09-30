@@ -12,6 +12,7 @@ function makeFriendship(overrides: Partial<Friendship> = {}): Friendship {
     muted: false,
     notify_only_when_copresent: false,
     want_to_meet: false,
+    location_hidden: false,
     status: 'active',
     created_at: now,
     updated_at: now,

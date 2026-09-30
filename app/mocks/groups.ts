@@ -118,4 +118,15 @@ export const mockGroupMembers: GroupMember[] = [
     created_at: now,
     updated_at: now,
   },
+  // 自分宛の招待（Issue #126の通知ボックスのgroup_invite表示デモ用）。
+  // 田中（group-2のオーナー）から自分への招待
+  {
+    id: 'member-invite-demo',
+    group_id: 'group-2',
+    user_id: CURRENT_USER_ID,
+    invited_by: mockUsers[1].id,
+    status: 'pending',
+    created_at: now,
+    updated_at: now,
+  },
 ];

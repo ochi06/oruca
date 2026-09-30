@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { Group, GroupMember } from '../mocks/groups';
 import * as groupsApi from '../lib/groups';
 import { checkCanJoin, checkCanLeaveGroup, checkCanTransferOwnership, checkIsGroupOwner } from './groupValidation';
+import { useNotificationStore } from './useNotificationStore';
 
 export type GroupActionResult =
   | { status: 'success' }
@@ -70,6 +71,26 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
     await groupsApi.inviteMember(groupId, friendUserId, invitedByUserId);
     await get().initialize();
+
+    // 招待された本人の通知ボックスにgroup_invite通知を追加する（Issue #126）。
+    // useNotificationStoreはまだSupabase未接続のモックのため、挿入した行を
+    // 更新後のmembersから引き当ててmemberIdを渡す
+    const newMember = get().members.find(
+      (m) => m.group_id === groupId && m.user_id === friendUserId && m.invited_by === invitedByUserId
+    );
+    if (newMember) {
+      useNotificationStore.getState().addNotification({
+        id: `notification-mock-${Date.now()}`,
+        user_id: friendUserId,
+        type: 'group_invite',
+        related_user_id: invitedByUserId,
+        area_id: null,
+        group_member_id: newMember.id,
+        is_read: false,
+        created_at: newMember.created_at,
+      });
+    }
+
     return { status: 'success' };
   },
 
