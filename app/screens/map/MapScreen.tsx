@@ -233,19 +233,19 @@ export default function MapScreen({ navigation }: Props) {
           );
         })}
       </MapView>
-      <IconButton
-        name="settings-outline"
-        variant="secondary"
-        accessibilityLabel="エリア管理"
-        style={styles.manageAreaButton}
-        onPress={() => navigation.navigate('AreaManagement')}
-      />
-      <IconButton
-        name="add-outline"
-        accessibilityLabel="新規エリア登録"
-        style={styles.addAreaButton}
-        onPress={() => navigation.navigate('AreaRegistration')}
-      />
+      <View style={styles.mapActions}>
+        <IconButton
+          name="settings-outline"
+          variant="secondary"
+          accessibilityLabel="エリア管理"
+          onPress={() => navigation.navigate('AreaManagement')}
+        />
+        <IconButton
+          name="add-outline"
+          accessibilityLabel="新規エリア登録"
+          onPress={() => navigation.navigate('AreaRegistration')}
+        />
+      </View>
       {selectedArea && (
         <AreaPresencePopup
           areaName={selectedArea.name}
@@ -292,14 +292,11 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     borderWidth: 2,
   },
-  addAreaButton: {
+  mapActions: {
     position: 'absolute',
-    bottom: 24,
-    right: 16,
-  },
-  manageAreaButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 64,
+    bottom: spacing.lg,
+    right: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });
