@@ -25,15 +25,20 @@ export async function fetchUsersByIds(userIds: string[]): Promise<User[]> {
   return (data ?? []) as User[];
 }
 
-// 友達ごとの入室通知ON/OFFを更新する（US-007、受信側＝自分の行を更新）
-export async function updateFriendshipNotifyEnabled(
+// friendshipsの真偽値カラム1つを更新する共通ヘルパー（Issue #147）。
+// notify_enabled（US-007）・muted（US-008）・notify_only_when_copresent
+// （US-016）・want_to_meet（US-017）・location_hidden（Issue #121）は
+// いずれも「自分の行（user_id=userId）の1カラムをtoggleする」という形が
+// 同じため、フィールド名だけを差し替えて共通化した
+export async function updateFriendshipField(
   userId: string,
   friendId: string,
-  notifyEnabled: boolean
+  field: 'notify_enabled' | 'muted' | 'notify_only_when_copresent' | 'want_to_meet' | 'location_hidden',
+  value: boolean
 ): Promise<void> {
   const { error } = await supabase
     .from('friendships')
-    .update({ notify_enabled: notifyEnabled })
+    .update({ [field]: value })
     .eq('user_id', userId)
     .eq('friend_id', friendId);
   if (error) {
@@ -41,90 +46,40 @@ export async function updateFriendshipNotifyEnabled(
   }
 }
 
-// 特定の友達をミュートする（US-008、受信側＝自分の行を更新）
-export async function updateFriendshipMuted(
-  userId: string,
-  friendId: string,
-  muted: boolean
-): Promise<void> {
-  const { error } = await supabase
-    .from('friendships')
-    .update({ muted })
-    .eq('user_id', userId)
-    .eq('friend_id', friendId);
-  if (error) {
-    throw error;
-  }
-}
-
-// 共在時のみ入室通知を受け取るかどうか（US-016、受信側の設定）
-export async function updateFriendshipNotifyOnlyWhenCopresent(
-  userId: string,
-  friendId: string,
-  notifyOnlyWhenCopresent: boolean
-): Promise<void> {
-  const { error } = await supabase
-    .from('friendships')
-    .update({ notify_only_when_copresent: notifyOnlyWhenCopresent })
-    .eq('user_id', userId)
-    .eq('friend_id', friendId);
-  if (error) {
-    throw error;
-  }
-}
-
-// 「会いたい人」に登録するかどうか（US-017、受信側の設定）
-export async function updateFriendshipWantToMeet(
-  userId: string,
-  friendId: string,
-  wantToMeet: boolean
-): Promise<void> {
-  const { error } = await supabase
-    .from('friendships')
-    .update({ want_to_meet: wantToMeet })
-    .eq('user_id', userId)
-    .eq('friend_id', friendId);
-  if (error) {
-    throw error;
-  }
-}
-
-// この友達に自分の位置情報（presence_logs）を見せないかどうか（Issue #121、
-// 一方向ブロック。他の3項目と違い「情報を隠す側」＝自分の行に設定する）
-export async function updateFriendshipLocationHidden(
-  userId: string,
-  friendId: string,
-  locationHidden: boolean
-): Promise<void> {
-  const { error } = await supabase
-    .from('friendships')
-    .update({ location_hidden: locationHidden })
-    .eq('user_id', userId)
-    .eq('friend_id', friendId);
-  if (error) {
-    throw error;
-  }
-}
+// 未失効のコード同士はDBレベルでユニーク（supabase/migrations/
+// 20261001120000_friend_otp_redeem_fix.sql、otp_codes_code_active_idx）。
+// 衝突した場合のPostgresのunique violationエラーコード
+const UNIQUE_VIOLATION = '23505';
+const ISSUE_OTP_MAX_ATTEMPTS = 5;
 
 // 自分宛の新しいOTPコードを発行する（US-005）。otp_codesは自分の行のみ
-// insert可能なRLSのため、クライアントから直接insertしてよい
+// insert可能なRLSのため、クライアントから直接insertしてよい。
+// 生成した6桁コードが、同時刻に他の誰かが持つ未失効のコードと衝突した場合
+// （Issue #147）はDB側でinsertが失敗するため、別のコードで振り直す
 export async function issueMyOtp(userId: string): Promise<OtpCode> {
-  const now = new Date();
-  const code = generateOtpCode();
+  for (let attempt = 0; attempt < ISSUE_OTP_MAX_ATTEMPTS; attempt++) {
+    const now = new Date();
+    const code = generateOtpCode();
 
-  const { data, error } = await supabase
-    .from('otp_codes')
-    .insert({
-      user_id: userId,
-      code,
-      expires_at: new Date(now.getTime() + OTP_TTL_MS).toISOString(),
-    })
-    .select('*')
-    .single();
-  if (error) {
-    throw error;
+    const { data, error } = await supabase
+      .from('otp_codes')
+      .insert({
+        user_id: userId,
+        code,
+        expires_at: new Date(now.getTime() + OTP_TTL_MS).toISOString(),
+      })
+      .select('*')
+      .single();
+
+    if (!error) {
+      return data as OtpCode;
+    }
+    if (error.code !== UNIQUE_VIOLATION) {
+      throw error;
+    }
+    // 衝突（ごく稀）。次のループで別のコードを生成して再試行する
   }
-  return data as OtpCode;
+  throw new Error('OTPコードの発行に失敗しました。もう一度お試しください');
 }
 
 export type RedeemOtpResult =
@@ -135,7 +90,7 @@ export type RedeemOtpResult =
 
 // 相手が見せたOTPコードを検証し、FRIENDSHIPSを作成する（US-005）。
 // RLSをまたぐ処理のためSupabase側のRPC（redeem_friend_otp、SECURITY DEFINER）
-// を呼ぶ（supabase/migrations/20260930120000_friend_otp_redeem_rpc.sql参照）
+// を呼ぶ（supabase/migrations/20261001120100_friend_otp_redeem_rpc_v2.sql参照）
 export async function redeemOtp(code: string): Promise<RedeemOtpResult> {
   const { data, error } = await supabase.rpc('redeem_friend_otp', { p_code: code });
   if (error) {

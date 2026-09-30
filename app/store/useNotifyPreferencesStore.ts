@@ -1,15 +1,7 @@
 import { create } from 'zustand';
 
 import { ensureSignedIn } from '../lib/auth';
-import {
-  fetchFriendships,
-  fetchUsersByIds,
-  updateFriendshipMuted,
-  updateFriendshipNotifyEnabled,
-  updateFriendshipNotifyOnlyWhenCopresent,
-  updateFriendshipWantToMeet,
-  updateFriendshipLocationHidden,
-} from '../lib/friends';
+import { fetchFriendships, fetchUsersByIds, updateFriendshipField } from '../lib/friends';
 import { Friendship, User } from '../mocks/presence';
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -40,19 +32,25 @@ type NotifyPreferencesState = {
   toggleLocationHidden: (friendId: string) => Promise<void>;
 };
 
+type ToggleableField =
+  | 'notify_enabled'
+  | 'muted'
+  | 'notify_only_when_copresent'
+  | 'want_to_meet'
+  | 'location_hidden';
+
 // 楽観的更新→永続化を行う共通ヘルパー。永続化に失敗した場合は表示を戻す
-async function toggleField<K extends keyof Friendship>(
+async function toggleField(
   get: () => NotifyPreferencesState,
   set: (partial: Partial<NotifyPreferencesState>) => void,
   friendId: string,
-  field: K,
-  persist: (userId: string, friendId: string, nextValue: boolean) => Promise<void>
+  field: ToggleableField
 ): Promise<void> {
   const { currentUserId, friendships } = get();
   const target = friendships.find((f) => f.friend_id === friendId);
   if (!currentUserId || !target) return;
 
-  const nextValue = !(target[field] as unknown as boolean);
+  const nextValue = !target[field];
   const apply = (value: boolean) =>
     set({
       friendships: get().friendships.map((f) =>
@@ -62,7 +60,7 @@ async function toggleField<K extends keyof Friendship>(
 
   apply(nextValue);
   try {
-    await persist(currentUserId, friendId, nextValue);
+    await updateFriendshipField(currentUserId, friendId, field, nextValue);
   } catch {
     apply(!nextValue);
   }
@@ -91,23 +89,14 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set, ge
     }
   },
 
-  toggleNotifyEnabled: (friendId) =>
-    toggleField(get, set, friendId, 'notify_enabled', updateFriendshipNotifyEnabled),
+  toggleNotifyEnabled: (friendId) => toggleField(get, set, friendId, 'notify_enabled'),
 
-  toggleMuted: (friendId) => toggleField(get, set, friendId, 'muted', updateFriendshipMuted),
+  toggleMuted: (friendId) => toggleField(get, set, friendId, 'muted'),
 
   toggleNotifyOnlyWhenCopresent: (friendId) =>
-    toggleField(
-      get,
-      set,
-      friendId,
-      'notify_only_when_copresent',
-      updateFriendshipNotifyOnlyWhenCopresent
-    ),
+    toggleField(get, set, friendId, 'notify_only_when_copresent'),
 
-  toggleWantToMeet: (friendId) =>
-    toggleField(get, set, friendId, 'want_to_meet', updateFriendshipWantToMeet),
+  toggleWantToMeet: (friendId) => toggleField(get, set, friendId, 'want_to_meet'),
 
-  toggleLocationHidden: (friendId) =>
-    toggleField(get, set, friendId, 'location_hidden', updateFriendshipLocationHidden),
+  toggleLocationHidden: (friendId) => toggleField(get, set, friendId, 'location_hidden'),
 }));

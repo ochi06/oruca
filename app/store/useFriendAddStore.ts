@@ -14,21 +14,28 @@ export type AddFriendResult =
 
 type FriendAddState = {
   myOtp: OtpCode | null;
+  isIssuingOtp: boolean;
   refreshMyOtpIfExpired: () => Promise<void>;
   verifyCode: (inputCode: string) => Promise<AddFriendResult>;
 };
 
 export const useFriendAddStore = create<FriendAddState>((set, get) => ({
   myOtp: null,
+  isIssuingOtp: false,
 
   refreshMyOtpIfExpired: async () => {
-    const { myOtp } = get();
-    if (myOtp && !isOtpExpired(myOtp, new Date())) {
+    const { myOtp, isIssuingOtp } = get();
+    if (isIssuingOtp || (myOtp && !isOtpExpired(myOtp, new Date()))) {
       return;
     }
-    const userId = await ensureSignedIn();
-    const otp = await issueMyOtp(userId);
-    set({ myOtp: otp });
+    set({ isIssuingOtp: true });
+    try {
+      const userId = await ensureSignedIn();
+      const otp = await issueMyOtp(userId);
+      set({ myOtp: otp });
+    } finally {
+      set({ isIssuingOtp: false });
+    }
   },
 
   verifyCode: async (inputCode) => {
