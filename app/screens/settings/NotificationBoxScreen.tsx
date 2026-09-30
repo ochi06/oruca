@@ -1,11 +1,15 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { ListItem } from '../../components/ListItem';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -57,10 +61,17 @@ function groupNotifications(notifications: Notification[]): DisplayItem[] {
 
 export default function NotificationBoxScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const notifications = useNotificationStore((state) => state.notifications);
+  const status = useNotificationStore((state) => state.status);
   const markAsRead = useNotificationStore((state) => state.markAsRead);
+  const initialize = useNotificationStore((state) => state.initialize);
   const groups = useGroupStore((state) => state.groups);
   const groupMembers = useGroupStore((state) => state.members);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   const items = groupNotifications(notifications);
 
@@ -68,6 +79,24 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     const member = groupMembers.find((m) => m.id === groupMemberId);
     const group = member ? groups.find((g) => g.id === member.group_id) : undefined;
     return group?.name ?? '不明なグループ';
+  }
+
+  async function handleMarkAsRead(notificationId: string) {
+    try {
+      await markAsRead(notificationId);
+    } catch (error) {
+      console.error('markAsRead failed:', error);
+      showToast('既読にできませんでした');
+    }
+  }
+
+  async function handleMarkAllAsRead(notificationIds: string[]) {
+    try {
+      await Promise.all(notificationIds.map((id) => markAsRead(id)));
+    } catch (error) {
+      console.error('markAsRead failed:', error);
+      showToast('既読にできませんでした');
+    }
   }
 
   function renderSingle(notification: Notification) {
@@ -93,7 +122,7 @@ export default function NotificationBoxScreen({ navigation }: Props) {
         title={text}
         trailing={
           !notification.is_read ? (
-            <Button label="既読にする" variant="secondary" onPress={() => markAsRead(notification.id)} />
+            <Button label="既読にする" variant="secondary" onPress={() => handleMarkAsRead(notification.id)} />
           ) : undefined
         }
       />
@@ -120,11 +149,27 @@ export default function NotificationBoxScreen({ navigation }: Props) {
           <Button
             label="既読にする"
             variant="secondary"
-            onPress={() => unreadIds.forEach(markAsRead)}
+            onPress={() => handleMarkAllAsRead(unreadIds)}
             style={styles.markReadButton}
           />
         )}
       </View>
+    );
+  }
+
+  if (status === 'loading' || status === 'idle') {
+    return (
+      <Screen style={styles.container}>
+        <LoadingIndicator />
+      </Screen>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="通知の取得に失敗しました。" onRetry={initialize} />
+      </Screen>
     );
   }
 
