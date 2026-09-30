@@ -1,4 +1,5 @@
 import { useGroupStore } from './useGroupStore';
+import { useNotificationStore } from './useNotificationStore';
 import { Group, GroupMember } from '../mocks/groups';
 
 const now = '2026-09-19T00:00:00.000Z';
@@ -88,6 +89,15 @@ describe('inviteMember', () => {
     expect(result).toEqual({ status: 'success' });
     const invited = useGroupStore.getState().members.find((m) => m.user_id === INVITEE_ID);
     expect(invited).toMatchObject({ group_id: 'group-1', status: 'pending', invited_by: MEMBER_ID });
+  });
+
+  it('招待された本人宛にgroup_invite通知を追加する（Issue #126）', () => {
+    useGroupStore.getState().inviteMember('group-1', INVITEE_ID, MEMBER_ID);
+
+    const notification = useNotificationStore
+      .getState()
+      .notifications.find((n) => n.type === 'group_invite' && n.user_id === INVITEE_ID);
+    expect(notification).toMatchObject({ related_user_id: MEMBER_ID, is_read: false });
   });
 
   it('既にpending/approvedなメンバーは招待できない', () => {
