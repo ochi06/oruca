@@ -62,6 +62,7 @@ erDiagram
     boolean muted
     boolean notify_only_when_copresent
     boolean want_to_meet
+    boolean location_hidden
     string status
     timestamp created_at
     timestamp updated_at
@@ -168,8 +169,14 @@ erDiagram
   していなくても入室通知を受け取る。ただし相手（friend_id）の
   `USERS.allow_entry_notifications`がfalseなら通知しない。優先度は
   `muted`（最優先）→`want_to_meet`（共在制限を上書き）の順。`muted`と同様、
-  受信側が自分の行に設定する値）を関係ごとに個別管理できる。実際の通知
-  イベント自体の記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
+  受信側が自分の行に設定する値）・`location_hidden`（Issue #121。一方向
+  ブロック。デフォルトfalse。自分の行でtrueにすると、相手（friend_id）は
+  自分の`presence_logs`を閲覧できなくなる。他の3列と違い「情報を隠す側」が
+  自分の行に設定する点に注意。友達関係自体は残る（`status`は変更しない）。
+  クライアント側フィルタではなくDBレベルで強制するため、`presence_logs`の
+  SELECTポリシーにブロック確認を組み込む、2026-09-29、開発者確認済み）を
+  関係ごとに個別管理できる。実際の通知イベント自体の記録・既読管理は
+  別Issueで検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
