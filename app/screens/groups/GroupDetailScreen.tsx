@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -41,9 +41,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const removeMember = useGroupStore((state) => state.removeMember);
   const leaveGroup = useGroupStore((state) => state.leaveGroup);
   const transferOwnership = useGroupStore((state) => state.transferOwnership);
+  const initialize = useGroupStore((state) => state.initialize);
   const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
   const [isInviting, setIsInviting] = useState(false);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   if (!group) {
     return (
@@ -62,8 +67,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     (friend) => !members.some((m) => m.user_id === friend.id && m.status !== 'rejected')
   );
 
-  function handleInvite(friendId: string) {
-    const result = inviteMember(groupId, friendId, CURRENT_USER_ID);
+  async function handleInvite(friendId: string) {
+    const result = await inviteMember(groupId, friendId, CURRENT_USER_ID);
     if (result.status === 'already_member') {
       showToast('既に招待済み、またはメンバーです');
       return;
@@ -74,8 +79,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function handleApprove(memberId: string) {
-    const result = approveMember(groupId, memberId, CURRENT_USER_ID);
+  async function handleApprove(memberId: string) {
+    const result = await approveMember(groupId, memberId, CURRENT_USER_ID);
     if (result.status === 'forbidden') {
       showToast('管理者のみ承認できます');
       return;
@@ -85,8 +90,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function handleReject(memberId: string) {
-    const result = rejectMember(groupId, memberId, CURRENT_USER_ID);
+  async function handleReject(memberId: string) {
+    const result = await rejectMember(groupId, memberId, CURRENT_USER_ID);
     if (result.status === 'forbidden') {
       showToast('管理者のみ拒否できます');
       return;
@@ -96,8 +101,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function handleRemove(memberId: string) {
-    const result = removeMember(groupId, memberId, CURRENT_USER_ID);
+  async function handleRemove(memberId: string) {
+    const result = await removeMember(groupId, memberId, CURRENT_USER_ID);
     if (result.status === 'forbidden') {
       showToast('管理者のみ退会させることができます');
       return;
@@ -107,8 +112,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function handleLeave() {
-    const result = leaveGroup(groupId, CURRENT_USER_ID);
+  async function handleLeave() {
+    const result = await leaveGroup(groupId, CURRENT_USER_ID);
     if (result.status === 'last_admin') {
       showToast('管理者権限を誰かに譲ってから退会してください');
       return;
@@ -119,12 +124,13 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function handleConfirmTransfer() {
+  async function handleConfirmTransfer() {
     if (!transferTarget) return;
-    const result = transferOwnership(groupId, transferTarget.user_id, CURRENT_USER_ID);
+    const target = transferTarget;
+    const result = await transferOwnership(groupId, target.user_id, CURRENT_USER_ID);
     setTransferTarget(null);
     if (result.status === 'success') {
-      showToast(`${findUserName(transferTarget.user_id)}さんに管理者権限を譲りました`);
+      showToast(`${findUserName(target.user_id)}さんに管理者権限を譲りました`);
     } else {
       showToast('管理者権限の譲渡に失敗しました');
     }
