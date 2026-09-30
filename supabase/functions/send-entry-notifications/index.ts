@@ -1,6 +1,7 @@
 // Issue #131: presence_logsへの新規入室INSERTをSupabase Database Webhookで
 // フックして起動するEdge Function。「通知すべきか」の判定はここ（service role、
 // クライアントを信用しない）で行い、対象者にExpo Push経由で配信する。
+// あわせてNOTIFICATIONS（通知ボックス、Issue #160）にentry/want_to_meet行を作成する。
 //
 // Database Webhookのpayload形式（type/table/record/old_record）に依存する。
 // presence_logsのINSERTイベントのみを購読する設定にすること（UPDATE＝位置更新や
@@ -108,6 +109,18 @@ Deno.serve(async (req) => {
   if (eligibleRecipients.length === 0) {
     return new Response(JSON.stringify({ notified: 0 }), { status: 200 });
   }
+
+  // 通知ボックス（NOTIFICATIONS、Issue #160）用の行を作成する。Expo Pushの
+  // 送信可否（push_token有無）とは独立に、対象者全員分を作成する
+  const { error: notificationsError } = await supabase.from('notifications').insert(
+    eligibleRecipients.map((recipient) => ({
+      user_id: recipient.userId,
+      type: recipient.reason,
+      related_user_id: enteringUserId,
+      area_id: areaId,
+    }))
+  );
+  if (notificationsError) throw notificationsError;
 
   const { data: recipientUsers, error: recipientUsersError } = await supabase
     .from('users')
