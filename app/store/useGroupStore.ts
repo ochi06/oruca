@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { Group, GroupMember, mockGroupMembers, mockGroups } from '../mocks/groups';
 import { isGroupAdmin } from '../utils/groupAuth';
 import { generateInviteCode } from '../utils/groupInvite';
+import { useNotificationStore } from './useNotificationStore';
 
 export type GroupActionResult =
   | { status: 'success' }
@@ -112,6 +113,19 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       updated_at: nowIso,
     };
     set({ members: [...members, newMember] });
+
+    // 招待された本人の通知ボックスにgroup_invite通知を追加する（Issue #126）
+    useNotificationStore.getState().addNotification({
+      id: `notification-mock-${Date.now()}`,
+      user_id: friendUserId,
+      type: 'group_invite',
+      related_user_id: invitedByUserId,
+      area_id: null,
+      group_member_id: newMember.id,
+      is_read: false,
+      created_at: nowIso,
+    });
+
     return { status: 'success' };
   },
 

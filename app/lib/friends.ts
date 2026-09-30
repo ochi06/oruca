@@ -89,6 +89,23 @@ export async function updateFriendshipWantToMeet(
   }
 }
 
+// この友達に自分の位置情報（presence_logs）を見せないかどうか（Issue #121、
+// 一方向ブロック。他の3項目と違い「情報を隠す側」＝自分の行に設定する）
+export async function updateFriendshipLocationHidden(
+  userId: string,
+  friendId: string,
+  locationHidden: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from('friendships')
+    .update({ location_hidden: locationHidden })
+    .eq('user_id', userId)
+    .eq('friend_id', friendId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分宛の新しいOTPコードを発行する（US-005）。otp_codesは自分の行のみ
 // insert可能なRLSのため、クライアントから直接insertしてよい
 export async function issueMyOtp(userId: string): Promise<OtpCode> {

@@ -25,6 +25,10 @@ erDiagram
   AREAS ||--o{ AREA_SCHEDULES : scheduled_in
   USERS ||--o{ AREA_SCHEDULE_OVERRIDES : sets
   AREAS ||--o{ AREA_SCHEDULE_OVERRIDES : scheduled_in
+  USERS ||--o{ NOTIFICATIONS : "user_id (受信者)"
+  USERS ||--o{ NOTIFICATIONS : "related_user_id (入室した友達・招待者等)"
+  AREAS ||--o{ NOTIFICATIONS : concerns
+  GROUP_MEMBERS ||--o{ NOTIFICATIONS : concerns
 
   USERS {
     uuid id PK
@@ -62,6 +66,7 @@ erDiagram
     boolean muted
     boolean notify_only_when_copresent
     boolean want_to_meet
+    boolean location_hidden
     string status
     timestamp created_at
     timestamp updated_at
@@ -126,6 +131,16 @@ erDiagram
     double lat
     double lng
   }
+  NOTIFICATIONS {
+    uuid id PK
+    uuid user_id FK
+    string type
+    uuid related_user_id FK
+    uuid area_id FK
+    uuid group_member_id FK
+    boolean is_read
+    timestamp created_at
+  }
 ```
 
 ## 各テーブルの役割
@@ -168,8 +183,14 @@ erDiagram
   していなくても入室通知を受け取る。ただし相手（friend_id）の
   `USERS.allow_entry_notifications`がfalseなら通知しない。優先度は
   `muted`（最優先）→`want_to_meet`（共在制限を上書き）の順。`muted`と同様、
-  受信側が自分の行に設定する値）を関係ごとに個別管理できる。実際の通知
-  イベント自体の記録・既読管理は別Issueで検討する（2026-09-23、開発者確認済み）
+  受信側が自分の行に設定する値）・`location_hidden`（Issue #121。一方向
+  ブロック。デフォルトfalse。自分の行でtrueにすると、相手（friend_id）は
+  自分の`presence_logs`を閲覧できなくなる。他の3列と違い「情報を隠す側」が
+  自分の行に設定する点に注意。友達関係自体は残る（`status`は変更しない）。
+  クライアント側フィルタではなくDBレベルで強制するため、`presence_logs`の
+  SELECTポリシーにブロック確認を組み込む、2026-09-29、開発者確認済み）を
+  関係ごとに個別管理できる。実際の通知イベント自体の記録・既読管理は
+  別Issueで検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
@@ -196,6 +217,17 @@ erDiagram
   `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
   正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
   精度・退室後の削除ポリシーは未決定（別途検討）
+- **NOTIFICATIONS**：通知イベントの記録・既読管理（Issue #126、2026-09-30、
+  開発者確認済み）。`type`は`entry`（US-007/016の通常入室通知）・
+  `want_to_meet`（US-017の会いたい人通知）・`arrival_summary`（US-021の
+  会える人一覧、Issue #16）・`group_invite`（グループへの招待、Issue #117）の
+  いずれか。`related_user_id`・`area_id`・`group_member_id`は`type`に応じて
+  使う列だけを埋め、他はnullにする（他テーブルと同じ明示列スタイルを踏襲し、
+  jsonb等の汎用payload列は使わない方針）。`arrival_summary`は「1入室イベントで
+  同時に会える人が複数いる」場合、会える人1人につき1行作る（＝同じarea_id・
+  同じcreated_atの行が複数できる）。表示側（通知ボックス）でarea_id×
+  created_atが一致する行をグループ化し、1枚のカードにまとめる。既読管理は
+  シンプルな`is_read`真偽値のみとし、既読日時は持たない
 
 ## 設計上の重要な原則
 

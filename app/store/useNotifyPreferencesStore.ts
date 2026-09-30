@@ -8,6 +8,7 @@ import {
   updateFriendshipNotifyEnabled,
   updateFriendshipNotifyOnlyWhenCopresent,
   updateFriendshipWantToMeet,
+  updateFriendshipLocationHidden,
 } from '../lib/friends';
 import { Friendship, User } from '../mocks/presence';
 
@@ -34,6 +35,9 @@ type NotifyPreferencesState = {
   // この友達を「会いたい人」に登録する。共在していなくても入室通知を
   // 受け取る（US-017、受信側の設定）
   toggleWantToMeet: (friendId: string) => Promise<void>;
+  // この友達に自分の位置情報（presence_logs）を見せない（Issue #121、
+  // 一方向ブロック。他の3つと違い「情報を隠す側」の設定）
+  toggleLocationHidden: (friendId: string) => Promise<void>;
 };
 
 // 楽観的更新→永続化を行う共通ヘルパー。永続化に失敗した場合は表示を戻す
@@ -103,4 +107,7 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set, ge
 
   toggleWantToMeet: (friendId) =>
     toggleField(get, set, friendId, 'want_to_meet', updateFriendshipWantToMeet),
+
+  toggleLocationHidden: (friendId) =>
+    toggleField(get, set, friendId, 'location_hidden', updateFriendshipLocationHidden),
 }));
