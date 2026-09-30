@@ -3,7 +3,7 @@
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import { Area } from '../mocks/areas';
-import { AreaPresentUser } from '../store/usePresenceStore';
+import { AreaPresentUser } from '../utils/presenceMarkers';
 
 export type MapStackParamList = {
   Map: undefined;

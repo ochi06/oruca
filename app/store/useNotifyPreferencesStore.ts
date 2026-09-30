@@ -18,7 +18,7 @@ type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 // （FriendsListScreen）とグループ招待画面（useFriendUsers経由）の両方が
 // このstoreのfriendships/usersを参照するため、initialize()はどちらの画面が
 // 先にマウントされても一度だけ実データを取得すれば良いようにstatusで
-// 多重fetchを防ぐ（usePresenceStore.tsと同じ方針）
+// 多重fetchを防ぐ
 type NotifyPreferencesState = {
   currentUserId: string | null;
   friendships: Friendship[];

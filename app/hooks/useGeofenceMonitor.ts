@@ -74,8 +74,7 @@ export function useGeofenceMonitor(enabled: boolean): void {
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
   // ユーザーの監視対象エリアを取得し、USER_AREASへの参加・離脱に追従して
-  // 再取得する（Issue #109）。usePresenceStore.tsのpresence_logs購読と同じ
-  // パターンで、user_areasテーブルの変更をRealtimeで購読する
+  // 再取得する（Issue #109）。user_areasテーブルの変更をRealtimeで購読する
   useEffect(() => {
     if (!enabled) return;
 
