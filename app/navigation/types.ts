@@ -24,6 +24,7 @@ export type FriendsGroupsStackParamList = {
   GroupCreate: undefined;
   GroupJoin: undefined;
   GroupJoinRequest: undefined;
+  GroupQrScan: undefined;
 };
 
 export type SettingsStackParamList = {

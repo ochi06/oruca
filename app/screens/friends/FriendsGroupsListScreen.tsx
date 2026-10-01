@@ -24,7 +24,9 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
   const [segment, setSegment] = useState<Segment>('friends');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  function navigateFromMenu(screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupJoinRequest') {
+  function navigateFromMenu(
+    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupJoinRequest' | 'GroupQrScan'
+  ) {
     setMenuOpen(false);
     navigation.navigate(screen);
   }
@@ -82,6 +84,9 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
           </Pressable>
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoinRequest')}>
             <Text style={[typography.body, { color: colors.text }]}>グループ参加申請</Text>
+          </Pressable>
+          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupQrScan')}>
+            <Text style={[typography.body, { color: colors.text }]}>オープングループにQRで参加</Text>
           </Pressable>
         </View>
       </Modal>

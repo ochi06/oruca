@@ -3,8 +3,9 @@
 // （認可判定＝「誰が何をしてよいか」はRLS側で強制するため、ここでは行わない）。
 
 import { supabase } from './supabase';
-import { Group, GroupMember } from '../mocks/groups';
+import { Group, GroupMember, GroupType } from '../mocks/groups';
 import { generateInviteCode } from '../utils/groupInvite';
+import { computeOpenGroupExpiresAt } from '../utils/groupOpenType';
 
 // RLS上読める（owner／approvedメンバー／is_public=trueの）グループを全件取得する
 export async function fetchVisibleGroups(): Promise<Group[]> {
@@ -21,12 +22,29 @@ export async function fetchVisibleGroupMembers(): Promise<GroupMember[]> {
 }
 
 // グループを新規作成し、作成者を管理者(owner_user_id)かつ承認済みメンバーとして
-// 登録する（Issue #116）。GROUPS INSERTとGROUP_MEMBERS INSERTは別テーブルへの
-// 別クエリのため、2回に分けて呼ぶ（後段が失敗した場合の後始末は今後の検討課題）
-export async function createGroup(name: string, ownerUserId: string, isPublic: boolean): Promise<Group> {
+// 登録する（Issue #116、Issue #148でtype/area_idを追加）。GROUPS INSERTと
+// GROUP_MEMBERS INSERTは別テーブルへの別クエリのため、2回に分けて呼ぶ
+// （後段が失敗した場合の後始末は今後の検討課題）。
+// type='open'の場合、expires_at（created_at+7日）はクライアント側で計算して
+// セットする（DB側のdefaultには持たせず、常に明示的に渡す）
+export async function createGroup(
+  name: string,
+  ownerUserId: string,
+  isPublic: boolean,
+  type: GroupType = 'closed',
+  areaId: string | null = null
+): Promise<Group> {
   const { data: group, error: groupError } = await supabase
     .from('groups')
-    .insert({ owner_user_id: ownerUserId, name, invite_code: generateInviteCode(), is_public: isPublic })
+    .insert({
+      owner_user_id: ownerUserId,
+      name,
+      invite_code: generateInviteCode(),
+      is_public: isPublic,
+      type,
+      area_id: type === 'open' ? areaId : null,
+      expires_at: type === 'open' ? computeOpenGroupExpiresAt(new Date()) : null,
+    })
     .select()
     .single();
   if (groupError) throw groupError;
@@ -37,6 +55,42 @@ export async function createGroup(name: string, ownerUserId: string, isPublic: b
   if (memberError) throw memberError;
 
   return group as Group;
+}
+
+// invite_codeからオープングループを検索する（Issue #148、QRでの即時参加）。
+// security definerなRPC（find_open_group_by_invite_code）経由のため、
+// 参加前（まだメンバーでない）でもtype='open'のグループに限り検索できる
+export async function findOpenGroupByInviteCode(
+  inviteCode: string
+): Promise<{ id: string; name: string; area_id: string } | null> {
+  const { data, error } = await supabase.rpc('find_open_group_by_invite_code', {
+    p_invite_code: inviteCode,
+  });
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ?? null;
+}
+
+// オープングループにQRコード（invite_code）で即時参加する（承認不要、Issue #148）
+export async function joinOpenGroup(groupId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('group_members')
+    .insert({ group_id: groupId, user_id: userId, invited_by: null, status: 'approved' });
+  if (error) throw error;
+}
+
+// 期限切れ（expires_at <= now）のオープングループのうち、自分がowner_user_idの
+// ものを削除する（Issue #148の自動削除。RLSのDELETE権限はowner限定のため、
+// 他ユーザーが所有するグループは削除できない＝そのowner自身がアプリを開いた
+// タイミングで削除される想定）
+export async function deleteExpiredOwnedOpenGroups(ownerUserId: string): Promise<void> {
+  const { error } = await supabase
+    .from('groups')
+    .delete()
+    .eq('owner_user_id', ownerUserId)
+    .eq('type', 'open')
+    .lte('expires_at', new Date().toISOString());
+  if (error) throw error;
 }
 
 // 既存メンバーが友達を招待する（Issue #117）。owner・approvedメンバーのみ
@@ -98,4 +152,18 @@ export async function leaveGroup(memberId: string): Promise<void> {
 export async function transferOwnership(groupId: string, newOwnerUserId: string): Promise<void> {
   const { error } = await supabase.from('groups').update({ owner_user_id: newOwnerUserId }).eq('id', groupId);
   if (error) throw error;
+}
+
+// あるエリアに現在在籍中（exited_at is null）のuser_id集合を取得する
+// （Issue #148、オープングループの在席状況フィルタ用。RLS上「presence in
+// monitored areas is readable」で絞り込み済みの結果が返る＝自分がそのエリアを
+// 監視(USER_AREAS)していなければ、自分以外の行はそもそも読めない）
+export async function fetchPresentUserIds(areaId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('presence_logs')
+    .select('user_id')
+    .eq('area_id', areaId)
+    .is('exited_at', null);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.user_id));
 }

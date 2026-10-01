@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -17,8 +18,10 @@ import { CURRENT_USER_ID } from '../../mocks/presence';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
+import { canSeeOpenGroupPresence } from '../../utils/groupOpenType';
 import { findUserName } from '../../utils/users';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
+import { fetchPresentUserIds } from '../../lib/groups';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupDetail'>;
@@ -42,10 +45,25 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
   const [isInviting, setIsInviting] = useState(false);
+  // オープングループの在席ユーザーID集合（Issue #148の可視性ルール用）。
+  // RLS（presence in monitored areas is readable）上、自分がそのエリアを
+  // 監視(USER_AREAS)していなければ自分以外の行は返らないため、
+  // 「自分がそのエリアに在席中か」もこの集合に自分のIDが含まれるかで判定できる
+  const [presentUserIds, setPresentUserIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (group?.type !== 'open' || !group.area_id) {
+      setPresentUserIds(null);
+      return;
+    }
+    fetchPresentUserIds(group.area_id)
+      .then(setPresentUserIds)
+      .catch(() => setPresentUserIds(new Set()));
+  }, [group?.type, group?.area_id]);
 
   if (!group) {
     return (
@@ -59,6 +77,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const isAdmin = isGroupAdmin(group, CURRENT_USER_ID);
   const pendingMembers = members.filter((m) => m.status === 'pending');
   const approvedMembers = members.filter((m) => m.status === 'approved');
+  const selfIsPresentInGroupArea = presentUserIds?.has(CURRENT_USER_ID) ?? false;
+  const showPresence = canSeeOpenGroupPresence(group, selfIsPresentInGroupArea);
   // rejected済みの友達は再招待できるので除外しない（inviteMember側の判定と合わせる）
   const invitableFriends = friends.filter(
     (friend) => !members.some((m) => m.user_id === friend.id && m.status !== 'rejected')
@@ -138,6 +158,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
       <Text style={[styles.title, { color: colors.text }]}>{group.name}</Text>
 
+      {group.type === 'open' && isAdmin && (
+        <View style={styles.qrSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>参加用QRコード</Text>
+          <QRCode value={group.invite_code} size={160} />
+          <Text style={{ color: colors.textSub, marginTop: spacing.sm }}>{group.invite_code}</Text>
+        </View>
+      )}
+
       <Button label="友達を招待する" onPress={() => setIsInviting(true)} style={styles.inviteButton} />
 
       {isAdmin && (
@@ -178,6 +206,13 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             <ListItem
               key={member.id}
               title={findUserName(member.user_id)}
+              subtitle={
+                showPresence
+                  ? presentUserIds?.has(member.user_id)
+                    ? '在席中'
+                    : '不在'
+                  : undefined
+              }
               leading={<Avatar name={findUserName(member.user_id)} iconUrl={null} />}
               trailing={
                 isAdmin && member.user_id !== group.owner_user_id ? (
@@ -276,6 +311,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   inviteButton: {
+    marginBottom: spacing.lg,
+  },
+  qrSection: {
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
   leaveButton: {

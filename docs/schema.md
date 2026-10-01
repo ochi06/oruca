@@ -93,6 +93,9 @@ erDiagram
     string name
     string invite_code
     boolean is_public
+    string type
+    uuid area_id FK
+    timestamp expires_at
     timestamp created_at
     timestamp updated_at
   }
@@ -200,12 +203,23 @@ erDiagram
   `is_public`はIssue #119（グループを検索して参加申請する画面）用。`true`の
   グループのみ検索対象になる（`AREAS.is_public`と同じ考え方）。デフォルトは
   `false`（作成時に検索対象にするかを選ぶ）
+- **GROUPS.type/area_id/expires_at**：Issue #148（2026-10-01開発者確認済み）。
+  `type`は`'closed'`（友達同士・サークルなど、メンバーが固定された従来通りの
+  招待制）と`'open'`（イベントなど、`invite_code`をQR等で読み込むだけで承認不要・
+  即座に参加できるグループ）の2種類。`'open'`では`area_id`（イベント会場）が
+  必須、`'closed'`では`area_id`はnull（DB側CHECK制約で強制）。`expires_at`は
+  `'open'`作成時に`created_at + 7日`を自動セットし、期限が過ぎたオープン
+  グループは自動削除する（手動削除機能は不要）。`'closed'`は`expires_at`も
+  null（無期限）
 - **GROUP_MEMBERS**：グループへの参加申請・メンバーシップ。`status`は
   pending（申請中）→approved（承認済み）／rejected（却下）の二段階。
   `invited_by`は既存メンバーが友達を直接招待した場合の招待者（招待コードでの
   自己申請の場合はnull）。グループ内での名前公開は`status = 'approved'`で
   あることのみを条件とする（グループとエリアの紐づけ・エリア単位の合意形成は
-  別Issueで検討）
+  別Issueで検討）。ただし`type = 'open'`のグループでの在席状況の公開は、
+  RLSではなくクエリ側フィルタとして、自分がその`GROUPS.area_id`に
+  現在在籍中（`PRESENCE_LOGS.exited_at IS NULL`）の場合のみ見える
+  （Issue #148、2026-10-01開発者確認済み）
 - **AREA_SCHEDULES**：US-011の基本滞在予定。ユーザー×エリアごとに1件
   （`unique(user_id, area_id)`）。時刻・曜日は構造化せず`note`に自由記述で
   登録する（2026-09-19、開発者確認済み。詳細な構造化は今後の検討課題）

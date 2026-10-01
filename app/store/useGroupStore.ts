@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 
-import { Group, GroupMember } from '../mocks/groups';
+import { Group, GroupMember, GroupType } from '../mocks/groups';
 import * as groupsApi from '../lib/groups';
 import { checkCanJoin, checkCanLeaveGroup, checkCanTransferOwnership, checkIsGroupOwner } from './groupValidation';
 import { useNotificationStore } from './useNotificationStore';
+import { isExpiredOpenGroup } from '../utils/groupOpenType';
+
+// invite_codeでのオープングループQR参加（Issue #148）の結果型
+export type JoinOpenGroupResult =
+  | { status: 'success'; groupId: string; groupName: string }
+  | { status: 'not_found' }
+  | { status: 'already_member' };
 
 export type GroupActionResult =
   | { status: 'success' }
@@ -26,8 +33,19 @@ type GroupState = {
   errorMessage: string | null;
   // RLS上読める（owner／approvedメンバー／is_public=trueの）groups・group_membersを
   // 取得し直す。ミューテーション系のactionは、成功後にこれを呼んで状態を最新化する
-  initialize: () => Promise<void>;
-  createGroup: (name: string, ownerUserId: string, isPublic: boolean) => Promise<Group>;
+  // ownerUserIdを渡すと、そのユーザーが所有する期限切れオープングループの
+  // 自動削除（Issue #148）も合わせて行う
+  initialize: (ownerUserId?: string) => Promise<void>;
+  createGroup: (
+    name: string,
+    ownerUserId: string,
+    isPublic: boolean,
+    type?: GroupType,
+    areaId?: string | null
+  ) => Promise<Group>;
+  // オープングループへのQR参加（Issue #148）。invite_codeからグループを
+  // 検索し、承認不要でstatus='approved'のGROUP_MEMBERS行を作る
+  joinOpenGroupByInviteCode: (inviteCode: string, userId: string) => Promise<JoinOpenGroupResult>;
   inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => Promise<InviteMemberResult>;
   requestToJoinGroup: (groupId: string, userId: string) => Promise<InviteMemberResult>;
   // 招待された本人が辞退する（Issue #117）。自分の行を削除する形でAPI側は実装している
@@ -47,21 +65,49 @@ export const useGroupStore = create<GroupState>((set, get) => ({
   status: 'idle',
   errorMessage: null,
 
-  initialize: async () => {
+  initialize: async (ownerUserId?: string) => {
     if (get().status === 'loading') return;
     set({ status: 'loading', errorMessage: null });
     try {
+      // 期限切れの自分所有オープングループを削除してから取得する（Issue #148の
+      // 自動削除。RLS上owner以外は削除できないため、ownerUserId省略時はスキップする）
+      if (ownerUserId) {
+        await groupsApi.deleteExpiredOwnedOpenGroups(ownerUserId);
+      }
       const [groups, members] = await Promise.all([groupsApi.fetchVisibleGroups(), groupsApi.fetchVisibleGroupMembers()]);
-      set({ groups, members, status: 'ready' });
+      const now = new Date();
+      // 他ユーザー所有の期限切れオープングループはRLS上まだDELETEできないため
+      // （そのownerがアプリを開くまで残る）、表示上は自分側で除外する
+      const visibleGroups = groups.filter((group) => !isExpiredOpenGroup(group, now));
+      set({ groups: visibleGroups, members, status: 'ready' });
     } catch (error) {
       set({ status: 'error', errorMessage: error instanceof Error ? error.message : 'グループ情報の取得に失敗しました' });
     }
   },
 
-  createGroup: async (name, ownerUserId, isPublic) => {
-    const newGroup = await groupsApi.createGroup(name, ownerUserId, isPublic);
-    await get().initialize();
+  createGroup: async (name, ownerUserId, isPublic, type = 'closed', areaId = null) => {
+    const newGroup = await groupsApi.createGroup(name, ownerUserId, isPublic, type, areaId);
+    await get().initialize(ownerUserId);
     return newGroup;
+  },
+
+  joinOpenGroupByInviteCode: async (inviteCode, userId) => {
+    const found = await groupsApi.findOpenGroupByInviteCode(inviteCode);
+    if (!found) {
+      return { status: 'not_found' };
+    }
+
+    const { members } = get();
+    const alreadyMember = members.some(
+      (m) => m.group_id === found.id && m.user_id === userId && m.status !== 'rejected'
+    );
+    if (alreadyMember) {
+      return { status: 'already_member' };
+    }
+
+    await groupsApi.joinOpenGroup(found.id, userId);
+    await get().initialize(userId);
+    return { status: 'success', groupId: found.id, groupName: found.name };
   },
 
   inviteMember: async (groupId, friendUserId, invitedByUserId) => {
