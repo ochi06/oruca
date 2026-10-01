@@ -30,12 +30,12 @@ export function RootTabNavigator() {
         ),
       })}
     >
-      <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: 'マップ' }} />
       <Tab.Screen
         name="FriendsGroupsTab"
         component={FriendsGroupsStackNavigator}
         options={{ title: '友達・グループ' }}
       />
+      <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: 'マップ' }} />
       <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: '設定' }} />
     </Tab.Navigator>
   );
