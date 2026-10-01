@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { IconButton } from '../../components/IconButton';
@@ -25,11 +25,15 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   function navigateFromMenu(
-    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupJoinRequest' | 'GroupQrScan'
+    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupJoinRequest' | 'GroupQrScan' | 'GroupJoinByCode'
   ) {
     setMenuOpen(false);
     navigation.navigate(screen);
   }
+
+  // Issue #190: Web簡易体験版ではカメラQRスキャンが使えないため、招待コードの
+  // 手入力画面に差し替える
+  const openGroupJoinScreen = Platform.OS === 'web' ? 'GroupJoinByCode' : 'GroupQrScan';
 
   return (
     <Screen style={styles.container}>
@@ -85,8 +89,10 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoinRequest')}>
             <Text style={[typography.body, { color: colors.text }]}>グループ参加申請</Text>
           </Pressable>
-          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupQrScan')}>
-            <Text style={[typography.body, { color: colors.text }]}>オープングループにQRで参加</Text>
+          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu(openGroupJoinScreen)}>
+            <Text style={[typography.body, { color: colors.text }]}>
+              {Platform.OS === 'web' ? 'オープングループに招待コードで参加' : 'オープングループにQRで参加'}
+            </Text>
           </Pressable>
         </View>
       </Modal>

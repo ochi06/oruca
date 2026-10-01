@@ -6,6 +6,7 @@ import { useFonts, NotoSansJP_400Regular, NotoSansJP_700Bold } from '@expo-googl
 import { ToastProvider } from './components/Toast';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
+import { WebDemoNotice } from './components/WebDemoNotice';
 import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
 import { initSentry, Sentry } from './lib/sentry';
 import { supabase } from './lib/supabase';
@@ -94,6 +95,7 @@ function App() {
   if (userId === null) {
     return (
       <SafeAreaProvider>
+        <WebDemoNotice />
         <LoginScreen />
       </SafeAreaProvider>
     );
@@ -102,6 +104,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <ToastProvider>
+        <WebDemoNotice />
         <NavigationContainer>
           <RootTabNavigator />
         </NavigationContainer>
