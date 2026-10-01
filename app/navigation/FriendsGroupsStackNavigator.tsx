@@ -9,6 +9,7 @@ import GroupCreateScreen from '../screens/groups/GroupCreateScreen';
 import GroupJoinScreen from '../screens/groups/GroupJoinScreen';
 import GroupJoinRequestScreen from '../screens/groups/GroupJoinRequestScreen';
 import GroupQrScanScreen from '../screens/groups/GroupQrScanScreen';
+import GroupJoinByCodeScreen from '../screens/groups/GroupJoinByCodeScreen';
 import { FriendsGroupsStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<FriendsGroupsStackParamList>();
@@ -25,6 +26,7 @@ export function FriendsGroupsStackNavigator() {
       <Stack.Screen name="GroupJoin" component={GroupJoinScreen} />
       <Stack.Screen name="GroupJoinRequest" component={GroupJoinRequestScreen} />
       <Stack.Screen name="GroupQrScan" component={GroupQrScanScreen} />
+      <Stack.Screen name="GroupJoinByCode" component={GroupJoinByCodeScreen} />
     </Stack.Navigator>
   );
 }

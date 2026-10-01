@@ -114,7 +114,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       return { status: 'already_member' };
     }
 
-    await groupsApi.joinOpenGroup(found.id, userId);
+    await groupsApi.joinOpenGroup(found.id, userId, found.area_id);
     await get().initialize(userId);
     const newMember = get().members.find((m) => m.group_id === found.id && m.user_id === userId);
     return { status: 'success', groupId: found.id, groupName: found.name, memberId: newMember?.id ?? '' };

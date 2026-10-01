@@ -28,6 +28,9 @@ export type FriendsGroupsStackParamList = {
   GroupJoin: undefined;
   GroupJoinRequest: undefined;
   GroupQrScan: undefined;
+  // Issue #190: Web簡易体験版ではカメラQRスキャンが使えないため、
+  // 招待コードを手入力でオープングループに参加する代替画面
+  GroupJoinByCode: undefined;
 };
 
 export type SettingsStackParamList = {

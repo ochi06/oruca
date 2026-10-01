@@ -72,12 +72,22 @@ export async function findOpenGroupByInviteCode(
   return row ?? null;
 }
 
-// オープングループにQRコード（invite_code）で即時参加する（承認不要、Issue #148）
-export async function joinOpenGroup(groupId: string, userId: string): Promise<void> {
+// オープングループにQRコード（invite_code）で即時参加する（承認不要、Issue #148）。
+// あわせてグループのarea_idをuser_areasに登録し、以後そのエリアを監視対象にする
+// （Issue #190で発見：参加しただけではarea監視が始まらず、presence_logsが
+// 一切書き込まれないため在席者一覧に自分が表示されない不具合があった。
+// グループのownerは作成時に自分のareaを既にuser_areas登録済みのため影響を
+// 受けていなかった）
+export async function joinOpenGroup(groupId: string, userId: string, areaId: string): Promise<void> {
   const { error } = await supabase
     .from('group_members')
     .insert({ group_id: groupId, user_id: userId, invited_by: null, status: 'approved' });
   if (error) throw error;
+
+  const { error: userAreaError } = await supabase
+    .from('user_areas')
+    .upsert({ user_id: userId, area_id: areaId }, { onConflict: 'user_id,area_id', ignoreDuplicates: true });
+  if (userAreaError) throw userAreaError;
 }
 
 // 期限切れ（expires_at <= now）のオープングループのうち、自分がowner_user_idの
