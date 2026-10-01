@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as Location from 'expo-location';
 
@@ -70,7 +70,14 @@ export function useGeofenceMonitor(enabled: boolean): void {
   const userIdRef = useRef<string | null>(null);
   const areasRef = useRef<Area[]>([]);
 
-  const [logs, setLogs] = useState<PresenceLog[]>([]);
+  // Issue #166：入室中ログの状態（JSXから参照されないため再レンダーは不要）。
+  // 以前はuseStateで持っていたが、バックエンドへの書き込み成否に関わらず
+  // 常に「成功した体」でここを更新していたため、recordEntryInBackend/
+  // recordExitInBackendが失敗した場合に、ローカルの状態とDBの実際の状態が
+  // 永続的にズレてしまうバグがあった（アプリ再起動でこの変数がリセットされる
+  // までズレが直らない）。書き込みが成功したエリアのみ更新する方式にしたため、
+  // refで十分
+  const logsRef = useRef<PresenceLog[]>([]);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
   // ユーザーの監視対象エリアを取得し、USER_AREASへの参加・離脱に追従して
@@ -116,51 +123,57 @@ export function useGeofenceMonitor(enabled: boolean): void {
     };
   }, [enabled]);
 
+  // Issue #166：タブ切替直後などに在席表示が反映されず、アプリ再起動が
+  // 必要になる不具合の修正。
+  //
+  // 以前は「ローカルのlogsをまず書き換え（入室/退室したことにする）→
+  // その後バックエンドへ書き込む」という順序だったため、バックエンドへの
+  // 書き込みが（ネットワーク瞬断等で）失敗しても、ローカルのlogsは
+  // 「既に書き込み済み」のまま進んでしまっていた。次にこのエリアに
+  // 留まり続けている間は「留まっている（staying）」としてしか扱われず
+  // （recordLocationUpdateInBackendが呼ばれ続けるだけ）、本来必要だった
+  // 入室insertが二度と再試行されない。しかもrecordLocationUpdateInBackendは
+  // `exited_at is null`の行をUPDATEするだけなので、該当行自体が存在しない
+  // （insertが失敗したため）場合は何も更新せず静かに成功してしまい、
+  // 失敗に気づく手段がなかった（アプリ再起動でlogsRefが空に戻るまでズレが残る）。
+  //
+  // 修正後は、エリアごとにバックエンドへの書き込みが成功した場合のみ
+  // logsRef.currentを更新する。失敗した場合は該当エリアの状態を変更しない
+  // ため、次回のwatchPositionAsyncコールバックで同じ入室/退室として
+  // 再評価・再試行される
   async function handleLocation(location: LatLng) {
     const userId = userIdRef.current;
     if (!userId) return;
 
     const now = new Date().toISOString();
-    let updatedLogs: PresenceLog[] = [];
-    const transitions: { areaId: string; entered: boolean }[] = [];
-    const staying: string[] = [];
 
-    // setLogsのコールバックはuseEffect実行時点のクロージャではなく、常に
-    // 最新のstateを受け取れるため、ここで最新のlogsを基準に計算する
-    setLogs((prevLogs) => {
-      updatedLogs = prevLogs;
-      for (const area of areasRef.current) {
-        const inside = isInsideArea(location, area);
-        const wasOpen = hasOpenLog(updatedLogs, userId, area.id);
-        updatedLogs = recordPresence(updatedLogs, userId, area, inside, now);
-        const isOpenNow = hasOpenLog(updatedLogs, userId, area.id);
-        if (wasOpen !== isOpenNow) {
-          transitions.push({ areaId: area.id, entered: isOpenNow });
-        } else if (wasOpen && isOpenNow) {
-          staying.push(area.id);
+    for (const area of areasRef.current) {
+      const inside = isInsideArea(location, area);
+      const wasOpen = hasOpenLog(logsRef.current, userId, area.id);
+
+      if (inside === wasOpen) {
+        // 変化なし。ただし在室継続中は位置情報を更新する
+        if (wasOpen) {
+          try {
+            await recordLocationUpdateInBackend(area.id, location);
+          } catch {
+            // 位置情報の更新のみの失敗は致命的ではない（次のtickで再試行される）
+          }
         }
+        continue;
       }
-      return updatedLogs;
-    });
 
-    for (const { areaId, entered } of transitions) {
       try {
-        if (entered) {
-          await recordEntryInBackend(areaId, location, now);
+        if (inside) {
+          await recordEntryInBackend(area.id, location, now);
         } else {
-          await recordExitInBackend(areaId, now);
+          await recordExitInBackend(area.id, now);
         }
+        // バックエンドへの書き込みが成功した場合のみ、ローカルの状態を進める
+        logsRef.current = recordPresence(logsRef.current, userId, area, inside, now);
       } catch {
-        // バックエンドへの書き込みが失敗しても、ローカルの在席判定はそのまま
-        // 継続させる（オフライン等で失敗しても監視自体は壊れないように）
-      }
-    }
-
-    for (const areaId of staying) {
-      try {
-        await recordLocationUpdateInBackend(areaId, location);
-      } catch {
-        // 同上、失敗してもローカルの在席判定・監視自体は継続させる
+        // 書き込みに失敗した場合はローカルの状態を変更しない。
+        // 次回のコールバックで同じ入室/退室として再試行される
       }
     }
   }
