@@ -15,6 +15,7 @@ import { typography } from '../../theme/typography';
 import { ensureSignedIn, fetchUserName, isCurrentSessionAnonymous } from '../../lib/auth';
 import { useFriendAddStore } from '../../store/useFriendAddStore';
 import { useGroupStore } from '../../store/useGroupStore';
+import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 import { GroupDisplayOverrideModal } from '../groups/GroupDisplayOverrideModal';
 
@@ -129,6 +130,10 @@ export default function RedeemCodeScreen({ navigation }: Props) {
     if ('source' in result && result.source === 'friend') {
       if (result.status === 'success') {
         showToast(`${result.friendName}さんを友達に追加しました`);
+        // 友達一覧（useNotifyPreferencesStore）は一度取得が終わると
+        // status==='ready'のまま再取得されないため、ここで明示的に
+        // 再取得しないと一覧画面に戻っても新しい友達が反映されない（Issue #216）
+        useNotifyPreferencesStore.getState().initialize();
         onDone();
         return;
       }
