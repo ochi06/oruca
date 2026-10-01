@@ -7,6 +7,7 @@ import { ToastProvider } from './components/Toast';
 import { LoadingIndicator } from './components/LoadingIndicator';
 import { ErrorState } from './components/ErrorState';
 import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
+import { initSentry, Sentry } from './lib/sentry';
 import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
 import { usePushNotificationRegistration } from './hooks/usePushNotificationRegistration';
@@ -14,7 +15,12 @@ import { RootTabNavigator } from './navigation/RootTabNavigator';
 
 import LoginScreen from './screens/LoginScreen';
 
-export default function App() {
+// モジュール読み込み時（起動直後）に初期化する（Issue #27）。
+// App関数コンポーネント内で呼ぶと、再レンダリングのたびに呼ばれる・
+// 初期化前のクラッシュを捕捉できないため、ここで一度だけ行う
+initSentry();
+
+function App() {
   const [fontsLoaded] = useFonts({
     NotoSansJP_400Regular,
     NotoSansJP_700Bold,
@@ -104,3 +110,8 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+// Sentry.wrapで包むことで、レンダー中の未捕捉エラーもクラッシュとして
+// 報告される（Issue #27）。initSentry()がDSN未設定でスキップされていても、
+// Sentry.wrap自体は安全に素通りする
+export default Sentry.wrap(App);

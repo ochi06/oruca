@@ -61,6 +61,7 @@ module.exports = {
           color: '#2E6F9E',
         },
       ],
+      '@sentry/react-native/expo',
       './plugins/withFixMapsPodname',
     ],
     extra: {
