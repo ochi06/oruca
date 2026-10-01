@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
-import { Group, GroupMember, mockGroupMembers, mockGroups } from '../mocks/groups';
-import { isGroupAdmin } from '../utils/groupAuth';
-import { generateInviteCode } from '../utils/groupInvite';
+import { Group, GroupMember } from '../mocks/groups';
+import * as groupsApi from '../lib/groups';
+import { checkCanJoin, checkCanLeaveGroup, checkCanTransferOwnership, checkIsGroupOwner } from './groupValidation';
 import { useNotificationStore } from './useNotificationStore';
 
 export type GroupActionResult =
@@ -22,259 +22,161 @@ export type InviteMemberResult =
 type GroupState = {
   groups: Group[];
   members: GroupMember[];
-  // グループを新規作成し、作成者を管理者(owner_user_id)かつ承認済みメンバーとして
-  // 登録する（Issue #116）。グループ名の検証（空・文字数上限）は呼び出し側（画面）で行う
-  createGroup: (name: string, ownerUserId: string, isPublic: boolean) => Group;
-  // 既存メンバーが友達を招待する（Issue #117）。承認は不要（管理者権限チェックなし）。
-  // status: 'pending'のGROUP_MEMBERS行を作り、invited_byに招待者を記録する
-  inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => InviteMemberResult;
-  // 自分から公開グループに参加を申請する（Issue #119）。invited_byはnull
-  // （招待されたのではなく自分の意思で申請したことを表す）。管理者の承認待ち
-  requestToJoinGroup: (groupId: string, userId: string) => InviteMemberResult;
-  // 招待された本人が承諾する（Issue #117）。requestingUserIdが行の持ち主と
-  // 一致する場合のみ許可する（他人の招待を勝手に承諾させないため）
-  acceptInvitation: (memberId: string, requestingUserId: string) => GroupActionResult;
-  // 招待された本人が辞退する（Issue #117）。rejectMember（管理者による拒否）とは
-  // 呼び出し元が異なるだけで、内部的にはstatusを'rejected'にする点は同じ
-  declineInvitation: (memberId: string, requestingUserId: string) => GroupActionResult;
-  approveMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
-  rejectMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
-  removeMember: (groupId: string, memberId: string, requestingUserId: string) => GroupActionResult;
-  // 自分の意思での退会（Issue #11）。強制退会（removeMember）と違い、
-  // 管理者権限は不要だが、自分が最後の管理者の場合は退会できない
-  leaveGroup: (groupId: string, userId: string) => GroupActionResult;
-  // 管理者権限を、承認済みの別メンバーに譲る（Issue #11）。
-  // GROUPS.owner_user_idは唯一の管理者を表すため（docs/schema.md参照）、
-  // 譲渡＝owner_user_idの付け替えとして実装する（複数管理者化はしない）
-  transferOwnership: (groupId: string, newOwnerUserId: string, requestingUserId: string) => GroupActionResult;
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  errorMessage: string | null;
+  // RLS上読める（owner／approvedメンバー／is_public=trueの）groups・group_membersを
+  // 取得し直す。ミューテーション系のactionは、成功後にこれを呼んで状態を最新化する
+  initialize: () => Promise<void>;
+  createGroup: (name: string, ownerUserId: string, isPublic: boolean) => Promise<Group>;
+  inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => Promise<InviteMemberResult>;
+  requestToJoinGroup: (groupId: string, userId: string) => Promise<InviteMemberResult>;
+  // 招待された本人が辞退する（Issue #117）。自分の行を削除する形でAPI側は実装している
+  declineInvitation: (memberId: string) => Promise<GroupActionResult>;
+  // 招待された本人が承諾する（Issue #117）
+  acceptInvitation: (memberId: string) => Promise<GroupActionResult>;
+  approveMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
+  rejectMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
+  removeMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
+  leaveGroup: (groupId: string, userId: string) => Promise<GroupActionResult>;
+  transferOwnership: (groupId: string, newOwnerUserId: string, requestingUserId: string) => Promise<GroupActionResult>;
 };
 
-function findGroupAndMember(groups: Group[], members: GroupMember[], groupId: string, memberId: string) {
-  const group = groups.find((g) => g.id === groupId);
-  const member = members.find((m) => m.id === memberId && m.group_id === groupId);
-  return { group, member };
-}
-
 export const useGroupStore = create<GroupState>((set, get) => ({
-  groups: mockGroups,
-  members: mockGroupMembers,
+  groups: [],
+  members: [],
+  status: 'idle',
+  errorMessage: null,
 
-  createGroup: (name, ownerUserId, isPublic) => {
-    const { groups, members } = get();
-    const nowIso = new Date().toISOString();
+  initialize: async () => {
+    if (get().status === 'loading') return;
+    set({ status: 'loading', errorMessage: null });
+    try {
+      const [groups, members] = await Promise.all([groupsApi.fetchVisibleGroups(), groupsApi.fetchVisibleGroupMembers()]);
+      set({ groups, members, status: 'ready' });
+    } catch (error) {
+      set({ status: 'error', errorMessage: error instanceof Error ? error.message : 'グループ情報の取得に失敗しました' });
+    }
+  },
 
-    const newGroup: Group = {
-      id: `group-mock-${groups.length + 1}`,
-      owner_user_id: ownerUserId,
-      name,
-      invite_code: generateInviteCode(),
-      is_public: isPublic,
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-    const ownerMember: GroupMember = {
-      id: `member-mock-${members.length + 1}`,
-      group_id: newGroup.id,
-      user_id: ownerUserId,
-      invited_by: null,
-      status: 'approved',
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-
-    set({
-      groups: [...groups, newGroup],
-      members: [...members, ownerMember],
-    });
+  createGroup: async (name, ownerUserId, isPublic) => {
+    const newGroup = await groupsApi.createGroup(name, ownerUserId, isPublic);
+    await get().initialize();
     return newGroup;
   },
 
-  inviteMember: (groupId, friendUserId, invitedByUserId) => {
+  inviteMember: async (groupId, friendUserId, invitedByUserId) => {
     const { groups, members } = get();
-    const group = groups.find((g) => g.id === groupId);
-    if (!group) {
-      return { status: 'not_found' };
-    }
-    const alreadyMember = members.some(
-      (m) => m.group_id === groupId && m.user_id === friendUserId && m.status !== 'rejected'
+    const blocked = checkCanJoin(groups, members, groupId, friendUserId);
+    if (blocked) return blocked;
+
+    await groupsApi.inviteMember(groupId, friendUserId, invitedByUserId);
+    await get().initialize();
+
+    // 招待された本人の通知ボックスにgroup_invite通知を追加する（Issue #126）。
+    // useNotificationStoreはまだSupabase未接続のモックのため、挿入した行を
+    // 更新後のmembersから引き当ててmemberIdを渡す
+    const newMember = get().members.find(
+      (m) => m.group_id === groupId && m.user_id === friendUserId && m.invited_by === invitedByUserId
     );
-    if (alreadyMember) {
-      return { status: 'already_member' };
+    if (newMember) {
+      useNotificationStore.getState().addNotification({
+        id: `notification-mock-${Date.now()}`,
+        user_id: friendUserId,
+        type: 'group_invite',
+        related_user_id: invitedByUserId,
+        area_id: null,
+        group_member_id: newMember.id,
+        is_read: false,
+        created_at: newMember.created_at,
+      });
     }
-
-    const nowIso = new Date().toISOString();
-    const newMember: GroupMember = {
-      id: `member-mock-${members.length + 1}`,
-      group_id: groupId,
-      user_id: friendUserId,
-      invited_by: invitedByUserId,
-      status: 'pending',
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-    set({ members: [...members, newMember] });
-
-    // 招待された本人の通知ボックスにgroup_invite通知を追加する（Issue #126）
-    useNotificationStore.getState().addNotification({
-      id: `notification-mock-${Date.now()}`,
-      user_id: friendUserId,
-      type: 'group_invite',
-      related_user_id: invitedByUserId,
-      area_id: null,
-      group_member_id: newMember.id,
-      is_read: false,
-      created_at: nowIso,
-    });
 
     return { status: 'success' };
   },
 
-  requestToJoinGroup: (groupId, userId) => {
+  requestToJoinGroup: async (groupId, userId) => {
     const { groups, members } = get();
-    const group = groups.find((g) => g.id === groupId);
-    if (!group) {
-      return { status: 'not_found' };
-    }
-    const alreadyMember = members.some(
-      (m) => m.group_id === groupId && m.user_id === userId && m.status !== 'rejected'
-    );
-    if (alreadyMember) {
-      return { status: 'already_member' };
-    }
+    const blocked = checkCanJoin(groups, members, groupId, userId);
+    if (blocked) return blocked;
 
-    const nowIso = new Date().toISOString();
-    const newMember: GroupMember = {
-      id: `member-mock-${members.length + 1}`,
-      group_id: groupId,
-      user_id: userId,
-      invited_by: null,
-      status: 'pending',
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-    set({ members: [...members, newMember] });
+    await groupsApi.requestToJoinGroup(groupId, userId);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  acceptInvitation: (memberId, requestingUserId) => {
+  declineInvitation: async (memberId) => {
     const { members } = get();
     const member = members.find((m) => m.id === memberId);
     if (!member) {
       return { status: 'not_found' };
     }
-    if (member.user_id !== requestingUserId) {
-      return { status: 'forbidden' };
-    }
 
-    set({
-      members: members.map((m) => (m.id === memberId ? { ...m, status: 'approved' } : m)),
-    });
+    await groupsApi.declineInvitation(memberId);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  declineInvitation: (memberId, requestingUserId) => {
+  acceptInvitation: async (memberId) => {
     const { members } = get();
     const member = members.find((m) => m.id === memberId);
     if (!member) {
       return { status: 'not_found' };
     }
-    if (member.user_id !== requestingUserId) {
-      return { status: 'forbidden' };
-    }
 
-    set({
-      members: members.map((m) => (m.id === memberId ? { ...m, status: 'rejected' } : m)),
-    });
+    await groupsApi.acceptInvitation(memberId);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  approveMember: (groupId, memberId, requestingUserId) => {
+  approveMember: async (groupId, memberId, requestingUserId) => {
     const { groups, members } = get();
-    const { group, member } = findGroupAndMember(groups, members, groupId, memberId);
-    if (!group || !member) {
-      return { status: 'not_found' };
-    }
-    if (!isGroupAdmin(group, requestingUserId)) {
-      return { status: 'forbidden' };
-    }
+    const blocked = checkIsGroupOwner(groups, members, groupId, memberId, requestingUserId);
+    if (blocked) return blocked;
 
-    set({
-      members: members.map((m) => (m.id === memberId ? { ...m, status: 'approved' } : m)),
-    });
+    await groupsApi.approveMember(memberId);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  rejectMember: (groupId, memberId, requestingUserId) => {
+  rejectMember: async (groupId, memberId, requestingUserId) => {
     const { groups, members } = get();
-    const { group, member } = findGroupAndMember(groups, members, groupId, memberId);
-    if (!group || !member) {
-      return { status: 'not_found' };
-    }
-    if (!isGroupAdmin(group, requestingUserId)) {
-      return { status: 'forbidden' };
-    }
+    const blocked = checkIsGroupOwner(groups, members, groupId, memberId, requestingUserId);
+    if (blocked) return blocked;
 
-    set({
-      members: members.map((m) => (m.id === memberId ? { ...m, status: 'rejected' } : m)),
-    });
+    await groupsApi.rejectMember(memberId);
+    await get().initialize();
     return { status: 'success' };
   },
 
   // 強制退会。承認済みメンバーを一覧から除外する（アカウント自体は残るため
   // 物理削除ではなくレコード削除で表現する。docs/schema.md「設計上の重要な原則」3.参照）
-  removeMember: (groupId, memberId, requestingUserId) => {
+  removeMember: async (groupId, memberId, requestingUserId) => {
     const { groups, members } = get();
-    const { group, member } = findGroupAndMember(groups, members, groupId, memberId);
-    if (!group || !member) {
-      return { status: 'not_found' };
-    }
-    if (!isGroupAdmin(group, requestingUserId)) {
-      return { status: 'forbidden' };
-    }
+    const blocked = checkIsGroupOwner(groups, members, groupId, memberId, requestingUserId);
+    if (blocked) return blocked;
 
-    set({
-      members: members.filter((m) => m.id !== memberId),
-    });
+    await groupsApi.removeMember(memberId);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  leaveGroup: (groupId, userId) => {
+  leaveGroup: async (groupId, userId) => {
     const { groups, members } = get();
-    const group = groups.find((g) => g.id === groupId);
-    const member = members.find((m) => m.group_id === groupId && m.user_id === userId);
-    if (!group || !member) {
-      return { status: 'not_found' };
-    }
-    if (group.owner_user_id === userId) {
-      return { status: 'last_admin' };
-    }
+    const check = checkCanLeaveGroup(groups, members, groupId, userId);
+    if ('result' in check) return check.result;
 
-    set({
-      members: members.filter((m) => m.id !== member.id),
-    });
+    await groupsApi.leaveGroup(check.member.id);
+    await get().initialize();
     return { status: 'success' };
   },
 
-  transferOwnership: (groupId, newOwnerUserId, requestingUserId) => {
+  transferOwnership: async (groupId, newOwnerUserId, requestingUserId) => {
     const { groups, members } = get();
-    const group = groups.find((g) => g.id === groupId);
-    if (!group) {
-      return { status: 'not_found' };
-    }
-    if (!isGroupAdmin(group, requestingUserId)) {
-      return { status: 'forbidden' };
-    }
-    // 譲渡先は、このグループの承認済みメンバーである必要がある
-    const newOwnerMember = members.find(
-      (m) => m.group_id === groupId && m.user_id === newOwnerUserId && m.status === 'approved'
-    );
-    if (!newOwnerMember) {
-      return { status: 'not_found' };
-    }
+    const check = checkCanTransferOwnership(groups, members, groupId, newOwnerUserId, requestingUserId);
+    if ('result' in check) return check.result;
 
-    set({
-      groups: groups.map((g) => (g.id === groupId ? { ...g, owner_user_id: newOwnerUserId } : g)),
-    });
+    await groupsApi.transferOwnership(groupId, newOwnerUserId);
+    await get().initialize();
     return { status: 'success' };
   },
 }));

@@ -16,8 +16,7 @@ import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupCreate'>;
 
-// グループ作成画面（Issue #116）。バックエンド未接続のため、useGroupStoreの
-// モック状態にそのまま追加する（他の操作＝承認・退会等と同じ方針）
+// グループ作成画面（Issue #116）。GROUPS/GROUP_MEMBERSへの実insertはuseGroupStore経由で行う
 export default function GroupCreateScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -26,7 +25,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const [isPublic, setIsPublic] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  function handleCreate() {
+  async function handleCreate() {
     const trimmedName = name.trim();
     if (!trimmedName) {
       showToast('グループ名を入力してください');
@@ -38,10 +37,15 @@ export default function GroupCreateScreen({ navigation }: Props) {
     }
 
     setCreating(true);
-    const newGroup = createGroup(trimmedName, CURRENT_USER_ID, isPublic);
-    showToast(`「${newGroup.name}」を作成しました`);
-    // 一覧に戻らず、作成したグループの詳細画面へそのまま遷移する
-    navigation.replace('GroupDetail', { groupId: newGroup.id });
+    try {
+      const newGroup = await createGroup(trimmedName, CURRENT_USER_ID, isPublic);
+      showToast(`「${newGroup.name}」を作成しました`);
+      // 一覧に戻らず、作成したグループの詳細画面へそのまま遷移する
+      navigation.replace('GroupDetail', { groupId: newGroup.id });
+    } catch {
+      showToast('グループの作成に失敗しました');
+      setCreating(false);
+    }
   }
 
   return (

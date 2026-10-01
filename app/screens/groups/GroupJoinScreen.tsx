@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -33,16 +34,21 @@ export default function GroupJoinScreen({ navigation }: Props) {
   );
   const acceptInvitation = useGroupStore((state) => state.acceptInvitation);
   const declineInvitation = useGroupStore((state) => state.declineInvitation);
+  const initialize = useGroupStore((state) => state.initialize);
 
-  function handleAccept(memberId: string) {
-    const result = acceptInvitation(memberId, CURRENT_USER_ID);
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  async function handleAccept(memberId: string) {
+    const result = await acceptInvitation(memberId);
     if (result.status === 'success') {
       showToast('グループに参加しました');
     }
   }
 
-  function handleDecline(memberId: string) {
-    const result = declineInvitation(memberId, CURRENT_USER_ID);
+  async function handleDecline(memberId: string) {
+    const result = await declineInvitation(memberId);
     if (result.status === 'success') {
       showToast('招待を辞退しました');
     }
@@ -64,7 +70,11 @@ export default function GroupJoinScreen({ navigation }: Props) {
               subtitle={`${findUserName(invitation.invited_by!)}からの招待`}
               trailing={
                 <View style={styles.actions}>
-                  <Button label="参加する" onPress={() => handleAccept(invitation.id)} style={styles.actionButton} />
+                  <Button
+                    label="参加する"
+                    onPress={() => handleAccept(invitation.id)}
+                    style={styles.actionButton}
+                  />
                   <Button
                     label="辞退する"
                     variant="secondary"

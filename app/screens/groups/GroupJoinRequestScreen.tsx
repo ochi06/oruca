@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,6 +36,11 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
     )
   );
   const requestToJoinGroup = useGroupStore((state) => state.requestToJoinGroup);
+  const initialize = useGroupStore((state) => state.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   const searchResults = groups.filter(
     (group) =>
@@ -45,8 +50,8 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
       group.name.includes(searchQuery)
   );
 
-  function handleRequest(groupId: string, groupName: string) {
-    const result = requestToJoinGroup(groupId, CURRENT_USER_ID);
+  async function handleRequest(groupId: string, groupName: string) {
+    const result = await requestToJoinGroup(groupId, CURRENT_USER_ID);
     if (result.status === 'already_member') {
       showToast('既に参加申請済み、またはメンバーです');
       return;
