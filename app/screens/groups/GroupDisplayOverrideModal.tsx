@@ -15,17 +15,21 @@ type Props = {
   defaultName: string;
   onSkip: () => void;
   onSave: (displayName: string | null, localIconUri: string | null) => void | Promise<void>;
+  // true の場合、名前入力を必須にしスキップできないようにする（Issue #151、
+  // 本名のUSERS.nameを持たない匿名ログインでのオープングループ参加時）
+  required?: boolean;
 };
 
-// グループ参加直後に、そのグループ内限定の表示名・アイコンを任意で
-// 設定してもらうモーダル（Issue #150）。closed（招待承諾）・open（QR参加）
-// の両方の参加フローから共通で使う
-export function GroupDisplayOverrideModal({ visible, defaultName, onSkip, onSave }: Props) {
+// グループ参加直後に、そのグループ内限定の表示名・アイコンを設定してもらう
+// モーダル（Issue #150）。closed（招待承諾）・open（QR参加）の両方の参加フロー
+// から共通で使う。通常は任意（スキップ可）だが、required=trueの場合は必須にする
+export function GroupDisplayOverrideModal({ visible, defaultName, onSkip, onSave, required = false }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [name, setName] = useState('');
   const [localIconUri, setLocalIconUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const canSave = !required || name.trim().length > 0;
 
   async function handlePickIcon() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -64,9 +68,15 @@ export function GroupDisplayOverrideModal({ visible, defaultName, onSkip, onSave
   }
 
   return (
-    <Modal visible={visible} onClose={handleSkip} title="このグループ内での表示を設定しますか？">
+    <Modal
+      visible={visible}
+      onClose={required ? () => {} : handleSkip}
+      title={required ? 'このグループ内で使う名前を設定してください' : 'このグループ内での表示を設定しますか？'}
+    >
       <Text style={{ color: colors.textSub, marginBottom: spacing.md }}>
-        設定すると、このグループ内の一覧・在席表示でのみ使われます（任意）。
+        {required
+          ? 'メール登録なしで参加しているため、このグループ内の一覧・在席表示用の名前の入力が必要です。'
+          : '設定すると、このグループ内の一覧・在席表示でのみ使われます（任意）。'}
       </Text>
       <View style={styles.iconRow}>
         <Avatar name={name || defaultName} iconUrl={localIconUri} size={64} />
@@ -79,8 +89,15 @@ export function GroupDisplayOverrideModal({ visible, defaultName, onSkip, onSave
         style={styles.nameInput}
       />
       <View style={styles.buttonRow}>
-        <Button label="スキップ" variant="secondary" onPress={handleSkip} style={styles.button} disabled={saving} />
-        <Button label={saving ? '保存中…' : '保存'} onPress={handleSave} style={styles.button} disabled={saving} />
+        {required ? null : (
+          <Button label="スキップ" variant="secondary" onPress={handleSkip} style={styles.button} disabled={saving} />
+        )}
+        <Button
+          label={saving ? '保存中…' : '保存'}
+          onPress={handleSave}
+          style={styles.button}
+          disabled={saving || !canSave}
+        />
       </View>
     </Modal>
   );

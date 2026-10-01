@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,16 +11,17 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn, fetchUserName, isCurrentSessionAnonymous } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
-import { findUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 import { GroupDisplayOverrideModal } from './GroupDisplayOverrideModal';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupQrScan'>;
 
 // オープングループのinvite_codeをQRで読み込んで即時参加する画面（Issue #148）。
-// 友達追加のQrScanScreenと同じ構造（1回のスキャンで複数回発火するのを防ぐガード等）
+// 友達追加のQrScanScreenと同じ構造（1回のスキャンで複数回発火するのを防ぐガード等）。
+// メール登録なしの匿名参加（Issue #151）もこの画面から行われるため、
+// 誰が参加するか（userId・匿名かどうか）はこの画面で都度取得する
 export default function GroupQrScanScreen({ navigation }: Props) {
   const onBack = () => navigation.goBack();
   const { colors } = useTheme();
@@ -30,12 +31,30 @@ export default function GroupQrScanScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const handledRef = useRef(false);
   const [joinedMemberId, setJoinedMemberId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [defaultName, setDefaultName] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([ensureSignedIn(), isCurrentSessionAnonymous()]).then(([signedInUserId, anonymous]) => {
+      if (cancelled) return;
+      setUserId(signedInUserId);
+      setIsAnonymous(anonymous);
+      fetchUserName(signedInUserId).then((name) => {
+        if (!cancelled) setDefaultName(name ?? '');
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleScan(result: BarcodeScanningResult) {
-    if (handledRef.current) return;
+    if (handledRef.current || !userId) return;
     handledRef.current = true;
 
-    const joinResult = await joinOpenGroupByInviteCode(result.data.trim(), CURRENT_USER_ID);
+    const joinResult = await joinOpenGroupByInviteCode(result.data.trim(), userId);
     switch (joinResult.status) {
       case 'success':
         showToast(`「${joinResult.groupName}」に参加しました`);
@@ -58,12 +77,12 @@ export default function GroupQrScanScreen({ navigation }: Props) {
   }
 
   async function handleSaveDisplay(displayName: string | null, localIconUri: string | null) {
-    if (!joinedMemberId) return;
-    await setMemberDisplay(joinedMemberId, CURRENT_USER_ID, displayName, localIconUri);
+    if (!joinedMemberId || !userId) return;
+    await setMemberDisplay(joinedMemberId, userId, displayName, localIconUri);
     handleFinishJoin();
   }
 
-  if (!permission) {
+  if (!permission || !userId) {
     return (
       <Screen style={styles.container}>
         <LoadingIndicator />
@@ -97,7 +116,8 @@ export default function GroupQrScanScreen({ navigation }: Props) {
 
       <GroupDisplayOverrideModal
         visible={joinedMemberId !== null}
-        defaultName={findUserName(CURRENT_USER_ID)}
+        defaultName={defaultName}
+        required={isAnonymous}
         onSkip={handleFinishJoin}
         onSave={handleSaveDisplay}
       />

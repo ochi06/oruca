@@ -38,6 +38,26 @@ export async function verifyLoginCode(email: string, code: string): Promise<stri
   return data.session.user.id;
 }
 
+// メール登録なしでオープングループのQR参加のみを行うための匿名セッションを
+// 作る（Issue #151、ADR-0007で一度廃止した匿名ログインをこの用途に限定復活）。
+// 通常のメールOTPログイン（sendLoginCode/verifyLoginCode）とは独立した経路で、
+// 作られたセッションはfriendships作成・closedグループの作成/参加からRLSで
+// 締め出される（supabase/migrations/20261001170000_anonymous_open_group_join.sql）
+export async function signInAnonymously(): Promise<string> {
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.session) {
+    throw error ?? new Error('ログインに失敗しました');
+  }
+  return data.session.user.id;
+}
+
+// 現在のセッションが匿名ログイン（signInAnonymously）由来かどうかを返す。
+// USERS.is_anonymous（US-013、在席非公開設定）とは別物なので注意
+export async function isCurrentSessionAnonymous(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.is_anonymous ?? false;
+}
+
 // USERSテーブルにも自分の行を用意する（初回ログイン時のみ必要）。
 // nameは後でプロフィール画面から変更できる前提の仮の値。
 export async function ensureUserRow(userId: string, defaultName: string): Promise<void> {
