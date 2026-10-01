@@ -27,7 +27,9 @@ export async function fetchVisibleGroupMembers(): Promise<GroupMember[]> {
 // GROUP_MEMBERS INSERTは別テーブルへの別クエリのため、2回に分けて呼ぶ
 // （後段が失敗した場合の後始末は今後の検討課題）。
 // type='open'の場合、expires_at（created_at+7日）はクライアント側で計算して
-// セットする（DB側のdefaultには持たせず、常に明示的に渡す）
+// セットする（DB側のdefaultには持たせず、常に明示的に渡す）。
+// area_idはtype問わず必須（Issue #204でclosedグループにもエリア紐付けを
+// 必須化したため、常にareaIdをそのまま渡す）
 export async function createGroup(
   name: string,
   ownerUserId: string,
@@ -41,7 +43,7 @@ export async function createGroup(
       name,
       invite_code: generateInviteCode(),
       type,
-      area_id: type === 'open' ? areaId : null,
+      area_id: areaId,
       expires_at: type === 'open' ? computeOpenGroupExpiresAt(new Date()) : null,
     })
     .select()
