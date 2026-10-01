@@ -55,9 +55,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
   function handleSelectType(nextType: GroupType) {
     setType(nextType);
-    if (nextType === 'closed') {
-      setSelectedAreaId(null);
-    }
   }
 
   async function handleCreate() {
@@ -71,9 +68,9 @@ export default function GroupCreateScreen({ navigation }: Props) {
       showToast(`グループ名は${GROUP_NAME_MAX_LENGTH}文字以内で入力してください`);
       return;
     }
-    const validationError = validateGroupTypeAndArea(type, selectedAreaId);
+    const validationError = validateGroupTypeAndArea(selectedAreaId);
     if (validationError === 'area_required') {
-      showToast('オープングループはイベント会場（エリア）を選択してください');
+      showToast('エリアを選択してください');
       return;
     }
 
@@ -126,23 +123,21 @@ export default function GroupCreateScreen({ navigation }: Props) {
         />
       </View>
 
-      {type === 'open' && (
-        <View style={styles.areaSection}>
-          <Text style={[styles.sectionLabel, { color: colors.textSub }]}>イベント会場（エリア）</Text>
-          {ownedAreas.length === 0 ? (
-            <EmptyState icon="location-outline" message="先にエリアを登録してください" />
-          ) : (
-            ownedAreas.map((area) => (
-              <ListItem
-                key={area.id}
-                title={area.name}
-                onPress={() => setSelectedAreaId(area.id)}
-                trailing={selectedAreaId === area.id ? <Text style={{ color: colors.blue }}>選択中</Text> : undefined}
-              />
-            ))
-          )}
-        </View>
-      )}
+      <View style={styles.areaSection}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>エリア</Text>
+        {ownedAreas.length === 0 ? (
+          <EmptyState icon="location-outline" message="先にエリアを登録してください" />
+        ) : (
+          ownedAreas.map((area) => (
+            <ListItem
+              key={area.id}
+              title={area.name}
+              onPress={() => setSelectedAreaId(area.id)}
+              trailing={selectedAreaId === area.id ? <Text style={{ color: colors.blue }}>選択中</Text> : undefined}
+            />
+          ))
+        )}
+      </View>
 
       <Button
         label={creating ? '作成中…' : '作成する'}

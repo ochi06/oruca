@@ -12,16 +12,12 @@ export function computeOpenGroupExpiresAt(createdAt: Date): string {
 }
 
 // グループ作成フォームの入力検証（DB側のgroups_area_id_matches_type制約と対応）。
-// openはarea_idが必須、closedはarea_idを持たない
-export function validateGroupTypeAndArea(
-  type: Group['type'],
-  areaId: string | null
-): 'area_required' | 'area_not_allowed' | null {
-  if (type === 'open' && !areaId) {
+// typeによらずarea_idが必須（Issue #204、2026-10-02開発者確認：oruca自体が
+// エリア限定・関係限定の在席可視化アプリであるため、closedグループも
+// 何らかのエリアに紐付け必須にする。寿命(expires_at)はopen限定のまま変更なし）
+export function validateGroupTypeAndArea(areaId: string | null): 'area_required' | null {
+  if (!areaId) {
     return 'area_required';
-  }
-  if (type === 'closed' && areaId) {
-    return 'area_not_allowed';
   }
   return null;
 }

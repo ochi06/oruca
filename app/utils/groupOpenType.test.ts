@@ -13,20 +13,12 @@ describe('computeOpenGroupExpiresAt', () => {
 });
 
 describe('validateGroupTypeAndArea', () => {
-  it('openでarea_idが無ければarea_required', () => {
-    expect(validateGroupTypeAndArea('open', null)).toBe('area_required');
+  it('area_idが無ければarea_required（Issue #204、typeによらず必須）', () => {
+    expect(validateGroupTypeAndArea(null)).toBe('area_required');
   });
 
-  it('openでarea_idがあればOK', () => {
-    expect(validateGroupTypeAndArea('open', 'area-1')).toBeNull();
-  });
-
-  it('closedでarea_idがあればarea_not_allowed', () => {
-    expect(validateGroupTypeAndArea('closed', 'area-1')).toBe('area_not_allowed');
-  });
-
-  it('closedでarea_idが無ければOK', () => {
-    expect(validateGroupTypeAndArea('closed', null)).toBeNull();
+  it('area_idがあればOK', () => {
+    expect(validateGroupTypeAndArea('area-1')).toBeNull();
   });
 });
 
