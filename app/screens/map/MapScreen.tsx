@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,6 +117,9 @@ export default function MapScreen({ navigation }: Props) {
   const [state, setState] = useState<LoadState>('loading');
   const [data, setData] = useState<PresenceMapData>({ currentUserId: '', areas: [], markers: [], areaPresence: {} });
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
+  // 新規エリア登録画面に渡す現在の表示範囲（Issue #186）。stateにすると
+  // 地図操作のたびに再レンダーが走ってしまうため、refで持つ
+  const currentRegionRef = useRef<Region | null>(null);
 
   const load = useCallback(() => {
     setState('loading');
@@ -198,6 +201,9 @@ export default function MapScreen({ navigation }: Props) {
         initialRegion={region}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
         onPress={handleMapPress}
+        onRegionChangeComplete={(nextRegion) => {
+          currentRegionRef.current = nextRegion;
+        }}
       >
         {data.areas.map((area) => (
           <Circle
@@ -243,7 +249,11 @@ export default function MapScreen({ navigation }: Props) {
         <IconButton
           name="add-outline"
           accessibilityLabel="新規エリア登録"
-          onPress={() => navigation.navigate('AreaRegistration')}
+          onPress={() =>
+            navigation.navigate('AreaRegistration', {
+              initialRegion: currentRegionRef.current ?? region,
+            })
+          }
         />
       </View>
       {selectedArea && (
