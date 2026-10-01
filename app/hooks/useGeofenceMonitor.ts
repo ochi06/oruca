@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { isInsideArea, recordPresence } from '../geofence';
 import { ensureSignedIn } from '../lib/auth';
 import { fetchMonitoredAreas } from '../lib/areas';
+import { fetchOpenPresenceLogs } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
 import { PresenceLog } from '../mocks/presence';
@@ -92,6 +93,21 @@ export function useGeofenceMonitor(enabled: boolean): void {
       const userId = await ensureSignedIn();
       if (cancelled) return;
       userIdRef.current = userId;
+
+      // Issue #178: 入退室状態（logsRef）はメモリ内でしか管理していないため、
+      // アプリ再起動を挟むと「入室中だったこと」を忘れ、本来必要な退室時の
+      // exited_at書き込みが行われなくなる。起動時にDBの入室中
+      // （exited_atがnull）ログを読み込んでlogsRefに復元（hydrate）する
+      try {
+        const openLogs = await fetchOpenPresenceLogs(userId);
+        if (!cancelled) {
+          logsRef.current = openLogs;
+        }
+      } catch {
+        // 復元に失敗しても致命的ではない（次回の入退室判定時に
+        // ズレていればrecordEntryInBackend/recordExitInBackend側で
+        // 整合する。読み込み自体はここでは再試行しない）
+      }
 
       async function refetchAreas() {
         const monitoredAreas = await fetchMonitoredAreas(userId);
