@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { ListItem } from '../../components/ListItem';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
@@ -28,6 +29,7 @@ export default function GroupJoinScreen({ navigation }: Props) {
   const groups = useGroupStore((state) => state.groups);
   const [userId, setUserId] = useState<string | null>(null);
   const [defaultName, setDefaultName] = useState('');
+  const [authError, setAuthError] = useState(false);
   const invitations = useGroupStore(
     useShallow((state) =>
       state.members.filter(
@@ -41,12 +43,19 @@ export default function GroupJoinScreen({ navigation }: Props) {
   const initialize = useGroupStore((state) => state.initialize);
   const [acceptedMemberId, setAcceptedMemberId] = useState<string | null>(null);
 
+  function loadUser() {
+    setAuthError(false);
+    ensureSignedIn()
+      .then((signedInUserId) => {
+        setUserId(signedInUserId);
+        fetchUserName(signedInUserId).then((name) => setDefaultName(name ?? ''));
+      })
+      .catch(() => setAuthError(true));
+  }
+
   useEffect(() => {
     initialize();
-    ensureSignedIn().then((signedInUserId) => {
-      setUserId(signedInUserId);
-      fetchUserName(signedInUserId).then((name) => setDefaultName(name ?? ''));
-    });
+    loadUser();
   }, [initialize]);
 
   async function handleAccept(memberId: string) {
@@ -68,6 +77,14 @@ export default function GroupJoinScreen({ navigation }: Props) {
     if (result.status === 'success') {
       showToast('招待を辞退しました');
     }
+  }
+
+  if (authError) {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
+      </Screen>
+    );
   }
 
   return (
