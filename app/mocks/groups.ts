@@ -3,12 +3,17 @@
 
 import { CURRENT_USER_ID, mockUsers } from './presence';
 
+export type GroupType = 'closed' | 'open';
+
 export type Group = {
   id: string;
   owner_user_id: string;
   name: string;
   invite_code: string;
   is_public: boolean;
+  type: GroupType;
+  area_id: string | null;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +41,9 @@ export const mockGroups: Group[] = [
     name: 'バイト先',
     invite_code: 'ABCD12',
     is_public: false,
+    type: 'closed',
+    area_id: null,
+    expires_at: null,
     created_at: now,
     updated_at: now,
   },
@@ -45,6 +53,9 @@ export const mockGroups: Group[] = [
     name: '写真部',
     invite_code: 'EFGH34',
     is_public: true,
+    type: 'closed',
+    area_id: null,
+    expires_at: null,
     created_at: now,
     updated_at: now,
   },
@@ -54,6 +65,9 @@ export const mockGroups: Group[] = [
     name: 'ボードゲーム会',
     invite_code: 'IJKL56',
     is_public: true,
+    type: 'closed',
+    area_id: null,
+    expires_at: null,
     created_at: now,
     updated_at: now,
   },

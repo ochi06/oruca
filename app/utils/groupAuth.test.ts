@@ -8,6 +8,9 @@ describe('isGroupAdmin', () => {
     name: 'テストグループ',
     invite_code: 'ABCD12',
     is_public: false,
+    type: 'closed',
+    area_id: null,
+    expires_at: null,
     created_at: '2026-09-19T00:00:00.000Z',
     updated_at: '2026-09-19T00:00:00.000Z',
   };

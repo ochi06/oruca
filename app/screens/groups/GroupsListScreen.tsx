@@ -24,8 +24,9 @@ export default function GroupsListScreen() {
   const initialize = useGroupStore((state) => state.initialize);
 
   useEffect(() => {
-    initialize();
-    const unsubscribe = navigation.addListener('focus', initialize);
+    const load = () => initialize(CURRENT_USER_ID);
+    load();
+    const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
   }, [navigation, initialize]);
 

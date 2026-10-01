@@ -14,6 +14,9 @@ function buildFixture(): { group: Group; members: GroupMember[] } {
     name: 'テストグループ',
     invite_code: 'ABCD12',
     is_public: false,
+    type: 'closed',
+    area_id: null,
+    expires_at: null,
     created_at: now,
     updated_at: now,
   };
