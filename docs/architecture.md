@@ -111,6 +111,15 @@ OS側に登録する本物のジオフェンシングへの切り替えが必須
 `auth.uid()`と同じ値になり、RLSポリシーもこれを前提に書かれている
 （`supabase/migrations/20260918151313_auth_and_rls.sql`）。
 
+ADR-0007で一度廃止した匿名ログイン（`signInAnonymously()`）は、オープン
+グループのQR参加専用の経路として限定的に復活させている（Issue #151、
+2026-10-01開発者確認済み）。通常のメールOTPログイン画面はそのまま維持し、
+ログイン画面に別のボタンとして用意する。匿名セッションのJWTクレーム
+`is_anonymous`（`USERS.is_anonymous`列とは無関係）を使い、friendships作成・
+closedグループの作成/参加のRLSから締め出す
+（`supabase/migrations/20261001170000_anonymous_open_group_join.sql`）。
+本登録アカウントへの昇格導線はIssue #168で別途対応する。
+
 ### 本開発着手時にやること
 
 - [ ] `watchPositionAsync`を`startGeofencingAsync`に置き換える

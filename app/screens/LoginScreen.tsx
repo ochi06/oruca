@@ -7,7 +7,7 @@ import { Screen } from '../components/Screen';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { sendLoginCode, verifyLoginCode } from '../lib/auth';
+import { sendLoginCode, signInAnonymously, verifyLoginCode } from '../lib/auth';
 
 // 簡易的な形式チェックのみ（実際に届くかどうかはSupabase側の送信結果に委ねる）
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,7 +23,22 @@ export default function LoginScreen() {
   const [code, setCode] = useState('');
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [joiningAnonymously, setJoiningAnonymously] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // メール登録なしでオープングループのQR参加のみ行う匿名ログイン（Issue #151）。
+  // 成功後はApp.tsx側のonAuthStateChangeがセッションを検知して画面遷移する
+  async function handleJoinAnonymously() {
+    setJoiningAnonymously(true);
+    setErrorMessage(null);
+    try {
+      await signInAnonymously();
+    } catch {
+      setErrorMessage('参加処理に失敗しました。時間をおいて再度お試しください');
+    } finally {
+      setJoiningAnonymously(false);
+    }
+  }
 
   async function handleSendCode() {
     const trimmed = email.trim();
@@ -139,6 +154,15 @@ export default function LoginScreen() {
           onPress={handleSendCode}
           disabled={sending}
         />
+
+        <View style={styles.anonymousJoinLink}>
+          <Button
+            label={joiningAnonymously ? '参加処理中…' : 'オープングループにQRコードで参加する'}
+            variant="secondary"
+            onPress={handleJoinAnonymously}
+            disabled={joiningAnonymously}
+          />
+        </View>
       </View>
     </Screen>
   );
@@ -178,6 +202,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   retryLink: {
+    marginTop: spacing.lg,
+  },
+  anonymousJoinLink: {
     marginTop: spacing.lg,
   },
 });
