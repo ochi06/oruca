@@ -56,7 +56,7 @@ Web簡易体験版（#190）等、2026-09-19版以降に実装された内容を
 | タブ | Stack Navigator | 主な画面 |
 |---|---|---|
 | マップ | `MapStackNavigator`（Webでは`MapStackNavigator.web.tsx`に差し替え） | `MapScreen`（在席者マーカー・エリアタップポップアップ）→`PresenceListScreen`、`AreaRegistrationScreen`、`AreaManagementScreen`、`AreaEditScreen`。Web版は`WebMapPlaceholderScreen`のみ（地図非対応） |
-| 友達・グループ | `FriendsGroupsStackNavigator` | `FriendsGroupsListScreen`（友達一覧／グループ一覧のセグメント切替＋「＋」メニュー）→`FriendDetailScreen`、`AddFriendScreen`、`QrScanScreen`、`GroupDetailScreen`、`GroupCreateScreen`、`GroupJoinScreen`（招待承諾）、`GroupQrScanScreen`（オープングループQR参加）、`GroupJoinByCodeScreen`（Web版：招待コード手入力）。公開グループ検索・参加申請（`GroupJoinRequestScreen`）はIssue #202で廃止済み |
+| 友達・グループ | `FriendsGroupsStackNavigator` | `FriendsGroupsListScreen`（友達一覧／グループ一覧のセグメント切替＋「＋」メニュー）→`FriendDetailScreen`、`AddFriendScreen`（自分のOTP表示のみ）、`GroupDetailScreen`、`GroupCreateScreen`、`GroupJoinScreen`（招待承諾）、`RedeemCodeScreen`（友達OTP・グループ招待コードを1画面で判別、Issue #208で統合。カメラQRスキャンはWeb非対応のためPlatform.OSで出し分け）。公開グループ検索・参加申請（`GroupJoinRequestScreen`）はIssue #202で廃止済み |
 | プロフィール | `SettingsStackNavigator` | `ProfileScreen`（アイコン・表示名・ステータス編集、トップ画面）→歯車アイコンで`SettingsScreen`（表示モード・入室通知振動・匿名モード）、通知アイコンで`NotificationBoxScreen` |
 
 旧版にあった「設定」タブは「プロフィール」に名称・構成とも変更済み
@@ -102,8 +102,9 @@ Web簡易体験版（#190）等、2026-09-19版以降に実装された内容を
 
 ### 友達機能（US-005, US-002）
 
-- [ ] 「友達」タブで自分のOTP表示・相手のコード入力による友達追加ができる
-      （`otp_codes`・`friendships`に書き込まれる、Issue #143以降）
+- [ ] 「友達追加」画面で自分のOTPが表示され、「コードを読み取る・入力する」
+      （`RedeemCodeScreen`、Issue #208）から相手のコードを読み取り/入力して
+      友達追加できる（`otp_codes`・`friendships`に書き込まれる、Issue #143以降）
 - [ ] 友達追加のOTP/QRが、画面を開くたびに自動再発行されず1回だけ発行される
       ことを確認する（Issue #172）
 - [ ] 同エリアにいる承認済みの友達が、名前・アイコン付きでマップ・
@@ -125,8 +126,13 @@ Web簡易体験版（#190）等、2026-09-19版以降に実装された内容を
 - [ ] グループ作成画面に「公開グループにする」トグルが無いこと、友達・
       グループタブに「グループを検索して参加申請する」導線が無いことを
       確認する（Issue #202で廃止済み）
-- [ ] オープングループにQRコード（`GroupQrScanScreen`）で即時参加できる
-      （承認不要、Issue #148）
+- [ ] オープングループに招待コード（QR読み取り/手入力、`RedeemCodeScreen`、
+      Issue #208）で即時参加できる（承認不要、Issue #148）
+- [ ] `RedeemCodeScreen`でグループ招待コード・友達OTPのどちらを入力しても、
+      正しい方に判別されて処理される（まずグループ招待コードとして検索し、
+      見つからなければ友達OTPとして検証する。Playwright + ローカルSupabase
+      で確認済み：グループコード→参加成功、友達OTP→友達追加成功、
+      どちらでもないコード→「コードが見つかりません」の3パターン）
 - [ ] オープングループ参加直後、再起動なしで在席検知が始まる（上記「前提」
       のuser_areas自動登録・Realtime修正の確認）
 - [ ] オープングループの在席者一覧は、自分がそのグループのエリアに
