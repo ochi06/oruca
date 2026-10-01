@@ -14,7 +14,7 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn } from '../../lib/auth';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
@@ -50,9 +50,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   // 監視(USER_AREAS)していなければ自分以外の行は返らないため、
   // 「自分がそのエリアに在席中か」もこの集合に自分のIDが含まれるかで判定できる
   const [presentUserIds, setPresentUserIds] = useState<Set<string> | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     initialize();
+    ensureSignedIn().then(setUserId);
   }, [initialize]);
 
   useEffect(() => {
@@ -74,10 +76,10 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  const isAdmin = isGroupAdmin(group, CURRENT_USER_ID);
+  const isAdmin = userId !== null && isGroupAdmin(group, userId);
   const pendingMembers = members.filter((m) => m.status === 'pending');
   const approvedMembers = members.filter((m) => m.status === 'approved');
-  const selfIsPresentInGroupArea = presentUserIds?.has(CURRENT_USER_ID) ?? false;
+  const selfIsPresentInGroupArea = userId !== null && (presentUserIds?.has(userId) ?? false);
   const showPresence = canSeeOpenGroupPresence(group, selfIsPresentInGroupArea);
   // rejected済みの友達は再招待できるので除外しない（inviteMember側の判定と合わせる）
   const invitableFriends = friends.filter(
@@ -85,7 +87,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   );
 
   async function handleInvite(friendId: string) {
-    const result = await inviteMember(groupId, friendId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await inviteMember(groupId, friendId, userId);
     if (result.status === 'already_member') {
       showToast('既に招待済み、またはメンバーです');
       return;
@@ -97,7 +100,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleApprove(memberId: string) {
-    const result = await approveMember(groupId, memberId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await approveMember(groupId, memberId, userId);
     if (result.status === 'forbidden') {
       showToast('管理者のみ承認できます');
       return;
@@ -108,7 +112,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleReject(memberId: string) {
-    const result = await rejectMember(groupId, memberId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await rejectMember(groupId, memberId, userId);
     if (result.status === 'forbidden') {
       showToast('管理者のみ拒否できます');
       return;
@@ -119,7 +124,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleRemove(memberId: string) {
-    const result = await removeMember(groupId, memberId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await removeMember(groupId, memberId, userId);
     if (result.status === 'forbidden') {
       showToast('管理者のみ退会させることができます');
       return;
@@ -130,7 +136,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleLeave() {
-    const result = await leaveGroup(groupId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await leaveGroup(groupId, userId);
     if (result.status === 'last_admin') {
       showToast('管理者権限を誰かに譲ってから退会してください');
       return;
@@ -142,9 +149,9 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleConfirmTransfer() {
-    if (!transferTarget) return;
+    if (!transferTarget || !userId) return;
     const target = transferTarget;
-    const result = await transferOwnership(groupId, target.user_id, CURRENT_USER_ID);
+    const result = await transferOwnership(groupId, target.user_id, userId);
     setTransferTarget(null);
     if (result.status === 'success') {
       showToast(`${findUserName(target.user_id)}さんに管理者権限を譲りました`);

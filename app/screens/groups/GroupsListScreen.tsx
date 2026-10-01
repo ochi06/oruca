@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +12,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useGroupStore } from '../../store/useGroupStore';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn } from '../../lib/auth';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 export default function GroupsListScreen() {
@@ -22,27 +22,33 @@ export default function GroupsListScreen() {
   const members = useGroupStore((state) => state.members);
   const status = useGroupStore((state) => state.status);
   const initialize = useGroupStore((state) => state.initialize);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = () => initialize(CURRENT_USER_ID);
+    ensureSignedIn().then(setUserId);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const load = () => initialize(userId);
     load();
     const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
-  }, [navigation, initialize]);
+  }, [navigation, initialize, userId]);
 
   // 自分がapproved（または管理者）なグループのみ表示する。leaveGroup/removeMemberは
   // membersからしか行を消さないため、ここで絞り込まないと退会後もグループが
   // 表示され続けてしまう（Issue #134）
   const myGroupIds = new Set(
     members
-      .filter((m) => m.user_id === CURRENT_USER_ID && m.status === 'approved')
+      .filter((m) => m.user_id === userId && m.status === 'approved')
       .map((m) => m.group_id)
   );
   const groups = allGroups.filter(
-    (group) => group.owner_user_id === CURRENT_USER_ID || myGroupIds.has(group.id)
+    (group) => group.owner_user_id === userId || myGroupIds.has(group.id)
   );
 
-  if (status === 'loading' || status === 'idle') {
+  if (status === 'loading' || status === 'idle' || !userId) {
     return (
       <Screen style={styles.container}>
         <LoadingIndicator />
