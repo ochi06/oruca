@@ -6,9 +6,10 @@ import { checkCanJoin, checkCanLeaveGroup, checkCanTransferOwnership, checkIsGro
 import { useNotificationStore } from './useNotificationStore';
 import { isExpiredOpenGroup } from '../utils/groupOpenType';
 
-// invite_codeでのオープングループQR参加（Issue #148）の結果型
+// invite_codeでのオープングループQR参加（Issue #148）の結果型。
+// memberIdは参加直後の表示名・アイコン設定（Issue #150）用
 export type JoinOpenGroupResult =
-  | { status: 'success'; groupId: string; groupName: string }
+  | { status: 'success'; groupId: string; groupName: string; memberId: string }
   | { status: 'not_found' }
   | { status: 'already_member' };
 
@@ -57,6 +58,14 @@ type GroupState = {
   removeMember: (groupId: string, memberId: string, requestingUserId: string) => Promise<GroupActionResult>;
   leaveGroup: (groupId: string, userId: string) => Promise<GroupActionResult>;
   transferOwnership: (groupId: string, newOwnerUserId: string, requestingUserId: string) => Promise<GroupActionResult>;
+  // そのグループ内限定の表示名・アイコンを設定する（Issue #150、任意）。
+  // localIconUriを渡した場合のみアップロードする（名前だけ変える場合は省略可）
+  setMemberDisplay: (
+    memberId: string,
+    userId: string,
+    displayName: string | null,
+    localIconUri?: string | null
+  ) => Promise<void>;
 };
 
 export const useGroupStore = create<GroupState>((set, get) => ({
@@ -107,7 +116,8 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
     await groupsApi.joinOpenGroup(found.id, userId);
     await get().initialize(userId);
-    return { status: 'success', groupId: found.id, groupName: found.name };
+    const newMember = get().members.find((m) => m.group_id === found.id && m.user_id === userId);
+    return { status: 'success', groupId: found.id, groupName: found.name, memberId: newMember?.id ?? '' };
   },
 
   inviteMember: async (groupId, friendUserId, invitedByUserId) => {
@@ -224,5 +234,14 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     await groupsApi.transferOwnership(groupId, newOwnerUserId);
     await get().initialize();
     return { status: 'success' };
+  },
+
+  setMemberDisplay: async (memberId, userId, displayName, localIconUri) => {
+    const existing = get().members.find((m) => m.id === memberId);
+    const iconUrl = localIconUri
+      ? await groupsApi.uploadMemberDisplayIcon(userId, memberId, localIconUri)
+      : (existing?.display_icon_url ?? null);
+    await groupsApi.updateMemberDisplay(memberId, displayName, iconUrl);
+    await get().initialize();
   },
 }));

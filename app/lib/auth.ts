@@ -1,12 +1,6 @@
-import { File } from 'expo-file-system';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-
 import { supabase } from './supabase';
+import { uploadIconToAvatarsBucket } from './avatars';
 import { UserStatus } from '../constants/status';
-
-// アイコン表示は現状96px程度のため、これより大きい解像度でアップロードしても
-// 表示上の意味がなく、転送時間が伸びるだけになる（Issue #91）
-const ICON_MAX_DIMENSION_PX = 256;
 
 // 初回ログイン時にUSERSテーブルへ入れる仮の初期表示名
 export const DEFAULT_USER_NAME = 'ゲスト';
@@ -114,32 +108,7 @@ export async function fetchUserIconUrl(userId: string): Promise<string | null> {
 // アップロードし、公開URLをusers.icon_urlに反映する（Issue #34）。
 // 同じパスに上書き保存するため、再アップロードのたびに前のファイルは置き換わる
 export async function updateUserIcon(userId: string, localUri: string): Promise<string> {
-  const path = `${userId}/icon.jpg`;
-
-  // 端末カメラの写真は数千px四方になり得るため、アップロード前にアイコン表示に
-  // 十分なサイズへ縮小する。出力形式もJPEGに統一する（Issue #91）
-  const context = ImageManipulator.manipulate(localUri).resize({ width: ICON_MAX_DIMENSION_PX });
-  const resizedImage = await context.renderAsync();
-  const resized = await resizedImage.saveAsync({ compress: 0.8, format: SaveFormat.JPEG });
-
-  // React NativeではBlob/File/FormDataを渡してもsupabase-js側が期待する
-  // バイナリ形式と一致せず、実行時にアップロードが失敗する（型キャストで
-  // コンパイルは通ってしまうため気づきにくい）。ArrayBufferを渡す必要がある
-  // （supabase-jsのStorageFileApi.upload docコメント・Issue #88参照）
-  const file = new File(resized.uri);
-  const arrayBuffer = await file.arrayBuffer();
-
-  const { error: uploadError } = await supabase.storage
-    .from('avatars')
-    .upload(path, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
-  if (uploadError) {
-    throw uploadError;
-  }
-
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-  // 上書き保存だと同じURLがキャッシュされ、更新後も古い画像が表示され続けることがあるため、
-  // 末尾にキャッシュバスター用のクエリを付ける
-  const iconUrl = `${data.publicUrl}?updated=${Date.now()}`;
+  const iconUrl = await uploadIconToAvatarsBucket(`${userId}/icon.jpg`, localUri);
 
   const { error: updateError } = await supabase.from('users').update({ icon_url: iconUrl }).eq('id', userId);
   if (updateError) {

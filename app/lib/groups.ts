@@ -3,6 +3,7 @@
 // （認可判定＝「誰が何をしてよいか」はRLS側で強制するため、ここでは行わない）。
 
 import { supabase } from './supabase';
+import { uploadIconToAvatarsBucket } from './avatars';
 import { Group, GroupMember, GroupType } from '../mocks/groups';
 import { generateInviteCode } from '../utils/groupInvite';
 import { computeOpenGroupExpiresAt } from '../utils/groupOpenType';
@@ -152,6 +153,32 @@ export async function leaveGroup(memberId: string): Promise<void> {
 export async function transferOwnership(groupId: string, newOwnerUserId: string): Promise<void> {
   const { error } = await supabase.from('groups').update({ owner_user_id: newOwnerUserId }).eq('id', groupId);
   if (error) throw error;
+}
+
+// そのグループ内限定の表示名・アイコンを設定する（Issue #150、任意項目）。
+// 参加（招待承諾／QR参加）の直後に呼ぶ想定で、どちらも未指定ならUSERS側に
+// フォールバックしたいだけなので、呼び出し側は値がある項目だけ渡せばよい
+export async function updateMemberDisplay(
+  memberId: string,
+  displayName: string | null,
+  displayIconUrl: string | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('group_members')
+    .update({ display_name: displayName, display_icon_url: displayIconUrl })
+    .eq('id', memberId);
+  if (error) throw error;
+}
+
+// グループ内限定の表示アイコンをavatarsバケットにアップロードする。
+// パスはプロフィールアイコンと衝突しないよう`{user_id}/group-{member_id}.jpg`にする
+// （書き込み可否はフォルダ名=auth.uid()のみで判定されるため、この命名で問題ない）
+export async function uploadMemberDisplayIcon(
+  userId: string,
+  memberId: string,
+  localUri: string
+): Promise<string> {
+  return uploadIconToAvatarsBucket(`${userId}/group-${memberId}.jpg`, localUri);
 }
 
 // あるエリアに現在在籍中（exited_at is null）のuser_id集合を取得する

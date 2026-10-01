@@ -26,6 +26,10 @@ export type GroupMember = {
   user_id: string;
   invited_by: string | null;
   status: GroupMemberStatus;
+  // そのグループ内限定でUSERS.name/icon_urlを上書きする任意項目（Issue #150）。
+  // 未設定（null）の場合はUSERS側にフォールバックする
+  display_name: string | null;
+  display_icon_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -82,6 +86,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: CURRENT_USER_ID,
     invited_by: null,
     status: 'approved',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -91,6 +97,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: mockUsers[1].id, // 田中
     invited_by: null,
     status: 'approved',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -100,6 +108,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: mockUsers[2].id, // 鈴木（招待コードでの自己申請、invited_byなし）
     invited_by: null,
     status: 'pending',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -109,6 +119,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: mockUsers[3].id, // 佐藤（田中経由の招待）
     invited_by: mockUsers[1].id,
     status: 'pending',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -120,6 +132,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: mockUsers[1].id,
     invited_by: null,
     status: 'approved',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -129,6 +143,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: mockUsers[2].id,
     invited_by: null,
     status: 'approved',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
@@ -140,6 +156,8 @@ export const mockGroupMembers: GroupMember[] = [
     user_id: CURRENT_USER_ID,
     invited_by: mockUsers[1].id,
     status: 'pending',
+    display_name: null,
+    display_icon_url: null,
     created_at: now,
     updated_at: now,
   },
