@@ -38,6 +38,7 @@ erDiagram
     boolean is_anonymous
     boolean allow_entry_notifications
     string push_token
+    boolean entry_vibration_enabled
     timestamp created_at
     timestamp updated_at
   }
@@ -172,7 +173,13 @@ erDiagram
   `push_token`はIssue #131（プッシュ通知の実配信基盤）用。`expo-notifications`の
   `getExpoPushTokenAsync()`で取得したExpoPushToken文字列を、ログイン中の端末で
   最後に取得した1件だけ保存する（複数端末対応は将来課題）。本人のみ更新可能
-  （既存RLSポリシーでカバー）。送信側のEdge Functionはservice roleで読み取る
+  （既存RLSポリシーでカバー）。送信側のEdge Functionはservice roleで読み取る。
+  `entry_vibration_enabled`はIssue #169（入室通知の振動ON/OFF）用。
+  アカウント全体で1つのグローバル設定（`allow_entry_notifications`と同じ
+  持ち方）。デフォルト`true`。`send-entry-notifications` Edge Functionが
+  受信者ごとにこの値を見て、Expo Pushメッセージの`sound`（iOS）・
+  `channelId`（Android、事前にクライアント側で作成した振動あり/なしの
+  通知チャンネルを指定）を切り替える
 - **AREAS**：US-018で登録するエリア（円形：中心座標＋半径）。`center_lat`/
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
