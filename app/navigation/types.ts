@@ -23,13 +23,12 @@ export type FriendsGroupsStackParamList = {
   FriendDetail: { friendId: string };
   GroupDetail: { groupId: string };
   AddFriend: undefined;
-  QrScan: undefined;
   GroupCreate: undefined;
   GroupJoin: undefined;
-  GroupQrScan: undefined;
-  // Issue #190: Web簡易体験版ではカメラQRスキャンが使えないため、
-  // 招待コードを手入力でオープングループに参加する代替画面
-  GroupJoinByCode: undefined;
+  // Issue #208: 友達追加のQRスキャン/手入力・グループ参加のQRスキャン/
+  // 招待コード手入力を1画面に統合。カメラの有無（Web/ネイティブ）は画面内で
+  // Platform.OS分岐する
+  RedeemCode: undefined;
 };
 
 export type SettingsStackParamList = {

@@ -4,10 +4,8 @@ import QRCode from 'react-native-qrcode-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
-import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -22,17 +20,16 @@ function remainingSeconds(expiresAt: string, now: Date): number {
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'AddFriend'>;
 
+// Issue #208: 「相手のコードを読み取る/入力する」側はRedeemCodeScreenに統合した。
+// この画面は「自分のコードを提示する」側のみを引き続き担当する
 export default function AddFriendScreen({ navigation }: Props) {
   const onBack = () => navigation.goBack();
-  const onScanQr = () => navigation.navigate('QrScan');
+  const onRedeemCode = () => navigation.navigate('RedeemCode');
   const { colors } = useTheme();
-  const { showToast } = useToast();
   const myOtp = useFriendAddStore((state) => state.myOtp);
   const refreshMyOtpIfExpired = useFriendAddStore((state) => state.refreshMyOtpIfExpired);
-  const verifyCode = useFriendAddStore((state) => state.verifyCode);
 
   const [now, setNow] = useState(() => new Date());
-  const [inputCode, setInputCode] = useState('');
 
   useEffect(() => {
     refreshMyOtpIfExpired();
@@ -42,32 +39,6 @@ export default function AddFriendScreen({ navigation }: Props) {
     }, 1000);
     return () => clearInterval(timer);
   }, [refreshMyOtpIfExpired]);
-
-  async function handleVerify() {
-    const result = await verifyCode(inputCode.trim());
-    switch (result.status) {
-      case 'success':
-        showToast(`${result.friendName}さんを友達に追加しました`);
-        setInputCode('');
-        onBack();
-        break;
-      case 'expired':
-        showToast('コードの有効期限が切れています');
-        break;
-      case 'self':
-        showToast('自分のコードは入力できません');
-        break;
-      case 'not_found':
-        showToast('コードが見つかりません');
-        break;
-      case 'forbidden':
-        showToast('匿名アカウントでは友達追加はできません');
-        break;
-      case 'error':
-        showToast('通信に失敗しました。もう一度お試しください');
-        break;
-    }
-  }
 
   const secondsLeft = myOtp === null || isOtpExpired(myOtp, now) ? 0 : remainingSeconds(myOtp.expires_at, now);
 
@@ -91,27 +62,8 @@ export default function AddFriendScreen({ navigation }: Props) {
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.textSub }]}>相手のコードを入力する</Text>
-        <Input
-          value={inputCode}
-          onChangeText={setInputCode}
-          placeholder="123456"
-          keyboardType="number-pad"
-          maxLength={6}
-        />
-        <View style={styles.buttonRow}>
-          <Button label="確認" onPress={handleVerify} style={styles.button} />
-          <Button
-            label="QRで読み取る"
-            variant="secondary"
-            onPress={onScanQr}
-            style={styles.button}
-          />
-        </View>
-      </View>
-
-      <Button label="戻る" variant="secondary" onPress={onBack} />
+      <Button label="相手のコードを読み取る・入力する" onPress={onRedeemCode} />
+      <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
     </Screen>
   );
 }
@@ -140,12 +92,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 4,
   },
-  buttonRow: {
-    flexDirection: 'row',
+  backButton: {
     marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  button: {
-    flex: 1,
   },
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { IconButton } from '../../components/IconButton';
@@ -18,23 +18,17 @@ type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendsGroupsL
 
 // 友達・グループタブの初期画面（docs/architecture.md「3. 画面構成・ナビゲーション」参照）。
 // セグメント切替で友達一覧/グループ一覧を出し分け、フローティングボタンから
-// 友達追加・グループ作成・グループ参加の3択に遷移する（Issue #202で
-// 「グループ参加申請」＝公開グループ検索機能を廃止したため2択から減った）
+// 友達追加・グループ作成・グループ参加・コードを読み取る/入力するの4択に遷移する
+// （Issue #208で友達追加QR/グループ参加QR・コード入力をRedeemCodeScreenに統合）
 export default function FriendsGroupsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const [segment, setSegment] = useState<Segment>('friends');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  function navigateFromMenu(
-    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupQrScan' | 'GroupJoinByCode'
-  ) {
+  function navigateFromMenu(screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'RedeemCode') {
     setMenuOpen(false);
     navigation.navigate(screen);
   }
-
-  // Issue #190: Web簡易体験版ではカメラQRスキャンが使えないため、招待コードの
-  // 手入力画面に差し替える
-  const openGroupJoinScreen = Platform.OS === 'web' ? 'GroupJoinByCode' : 'GroupQrScan';
 
   return (
     <Screen style={styles.container}>
@@ -87,10 +81,8 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoin')}>
             <Text style={[typography.body, { color: colors.text }]}>グループ参加（招待の承諾）</Text>
           </Pressable>
-          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu(openGroupJoinScreen)}>
-            <Text style={[typography.body, { color: colors.text }]}>
-              {Platform.OS === 'web' ? 'オープングループに招待コードで参加' : 'オープングループにQRで参加'}
-            </Text>
+          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('RedeemCode')}>
+            <Text style={[typography.body, { color: colors.text }]}>コードを読み取る・入力する</Text>
           </Pressable>
         </View>
       </Modal>
