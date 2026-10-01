@@ -26,6 +26,8 @@ type RedeemResult =
   | { source: 'friend'; status: 'success'; friendName: string }
   | { source: 'friend'; status: 'expired' }
   | { source: 'friend'; status: 'self' }
+  // 匿名セッションからの友達追加は拒否される（Issue #200）
+  | { source: 'friend'; status: 'forbidden' }
   | { status: 'not_found' }
   | { status: 'error' };
 
@@ -88,7 +90,7 @@ export default function RedeemCodeScreen({ navigation }: Props) {
     if (friendResult.status === 'success') {
       return { source: 'friend', status: 'success', friendName: friendResult.friendName };
     }
-    if (friendResult.status === 'expired' || friendResult.status === 'self') {
+    if (friendResult.status === 'expired' || friendResult.status === 'self' || friendResult.status === 'forbidden') {
       return { source: 'friend', status: friendResult.status };
     }
     if (friendResult.status === 'error') {
@@ -132,6 +134,11 @@ export default function RedeemCodeScreen({ navigation }: Props) {
       }
       if (result.status === 'expired') {
         showToast('コードの有効期限が切れています');
+        if (viaScan) onBack();
+        return;
+      }
+      if (result.status === 'forbidden') {
+        showToast('匿名アカウントでは友達追加はできません');
         if (viaScan) onBack();
         return;
       }
