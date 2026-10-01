@@ -14,7 +14,9 @@ import { Button } from '../../components/Button';
 import {
   ensureSignedIn,
   fetchUserEntryVibrationEnabled,
+  fetchUserIsAnonymous,
   updateUserEntryVibrationEnabled,
+  updateUserIsAnonymous,
 } from '../../lib/auth';
 import { SettingsStackParamList } from '../../navigation/types';
 
@@ -38,13 +40,18 @@ export default function SettingsScreen({}: Props) {
   const setThemeMode = useThemeModeStore((state) => state.setMode);
   const [state, setState] = useState<LoadState>('loading');
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   function load() {
     setState('loading');
     ensureSignedIn()
       .then(async (userId) => {
-        const fetchedEntryVibrationEnabled = await fetchUserEntryVibrationEnabled(userId);
+        const [fetchedEntryVibrationEnabled, fetchedIsAnonymous] = await Promise.all([
+          fetchUserEntryVibrationEnabled(userId),
+          fetchUserIsAnonymous(userId),
+        ]);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
+        setIsAnonymous(fetchedIsAnonymous);
         setState('loaded');
       })
       .catch(() => {
@@ -66,6 +73,21 @@ export default function SettingsScreen({}: Props) {
     } catch (error) {
       console.error('updateUserEntryVibrationEnabled failed:', error);
       setEntryVibrationEnabled(!nextValue);
+      showToast('設定の更新に失敗しました');
+    }
+  }
+
+  // 匿名モードのワンタップ切替（US-013、Issue #184）。ONの間、承認済みの
+  // 友達にも名前・在席が見えなくなる（可視性の絞り込み自体はMapScreen側）
+  async function handleToggleAnonymous() {
+    const nextValue = !isAnonymous;
+    setIsAnonymous(nextValue);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserIsAnonymous(userId, nextValue);
+    } catch (error) {
+      console.error('updateUserIsAnonymous failed:', error);
+      setIsAnonymous(!nextValue);
       showToast('設定の更新に失敗しました');
     }
   }
@@ -117,6 +139,24 @@ export default function SettingsScreen({}: Props) {
           />
         </View>
       </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>匿名モード</Text>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleTextContainer}>
+            <Text style={[styles.toggleLabel, { color: colors.text }]}>匿名モード</Text>
+            <Text style={[styles.toggleSubLabel, { color: colors.textSub }]}>
+              ONの間、友達にも名前・在席が表示されません
+            </Text>
+          </View>
+          <Switch
+            value={isAnonymous}
+            onValueChange={handleToggleAnonymous}
+            trackColor={{ true: colors.blue, false: colors.lightblue }}
+            accessibilityLabel="匿名モード"
+          />
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -149,7 +189,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  toggleTextContainer: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
   toggleLabel: {
     ...typography.body,
+  },
+  toggleSubLabel: {
+    ...typography.caption,
   },
 });
