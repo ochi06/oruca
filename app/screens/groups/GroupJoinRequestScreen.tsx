@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { Screen } from '../../components/Screen';
@@ -26,6 +27,7 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
   const groups = useGroupStore((state) => state.groups);
   const myMemberGroupIds = useGroupStore(
     useShallow((state) =>
@@ -39,10 +41,25 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
   const requestToJoinGroup = useGroupStore((state) => state.requestToJoinGroup);
   const initialize = useGroupStore((state) => state.initialize);
 
+  function loadUser() {
+    setAuthError(false);
+    ensureSignedIn()
+      .then(setUserId)
+      .catch(() => setAuthError(true));
+  }
+
   useEffect(() => {
     initialize();
-    ensureSignedIn().then(setUserId);
+    loadUser();
   }, [initialize]);
+
+  if (authError) {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
+      </Screen>
+    );
+  }
 
   const searchResults = groups.filter(
     (group) =>
