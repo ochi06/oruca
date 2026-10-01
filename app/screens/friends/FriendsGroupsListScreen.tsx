@@ -76,7 +76,7 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
         onPress={() => setMenuOpen(true)}
       />
 
-      <Modal visible={menuOpen} onClose={() => setMenuOpen(false)} title="追加する">
+      <Modal visible={menuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menu}>
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('AddFriend')}>
             <Text style={[typography.body, { color: colors.text }]}>友達追加</Text>
