@@ -12,7 +12,7 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 const TAB_ICONS: Record<keyof RootTabParamList, keyof typeof Ionicons.glyphMap> = {
   MapTab: 'navigate-outline',
   FriendsGroupsTab: 'people-outline',
-  SettingsTab: 'settings-outline',
+  SettingsTab: 'person-outline',
 };
 
 export function RootTabNavigator() {
@@ -36,7 +36,7 @@ export function RootTabNavigator() {
         options={{ title: '友達・グループ' }}
       />
       <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: 'マップ' }} />
-      <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: '設定' }} />
+      <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: 'プロフィール' }} />
     </Tab.Navigator>
   );
 }
