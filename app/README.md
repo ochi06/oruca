@@ -36,9 +36,17 @@ npm install
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
 GOOGLE_MAPS_API_KEY=...
+EXPO_PUBLIC_SENTRY_DSN=...
 ```
 
 worktreeで作業する場合は、mainの`app/.env.development`をシンボリックリンクする運用。
+
+**`EXPO_PUBLIC_SENTRY_DSN`について（Issue #27）**：クラッシュ・エラーレポート
+（`@sentry/react-native`）用のDSN。未設定の場合は`app/lib/sentry.ts`の
+`initSentry()`が初期化自体をスキップするため、Sentryプロジェクトを持たない
+環境でもアプリは問題なく起動する。位置情報（緯度経度）はbeforeBreadcrumb/
+beforeSendで除去してから送信する設計になっている（`app/utils/sentryScrub.ts`
+参照）。
 
 ## Androidエミュレーターで実行する
 
