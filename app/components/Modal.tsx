@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   Modal as RNModal,
+  Pressable,
   View,
   Text,
   StyleSheet,
   ModalProps,
 } from 'react-native';
+import { IconButton } from './IconButton';
 import { useTheme } from '../theme/useTheme';
 import { radius, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -17,6 +19,9 @@ type Props = ModalProps & {
   children: React.ReactNode;
 };
 
+// モーダル外（オーバーレイ）タップでの閉じる導線と、右上の閉じるボタン
+// （バツマーク、docs/design-system.md「モーダル・ポップアップの閉じるボタン」
+// 規則）を、ここに一律実装することで全呼び出し元に反映する（Issue #206）
 export function Modal({ visible, onClose, title, children, ...rest }: Props) {
   const { colors } = useTheme();
 
@@ -28,14 +33,27 @@ export function Modal({ visible, onClose, title, children, ...rest }: Props) {
       onRequestClose={onClose}
       {...rest}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          {title ? (
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          ) : null}
+      <Pressable style={styles.overlay} onPress={onClose}>
+        {/* カード部分へのタップがオーバーレイのonCloseまで伝播しないよう、
+            子にもPressable（no-op）を挟んで止める */}
+        <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
+          <View style={styles.header}>
+            {title ? (
+              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            ) : (
+              <View style={styles.titleSpacer} />
+            )}
+            <IconButton
+              name="close-outline"
+              variant="secondary"
+              size={20}
+              accessibilityLabel="閉じる"
+              onPress={onClose}
+            />
+          </View>
           {children}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </RNModal>
   );
 }
@@ -52,9 +70,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
   title: {
+    flex: 1,
     fontSize: typography.heading.fontSize,
     fontFamily: typography.heading.fontFamily,
-    marginBottom: spacing.md,
+  },
+  titleSpacer: {
+    flex: 1,
   },
 });
