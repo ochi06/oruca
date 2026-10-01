@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -14,7 +14,8 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { formatTime } from '../../utils/format';
-import { findUserName } from '../../utils/users';
+import { resolveUserName } from '../../utils/users';
+import { fetchUserNames } from '../../lib/auth';
 import { Notification } from '../../mocks/notifications';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useGroupStore } from '../../store/useGroupStore';
@@ -68,10 +69,24 @@ export default function NotificationBoxScreen({ navigation }: Props) {
   const initialize = useNotificationStore((state) => state.initialize);
   const groups = useGroupStore((state) => state.groups);
   const groupMembers = useGroupStore((state) => state.members);
+  // Issue #214: entry/want_to_meet/group_inviteのrelated_user_idの実際の名前
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    const relatedUserIds = notifications
+      .map((n) => n.related_user_id)
+      .filter((id): id is string => id !== null && id !== undefined);
+    if (relatedUserIds.length === 0) return;
+    fetchUserNames(relatedUserIds)
+      .then(setNameMap)
+      .catch(() => {
+        // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
+      });
+  }, [notifications]);
 
   const items = groupNotifications(notifications);
 
@@ -104,13 +119,13 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     let text: string;
     switch (notification.type) {
       case 'entry':
-        text = `${findUserName(notification.related_user_id!)}さんが入室しました（${time}）`;
+        text = `${resolveUserName(nameMap, notification.related_user_id!)}さんが入室しました（${time}）`;
         break;
       case 'want_to_meet':
-        text = `会いたい人・${findUserName(notification.related_user_id!)}さんが入室しました（${time}）`;
+        text = `会いたい人・${resolveUserName(nameMap, notification.related_user_id!)}さんが入室しました（${time}）`;
         break;
       case 'group_invite':
-        text = `${findUserName(notification.related_user_id!)}さんから「${findGroupNameByMemberId(notification.group_member_id!)}」に招待されました（${time}）`;
+        text = `${resolveUserName(nameMap, notification.related_user_id!)}さんから「${findGroupNameByMemberId(notification.group_member_id!)}」に招待されました（${time}）`;
         break;
       default:
         text = `通知（${time}）`;
@@ -141,8 +156,8 @@ export default function NotificationBoxScreen({ navigation }: Props) {
         {item.notifications.map((notification) => (
           <ListItem
             key={notification.id}
-            title={findUserName(notification.related_user_id!)}
-            leading={<Avatar name={findUserName(notification.related_user_id!)} iconUrl={null} />}
+            title={resolveUserName(nameMap, notification.related_user_id!)}
+            leading={<Avatar name={resolveUserName(nameMap, notification.related_user_id!)} iconUrl={null} />}
           />
         ))}
         {unreadIds.length > 0 && (
