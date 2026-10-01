@@ -10,7 +10,6 @@ export type Group = {
   owner_user_id: string;
   name: string;
   invite_code: string;
-  is_public: boolean;
   type: GroupType;
   area_id: string | null;
   expires_at: string | null;
@@ -36,15 +35,14 @@ export type GroupMember = {
 
 const now = '2026-09-19T00:00:00.000Z';
 
-// 自分が管理者（owner_user_id）のグループ。他人が作った公開グループを
-// 検索できるよう（Issue #119）、自分が所属していない公開グループも追加している
+// 自分が管理者（owner_user_id）のグループ。group-2は自分宛の招待デモ用に
+// 田中が所有するグループとして残している
 export const mockGroups: Group[] = [
   {
     id: 'group-1',
     owner_user_id: CURRENT_USER_ID,
     name: 'バイト先',
     invite_code: 'ABCD12',
-    is_public: false,
     type: 'closed',
     area_id: null,
     expires_at: null,
@@ -56,19 +54,6 @@ export const mockGroups: Group[] = [
     owner_user_id: mockUsers[1].id, // 田中
     name: '写真部',
     invite_code: 'EFGH34',
-    is_public: true,
-    type: 'closed',
-    area_id: null,
-    expires_at: null,
-    created_at: now,
-    updated_at: now,
-  },
-  {
-    id: 'group-3',
-    owner_user_id: mockUsers[2].id, // 鈴木
-    name: 'ボードゲーム会',
-    invite_code: 'IJKL56',
-    is_public: true,
     type: 'closed',
     area_id: null,
     expires_at: null,
@@ -77,8 +62,8 @@ export const mockGroups: Group[] = [
   },
 ];
 
-// group-1: 自分（owner）・田中（承認済み）・鈴木（招待コードでの参加申請中）・
-// 佐藤（友達からの招待で参加申請中）を再現
+// group-1: 自分（owner）・田中（承認済み）・鈴木（自分からの招待で参加申請中）・
+// 佐藤（田中からの招待で参加申請中）を再現
 export const mockGroupMembers: GroupMember[] = [
   {
     id: 'member-owner',
@@ -105,8 +90,8 @@ export const mockGroupMembers: GroupMember[] = [
   {
     id: 'member-b',
     group_id: 'group-1',
-    user_id: mockUsers[2].id, // 鈴木（招待コードでの自己申請、invited_byなし）
-    invited_by: null,
+    user_id: mockUsers[2].id, // 鈴木（自分からの招待）
+    invited_by: CURRENT_USER_ID,
     status: 'pending',
     display_name: null,
     display_icon_url: null,
@@ -124,23 +109,11 @@ export const mockGroupMembers: GroupMember[] = [
     created_at: now,
     updated_at: now,
   },
-  // group-2・group-3は自分が未所属の公開グループ（Issue #119の検索対象）。
-  // オーナー自身の承認済みメンバー行のみ用意しておく
+  // group-2は自分が未所属のグループ。オーナー自身の承認済みメンバー行
   {
     id: 'member-group2-owner',
     group_id: 'group-2',
     user_id: mockUsers[1].id,
-    invited_by: null,
-    status: 'approved',
-    display_name: null,
-    display_icon_url: null,
-    created_at: now,
-    updated_at: now,
-  },
-  {
-    id: 'member-group3-owner',
-    group_id: 'group-3',
-    user_id: mockUsers[2].id,
     invited_by: null,
     status: 'approved',
     display_name: null,

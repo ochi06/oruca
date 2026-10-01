@@ -16,7 +16,7 @@ export function findGroupAndMember(
   return { group, member };
 }
 
-// 招待(inviteMember)・自己申請(requestToJoinGroup)共通の事前チェック。
+// inviteMember（招待）の事前チェック。
 // 対象グループが存在し、かつ対象ユーザーがまだ（rejected以外で）メンバーでないことを確認する
 export function checkCanJoin(
   groups: Group[],
