@@ -105,6 +105,8 @@ erDiagram
     uuid user_id FK
     uuid invited_by FK
     string status
+    string display_name
+    string display_icon_url
     timestamp created_at
     timestamp updated_at
   }
@@ -219,7 +221,10 @@ erDiagram
   別Issueで検討）。ただし`type = 'open'`のグループでの在席状況の公開は、
   RLSではなくクエリ側フィルタとして、自分がその`GROUPS.area_id`に
   現在在籍中（`PRESENCE_LOGS.exited_at IS NULL`）の場合のみ見える
-  （Issue #148、2026-10-01開発者確認済み）
+  （Issue #148、2026-10-01開発者確認済み）。`display_name`/`display_icon_url`は
+  そのグループ内限定で`USERS.name`/`icon_url`を上書きする任意項目。未設定時は
+  `USERS`側にフォールバックする（Issue #150、本名・普段のアイコンを知らない
+  相手が多いオープングループ向け）
 - **AREA_SCHEDULES**：US-011の基本滞在予定。ユーザー×エリアごとに1件
   （`unique(user_id, area_id)`）。時刻・曜日は構造化せず`note`に自由記述で
   登録する（2026-09-19、開発者確認済み。詳細な構造化は今後の検討課題）

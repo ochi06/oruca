@@ -19,7 +19,7 @@ import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
 import { canSeeOpenGroupPresence } from '../../utils/groupOpenType';
-import { findUserName } from '../../utils/users';
+import { findUserName, resolveGroupMemberDisplay } from '../../utils/users';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { fetchPresentUserIds } from '../../lib/groups';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -174,25 +174,31 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           {pendingMembers.length === 0 ? (
             <EmptyState icon="hourglass-outline" message="承認待ちの申請はありません" />
           ) : (
-            pendingMembers.map((member) => (
-              <ListItem
-                key={member.id}
-                title={findUserName(member.user_id)}
-                subtitle={member.invited_by ? `${findUserName(member.invited_by)}からの招待` : '招待コードで参加申請'}
-                leading={<Avatar name={findUserName(member.user_id)} iconUrl={null} />}
-                trailing={
-                  <View style={styles.actions}>
-                    <Button label="承認" onPress={() => handleApprove(member.id)} style={styles.actionButton} />
-                    <Button
-                      label="拒否"
-                      variant="secondary"
-                      onPress={() => handleReject(member.id)}
-                      style={styles.actionButton}
-                    />
-                  </View>
-                }
-              />
-            ))
+            pendingMembers.map((member) => {
+              const display = resolveGroupMemberDisplay(member, {
+                name: findUserName(member.user_id),
+                iconUrl: null,
+              });
+              return (
+                <ListItem
+                  key={member.id}
+                  title={display.name}
+                  subtitle={member.invited_by ? `${findUserName(member.invited_by)}からの招待` : '招待コードで参加申請'}
+                  leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
+                  trailing={
+                    <View style={styles.actions}>
+                      <Button label="承認" onPress={() => handleApprove(member.id)} style={styles.actionButton} />
+                      <Button
+                        label="拒否"
+                        variant="secondary"
+                        onPress={() => handleReject(member.id)}
+                        style={styles.actionButton}
+                      />
+                    </View>
+                  }
+                />
+              );
+            })
           )}
         </View>
       )}
@@ -202,38 +208,44 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         {approvedMembers.length === 0 ? (
           <EmptyState icon="people-outline" message="メンバーがいません" />
         ) : (
-          approvedMembers.map((member) => (
-            <ListItem
-              key={member.id}
-              title={findUserName(member.user_id)}
-              subtitle={
-                showPresence
-                  ? presentUserIds?.has(member.user_id)
-                    ? '在席中'
-                    : '不在'
-                  : undefined
-              }
-              leading={<Avatar name={findUserName(member.user_id)} iconUrl={null} />}
-              trailing={
-                isAdmin && member.user_id !== group.owner_user_id ? (
-                  <View style={styles.actions}>
-                    <Button
-                      label="権限を譲る"
-                      variant="secondary"
-                      onPress={() => setTransferTarget(member)}
-                      style={styles.actionButton}
-                    />
-                    <Button
-                      label="退会させる"
-                      variant="secondary"
-                      onPress={() => handleRemove(member.id)}
-                      style={styles.actionButton}
-                    />
-                  </View>
-                ) : undefined
-              }
-            />
-          ))
+          approvedMembers.map((member) => {
+            const display = resolveGroupMemberDisplay(member, {
+              name: findUserName(member.user_id),
+              iconUrl: null,
+            });
+            return (
+              <ListItem
+                key={member.id}
+                title={display.name}
+                subtitle={
+                  showPresence
+                    ? presentUserIds?.has(member.user_id)
+                      ? '在席中'
+                      : '不在'
+                    : undefined
+                }
+                leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
+                trailing={
+                  isAdmin && member.user_id !== group.owner_user_id ? (
+                    <View style={styles.actions}>
+                      <Button
+                        label="権限を譲る"
+                        variant="secondary"
+                        onPress={() => setTransferTarget(member)}
+                        style={styles.actionButton}
+                      />
+                      <Button
+                        label="退会させる"
+                        variant="secondary"
+                        onPress={() => handleRemove(member.id)}
+                        style={styles.actionButton}
+                      />
+                    </View>
+                  ) : undefined
+                }
+              />
+            );
+          })
         )}
       </View>
 

@@ -34,6 +34,8 @@ describe('getGroupMateIds', () => {
       user_id: userId,
       invited_by: null,
       status,
+      display_name: null,
+      display_icon_url: null,
       created_at: now,
       updated_at: now,
     };

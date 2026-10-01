@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,7 +13,9 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { CURRENT_USER_ID } from '../../mocks/presence';
 import { useGroupStore } from '../../store/useGroupStore';
+import { findUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
+import { GroupDisplayOverrideModal } from './GroupDisplayOverrideModal';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupQrScan'>;
 
@@ -24,8 +26,10 @@ export default function GroupQrScanScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const joinOpenGroupByInviteCode = useGroupStore((state) => state.joinOpenGroupByInviteCode);
+  const setMemberDisplay = useGroupStore((state) => state.setMemberDisplay);
   const [permission, requestPermission] = useCameraPermissions();
   const handledRef = useRef(false);
+  const [joinedMemberId, setJoinedMemberId] = useState<string | null>(null);
 
   async function handleScan(result: BarcodeScanningResult) {
     if (handledRef.current) return;
@@ -35,7 +39,7 @@ export default function GroupQrScanScreen({ navigation }: Props) {
     switch (joinResult.status) {
       case 'success':
         showToast(`「${joinResult.groupName}」に参加しました`);
-        navigation.popToTop();
+        setJoinedMemberId(joinResult.memberId);
         break;
       case 'already_member':
         showToast('既に参加済みのグループです');
@@ -46,6 +50,17 @@ export default function GroupQrScanScreen({ navigation }: Props) {
         onBack();
         break;
     }
+  }
+
+  function handleFinishJoin() {
+    setJoinedMemberId(null);
+    navigation.popToTop();
+  }
+
+  async function handleSaveDisplay(displayName: string | null, localIconUri: string | null) {
+    if (!joinedMemberId) return;
+    await setMemberDisplay(joinedMemberId, CURRENT_USER_ID, displayName, localIconUri);
+    handleFinishJoin();
   }
 
   if (!permission) {
@@ -79,6 +94,13 @@ export default function GroupQrScanScreen({ navigation }: Props) {
         />
       </View>
       <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
+
+      <GroupDisplayOverrideModal
+        visible={joinedMemberId !== null}
+        defaultName={findUserName(CURRENT_USER_ID)}
+        onSkip={handleFinishJoin}
+        onSave={handleSaveDisplay}
+      />
     </Screen>
   );
 }

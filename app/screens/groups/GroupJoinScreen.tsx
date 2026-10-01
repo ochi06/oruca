@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -15,6 +15,7 @@ import { CURRENT_USER_ID } from '../../mocks/presence';
 import { useGroupStore } from '../../store/useGroupStore';
 import { findUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
+import { GroupDisplayOverrideModal } from './GroupDisplayOverrideModal';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'GroupJoin'>;
 
@@ -34,7 +35,9 @@ export default function GroupJoinScreen({ navigation }: Props) {
   );
   const acceptInvitation = useGroupStore((state) => state.acceptInvitation);
   const declineInvitation = useGroupStore((state) => state.declineInvitation);
+  const setMemberDisplay = useGroupStore((state) => state.setMemberDisplay);
   const initialize = useGroupStore((state) => state.initialize);
+  const [acceptedMemberId, setAcceptedMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     initialize();
@@ -44,7 +47,14 @@ export default function GroupJoinScreen({ navigation }: Props) {
     const result = await acceptInvitation(memberId);
     if (result.status === 'success') {
       showToast('グループに参加しました');
+      setAcceptedMemberId(memberId);
     }
+  }
+
+  async function handleSaveDisplay(displayName: string | null, localIconUri: string | null) {
+    if (!acceptedMemberId) return;
+    await setMemberDisplay(acceptedMemberId, CURRENT_USER_ID, displayName, localIconUri);
+    setAcceptedMemberId(null);
   }
 
   async function handleDecline(memberId: string) {
@@ -89,6 +99,13 @@ export default function GroupJoinScreen({ navigation }: Props) {
       )}
 
       <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} style={styles.backButton} />
+
+      <GroupDisplayOverrideModal
+        visible={acceptedMemberId !== null}
+        defaultName={findUserName(CURRENT_USER_ID)}
+        onSkip={() => setAcceptedMemberId(null)}
+        onSave={handleSaveDisplay}
+      />
     </Screen>
   );
 }
