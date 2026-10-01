@@ -94,7 +94,7 @@ async function createAreaInBackend(
 
 type Props = NativeStackScreenProps<MapStackParamList, 'AreaRegistration'>;
 
-export default function AreaRegistrationScreen({ navigation }: Props) {
+export default function AreaRegistrationScreen({ navigation, route }: Props) {
   const { colors, isDark } = useTheme();
   const { showToast } = useToast();
   const [pin, setPin] = useState<LatLng | null>(null);
@@ -241,16 +241,21 @@ export default function AreaRegistrationScreen({ navigation }: Props) {
     ? destinationPoint(pin, radiusM, handleBearingDeg)
     : null;
 
+  // マップ画面で見ていた表示範囲があればそれを初期表示にする（Issue #186）。
+  // 無い場合（参加エリアが無い状態からのEmptyState経由等）は既存のフォールバック座標を使う
+  const initialRegion =
+    route.params?.initialRegion ?? {
+      ...defaultCenter,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+
   return (
     <Screen style={styles.container} avoidKeyboard>
       <MapView
         ref={mapRef}
         style={styles.map}
-        initialRegion={{
-          ...defaultCenter,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
+        initialRegion={initialRegion}
         onPress={handleMapPress}
         onPoiClick={handlePoiClick}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
