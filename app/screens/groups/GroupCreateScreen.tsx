@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -30,7 +30,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const { showToast } = useToast();
   const createGroup = useGroupStore((state) => state.createGroup);
   const [name, setName] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
   const [type, setType] = useState<GroupType>('closed');
   const [ownedAreas, setOwnedAreas] = useState<Area[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
@@ -80,7 +79,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
     setCreating(true);
     try {
-      const newGroup = await createGroup(trimmedName, userId, isPublic, type, selectedAreaId);
+      const newGroup = await createGroup(trimmedName, userId, type, selectedAreaId);
       showToast(`「${newGroup.name}」を作成しました`);
       // 一覧に戻らず、作成したグループの詳細画面へそのまま遷移する
       navigation.replace('GroupDetail', { groupId: newGroup.id });
@@ -109,17 +108,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
         editable={!creating}
         autoFocus
       />
-      <View style={styles.publicRow}>
-        <Text style={{ color: colors.text }}>公開グループにする（検索して参加申請できる）</Text>
-        <Switch
-          value={isPublic}
-          onValueChange={setIsPublic}
-          disabled={creating}
-          trackColor={{ true: colors.blue, false: colors.lightblue }}
-          accessibilityLabel="公開グループにする"
-        />
-      </View>
-
       <Text style={[styles.sectionLabel, { color: colors.textSub }]}>種別</Text>
       <View style={styles.typeRow}>
         <Button
@@ -174,13 +162,6 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     marginBottom: spacing.lg,
-  },
-  publicRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    gap: spacing.sm,
   },
   sectionLabel: {
     ...typography.caption,

@@ -13,7 +13,6 @@ function buildFixture(): { group: Group; members: GroupMember[] } {
     owner_user_id: OWNER_ID,
     name: 'テストグループ',
     invite_code: 'ABCD12',
-    is_public: false,
     type: 'closed',
     area_id: null,
     expires_at: null,

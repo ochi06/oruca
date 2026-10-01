@@ -8,7 +8,7 @@ import { Group, GroupMember, GroupType } from '../mocks/groups';
 import { generateInviteCode } from '../utils/groupInvite';
 import { computeOpenGroupExpiresAt } from '../utils/groupOpenType';
 
-// RLS上読める（owner／approvedメンバー／is_public=trueの）グループを全件取得する
+// RLS上読める（owner／approvedメンバーの）グループを全件取得する
 export async function fetchVisibleGroups(): Promise<Group[]> {
   const { data, error } = await supabase.from('groups').select('*');
   if (error) throw error;
@@ -31,7 +31,6 @@ export async function fetchVisibleGroupMembers(): Promise<GroupMember[]> {
 export async function createGroup(
   name: string,
   ownerUserId: string,
-  isPublic: boolean,
   type: GroupType = 'closed',
   areaId: string | null = null
 ): Promise<Group> {
@@ -41,7 +40,6 @@ export async function createGroup(
       owner_user_id: ownerUserId,
       name,
       invite_code: generateInviteCode(),
-      is_public: isPublic,
       type,
       area_id: type === 'open' ? areaId : null,
       expires_at: type === 'open' ? computeOpenGroupExpiresAt(new Date()) : null,
@@ -110,14 +108,6 @@ export async function inviteMember(groupId: string, friendUserId: string, invite
   const { error } = await supabase
     .from('group_members')
     .insert({ group_id: groupId, user_id: friendUserId, invited_by: invitedByUserId, status: 'pending' });
-  if (error) throw error;
-}
-
-// 自分から公開グループに参加を申請する（Issue #119）
-export async function requestToJoinGroup(groupId: string, userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('group_members')
-    .insert({ group_id: groupId, user_id: userId, invited_by: null, status: 'pending' });
   if (error) throw error;
 }
 

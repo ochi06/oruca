@@ -56,7 +56,7 @@ Web簡易体験版（#190）等、2026-09-19版以降に実装された内容を
 | タブ | Stack Navigator | 主な画面 |
 |---|---|---|
 | マップ | `MapStackNavigator`（Webでは`MapStackNavigator.web.tsx`に差し替え） | `MapScreen`（在席者マーカー・エリアタップポップアップ）→`PresenceListScreen`、`AreaRegistrationScreen`、`AreaManagementScreen`、`AreaEditScreen`。Web版は`WebMapPlaceholderScreen`のみ（地図非対応） |
-| 友達・グループ | `FriendsGroupsStackNavigator` | `FriendsGroupsListScreen`（友達一覧／グループ一覧のセグメント切替＋「＋」メニュー）→`FriendDetailScreen`、`AddFriendScreen`、`QrScanScreen`、`GroupDetailScreen`、`GroupCreateScreen`、`GroupJoinScreen`（招待承諾）、`GroupJoinRequestScreen`（公開グループ検索・参加申請）、`GroupQrScanScreen`（オープングループQR参加）、`GroupJoinByCodeScreen`（Web版：招待コード手入力） |
+| 友達・グループ | `FriendsGroupsStackNavigator` | `FriendsGroupsListScreen`（友達一覧／グループ一覧のセグメント切替＋「＋」メニュー）→`FriendDetailScreen`、`AddFriendScreen`、`QrScanScreen`、`GroupDetailScreen`、`GroupCreateScreen`、`GroupJoinScreen`（招待承諾）、`GroupQrScanScreen`（オープングループQR参加）、`GroupJoinByCodeScreen`（Web版：招待コード手入力）。公開グループ検索・参加申請（`GroupJoinRequestScreen`）はIssue #202で廃止済み |
 | プロフィール | `SettingsStackNavigator` | `ProfileScreen`（アイコン・表示名・ステータス編集、トップ画面）→歯車アイコンで`SettingsScreen`（表示モード・入室通知振動・匿名モード）、通知アイコンで`NotificationBoxScreen` |
 
 旧版にあった「設定」タブは「プロフィール」に名称・構成とも変更済み
@@ -122,8 +122,9 @@ Web簡易体験版（#190）等、2026-09-19版以降に実装された内容を
 - [ ] グループ詳細画面で招待コード・QRコードが表示される
 - [ ] クローズグループ：既存メンバーが友達を招待でき、招待された側が
       「グループ参加（招待の承諾）」画面から承諾・辞退できる（Issue #117）
-- [ ] 公開グループ（`is_public=true`）を検索して参加申請でき、オーナーが
-      承認・却下できる（Issue #119、US-006/010）
+- [ ] グループ作成画面に「公開グループにする」トグルが無いこと、友達・
+      グループタブに「グループを検索して参加申請する」導線が無いことを
+      確認する（Issue #202で廃止済み）
 - [ ] オープングループにQRコード（`GroupQrScanScreen`）で即時参加できる
       （承認不要、Issue #148）
 - [ ] オープングループ参加直後、再起動なしで在席検知が始まる（上記「前提」

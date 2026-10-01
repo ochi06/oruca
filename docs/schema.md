@@ -93,7 +93,6 @@ erDiagram
     uuid owner_user_id FK
     string name
     string invite_code
-    boolean is_public
     string type
     uuid area_id FK
     timestamp expires_at
@@ -207,11 +206,14 @@ erDiagram
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
 - **GROUPS**：US-006・US-010のグループ本体。`owner_user_id`が唯一の管理者
-  （複数管理者は未対応、今後必要になれば別途検討）。`invite_code`は招待コードを
-  知っていれば誰でも参加申請できる仕組み（Issue #65のエリア参加の仕組みに準拠）。
-  `is_public`はIssue #119（グループを検索して参加申請する画面）用。`true`の
-  グループのみ検索対象になる（`AREAS.is_public`と同じ考え方）。デフォルトは
-  `false`（作成時に検索対象にするかを選ぶ）
+  （複数管理者は未対応、今後必要になれば別途検討）。グループへの参加経路は
+  `type`に応じて2通りに統一されている（`closed`＝招待のみ、`open`＝招待
+  コード/QRのみ）。グループを検索して参加申請する機能（旧`is_public`列、
+  Issue #119）は、open/closedの種別が整理された結果、現在の設計と矛盾する
+  ため廃止した（closedは元々関わりのある人同士が対象で見知らぬ相手の検索
+  参加には馴染まず、openは招待コードさえあれば承認不要で即参加できることが
+  前提のため、検索して承認待ちで申請するルートとは両立しない。Issue #202、
+  2026-10-02開発者確認済み）
 - **GROUPS.type/area_id/expires_at**：Issue #148（2026-10-01開発者確認済み）。
   `type`は`'closed'`（友達同士・サークルなど、メンバーが固定された従来通りの
   招待制）と`'open'`（イベントなど、`invite_code`をQR等で読み込むだけで承認不要・

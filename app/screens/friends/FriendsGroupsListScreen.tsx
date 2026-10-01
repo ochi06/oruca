@@ -18,14 +18,15 @@ type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendsGroupsL
 
 // 友達・グループタブの初期画面（docs/architecture.md「3. 画面構成・ナビゲーション」参照）。
 // セグメント切替で友達一覧/グループ一覧を出し分け、フローティングボタンから
-// 友達追加・グループ作成・グループ参加・グループ参加申請の4択に遷移する
+// 友達追加・グループ作成・グループ参加の3択に遷移する（Issue #202で
+// 「グループ参加申請」＝公開グループ検索機能を廃止したため2択から減った）
 export default function FriendsGroupsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const [segment, setSegment] = useState<Segment>('friends');
   const [menuOpen, setMenuOpen] = useState(false);
 
   function navigateFromMenu(
-    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupJoinRequest' | 'GroupQrScan' | 'GroupJoinByCode'
+    screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'GroupQrScan' | 'GroupJoinByCode'
   ) {
     setMenuOpen(false);
     navigation.navigate(screen);
@@ -85,9 +86,6 @@ export default function FriendsGroupsListScreen({ navigation }: Props) {
           </Pressable>
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoin')}>
             <Text style={[typography.body, { color: colors.text }]}>グループ参加（招待の承諾）</Text>
-          </Pressable>
-          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoinRequest')}>
-            <Text style={[typography.body, { color: colors.text }]}>グループ参加申請</Text>
           </Pressable>
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu(openGroupJoinScreen)}>
             <Text style={[typography.body, { color: colors.text }]}>

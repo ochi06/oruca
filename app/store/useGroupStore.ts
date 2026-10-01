@@ -20,7 +20,7 @@ export type GroupActionResult =
   // 自分が最後の管理者（owner_user_id）のため退会できない（Issue #11）
   | { status: 'last_admin' };
 
-// inviteMember（他薦）・requestToJoinGroup（自薦）の両方で使う結果型。
+// inviteMemberで使う結果型。
 // 「既にpending/approvedな行が存在する」を弾く判定は共通（rejected済みならやり直せる）
 export type InviteMemberResult =
   | { status: 'success' }
@@ -32,7 +32,7 @@ type GroupState = {
   members: GroupMember[];
   status: 'idle' | 'loading' | 'ready' | 'error';
   errorMessage: string | null;
-  // RLS上読める（owner／approvedメンバー／is_public=trueの）groups・group_membersを
+  // RLS上読める（owner／approvedメンバーの）groups・group_membersを
   // 取得し直す。ミューテーション系のactionは、成功後にこれを呼んで状態を最新化する
   // ownerUserIdを渡すと、そのユーザーが所有する期限切れオープングループの
   // 自動削除（Issue #148）も合わせて行う
@@ -40,7 +40,6 @@ type GroupState = {
   createGroup: (
     name: string,
     ownerUserId: string,
-    isPublic: boolean,
     type?: GroupType,
     areaId?: string | null
   ) => Promise<Group>;
@@ -48,7 +47,6 @@ type GroupState = {
   // 検索し、承認不要でstatus='approved'のGROUP_MEMBERS行を作る
   joinOpenGroupByInviteCode: (inviteCode: string, userId: string) => Promise<JoinOpenGroupResult>;
   inviteMember: (groupId: string, friendUserId: string, invitedByUserId: string) => Promise<InviteMemberResult>;
-  requestToJoinGroup: (groupId: string, userId: string) => Promise<InviteMemberResult>;
   // 招待された本人が辞退する（Issue #117）。自分の行を削除する形でAPI側は実装している
   declineInvitation: (memberId: string) => Promise<GroupActionResult>;
   // 招待された本人が承諾する（Issue #117）
@@ -94,8 +92,8 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     }
   },
 
-  createGroup: async (name, ownerUserId, isPublic, type = 'closed', areaId = null) => {
-    const newGroup = await groupsApi.createGroup(name, ownerUserId, isPublic, type, areaId);
+  createGroup: async (name, ownerUserId, type = 'closed', areaId = null) => {
+    const newGroup = await groupsApi.createGroup(name, ownerUserId, type, areaId);
     await get().initialize(ownerUserId);
     return newGroup;
   },
@@ -147,16 +145,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       });
     }
 
-    return { status: 'success' };
-  },
-
-  requestToJoinGroup: async (groupId, userId) => {
-    const { groups, members } = get();
-    const blocked = checkCanJoin(groups, members, groupId, userId);
-    if (blocked) return blocked;
-
-    await groupsApi.requestToJoinGroup(groupId, userId);
-    await get().initialize();
     return { status: 'success' };
   },
 
