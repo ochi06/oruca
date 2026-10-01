@@ -7,6 +7,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { ListItem } from '../../components/ListItem';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
@@ -51,10 +52,18 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   // 「自分がそのエリアに在席中か」もこの集合に自分のIDが含まれるかで判定できる
   const [presentUserIds, setPresentUserIds] = useState<Set<string> | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
+
+  function loadUser() {
+    setAuthError(false);
+    ensureSignedIn()
+      .then(setUserId)
+      .catch(() => setAuthError(true));
+  }
 
   useEffect(() => {
     initialize();
-    ensureSignedIn().then(setUserId);
+    loadUser();
   }, [initialize]);
 
   useEffect(() => {
@@ -66,6 +75,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       .then(setPresentUserIds)
       .catch(() => setPresentUserIds(new Set()));
   }, [group?.type, group?.area_id]);
+
+  if (authError) {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
+      </Screen>
+    );
+  }
 
   if (!group) {
     return (

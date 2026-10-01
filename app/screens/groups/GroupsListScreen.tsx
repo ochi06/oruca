@@ -23,9 +23,17 @@ export default function GroupsListScreen() {
   const status = useGroupStore((state) => state.status);
   const initialize = useGroupStore((state) => state.initialize);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
+
+  function loadUser() {
+    setAuthError(false);
+    ensureSignedIn()
+      .then(setUserId)
+      .catch(() => setAuthError(true));
+  }
 
   useEffect(() => {
-    ensureSignedIn().then(setUserId);
+    loadUser();
   }, []);
 
   useEffect(() => {
@@ -47,6 +55,14 @@ export default function GroupsListScreen() {
   const groups = allGroups.filter(
     (group) => group.owner_user_id === userId || myGroupIds.has(group.id)
   );
+
+  if (authError) {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
+      </Screen>
+    );
+  }
 
   if (status === 'loading' || status === 'idle' || !userId) {
     return (

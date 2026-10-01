@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { ErrorState } from '../../components/ErrorState';
 import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { Screen } from '../../components/Screen';
@@ -35,14 +36,22 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
+
+  function loadUser() {
+    setAuthError(false);
+    ensureSignedIn()
+      .then((signedInUserId) => {
+        setUserId(signedInUserId);
+        fetchOwnedAreas(signedInUserId)
+          .then(setOwnedAreas)
+          .catch(() => setOwnedAreas([]));
+      })
+      .catch(() => setAuthError(true));
+  }
 
   useEffect(() => {
-    ensureSignedIn().then((signedInUserId) => {
-      setUserId(signedInUserId);
-      fetchOwnedAreas(signedInUserId)
-        .then(setOwnedAreas)
-        .catch(() => setOwnedAreas([]));
-    });
+    loadUser();
   }, []);
 
   function handleSelectType(nextType: GroupType) {
@@ -79,6 +88,14 @@ export default function GroupCreateScreen({ navigation }: Props) {
       showToast('グループの作成に失敗しました');
       setCreating(false);
     }
+  }
+
+  if (authError) {
+    return (
+      <Screen style={styles.container}>
+        <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
+      </Screen>
+    );
   }
 
   return (
