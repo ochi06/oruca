@@ -11,7 +11,7 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn, fetchUserName } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
 import { findUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -26,10 +26,12 @@ export default function GroupJoinScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const groups = useGroupStore((state) => state.groups);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [defaultName, setDefaultName] = useState('');
   const invitations = useGroupStore(
     useShallow((state) =>
       state.members.filter(
-        (m) => m.user_id === CURRENT_USER_ID && m.status === 'pending' && m.invited_by !== null
+        (m) => m.user_id === userId && m.status === 'pending' && m.invited_by !== null
       )
     )
   );
@@ -41,6 +43,10 @@ export default function GroupJoinScreen({ navigation }: Props) {
 
   useEffect(() => {
     initialize();
+    ensureSignedIn().then((signedInUserId) => {
+      setUserId(signedInUserId);
+      fetchUserName(signedInUserId).then((name) => setDefaultName(name ?? ''));
+    });
   }, [initialize]);
 
   async function handleAccept(memberId: string) {
@@ -52,8 +58,8 @@ export default function GroupJoinScreen({ navigation }: Props) {
   }
 
   async function handleSaveDisplay(displayName: string | null, localIconUri: string | null) {
-    if (!acceptedMemberId) return;
-    await setMemberDisplay(acceptedMemberId, CURRENT_USER_ID, displayName, localIconUri);
+    if (!acceptedMemberId || !userId) return;
+    await setMemberDisplay(acceptedMemberId, userId, displayName, localIconUri);
     setAcceptedMemberId(null);
   }
 
@@ -102,7 +108,7 @@ export default function GroupJoinScreen({ navigation }: Props) {
 
       <GroupDisplayOverrideModal
         visible={acceptedMemberId !== null}
-        defaultName={findUserName(CURRENT_USER_ID)}
+        defaultName={defaultName}
         onSkip={() => setAcceptedMemberId(null)}
         onSave={handleSaveDisplay}
       />

@@ -12,7 +12,7 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
@@ -25,12 +25,13 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
   const groups = useGroupStore((state) => state.groups);
   const myMemberGroupIds = useGroupStore(
     useShallow((state) =>
       new Set(
         state.members
-          .filter((m) => m.user_id === CURRENT_USER_ID && m.status !== 'rejected')
+          .filter((m) => m.user_id === userId && m.status !== 'rejected')
           .map((m) => m.group_id)
       )
     )
@@ -40,6 +41,7 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
 
   useEffect(() => {
     initialize();
+    ensureSignedIn().then(setUserId);
   }, [initialize]);
 
   const searchResults = groups.filter(
@@ -51,7 +53,8 @@ export default function GroupJoinRequestScreen({ navigation }: Props) {
   );
 
   async function handleRequest(groupId: string, groupName: string) {
-    const result = await requestToJoinGroup(groupId, CURRENT_USER_ID);
+    if (!userId) return;
+    const result = await requestToJoinGroup(groupId, userId);
     if (result.status === 'already_member') {
       showToast('既に参加申請済み、またはメンバーです');
       return;

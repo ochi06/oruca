@@ -12,7 +12,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { GROUP_NAME_MAX_LENGTH } from '../../constants/group';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { ensureSignedIn } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
 import { Area } from '../../mocks/areas';
 import { GroupType } from '../../mocks/groups';
@@ -34,11 +34,15 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const [ownedAreas, setOwnedAreas] = useState<Area[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchOwnedAreas(CURRENT_USER_ID)
-      .then(setOwnedAreas)
-      .catch(() => setOwnedAreas([]));
+    ensureSignedIn().then((signedInUserId) => {
+      setUserId(signedInUserId);
+      fetchOwnedAreas(signedInUserId)
+        .then(setOwnedAreas)
+        .catch(() => setOwnedAreas([]));
+    });
   }, []);
 
   function handleSelectType(nextType: GroupType) {
@@ -49,6 +53,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
   }
 
   async function handleCreate() {
+    if (!userId) return;
     const trimmedName = name.trim();
     if (!trimmedName) {
       showToast('グループ名を入力してください');
@@ -66,7 +71,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
     setCreating(true);
     try {
-      const newGroup = await createGroup(trimmedName, CURRENT_USER_ID, isPublic, type, selectedAreaId);
+      const newGroup = await createGroup(trimmedName, userId, isPublic, type, selectedAreaId);
       showToast(`「${newGroup.name}」を作成しました`);
       // 一覧に戻らず、作成したグループの詳細画面へそのまま遷移する
       navigation.replace('GroupDetail', { groupId: newGroup.id });
@@ -137,7 +142,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
       <Button
         label={creating ? '作成中…' : '作成する'}
         onPress={handleCreate}
-        disabled={creating}
+        disabled={creating || !userId}
         style={styles.createButton}
       />
       <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} disabled={creating} />
