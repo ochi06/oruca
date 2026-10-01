@@ -218,7 +218,9 @@ erDiagram
   即座に参加できるグループ）の2種類。`'open'`では`area_id`（イベント会場）が
   必須、`'closed'`では`area_id`はnull（DB側CHECK制約で強制）。`expires_at`は
   `'open'`作成時に`created_at + 7日`を自動セットし、期限が過ぎたオープン
-  グループは自動削除する（手動削除機能は不要）。`'closed'`は`expires_at`も
+  グループは自動削除する（手動削除機能は不要）。削除自体はpg_cron（毎時）が
+  `delete_expired_open_groups()`を実行して行う（Issue #183、2026-10-01
+  AI実装・開発者確認済み）。`'closed'`は`expires_at`も
   null（無期限）
 - **GROUP_MEMBERS**：グループへの参加申請・メンバーシップ。`status`は
   pending（申請中）→approved（承認済み）／rejected（却下）の二段階。
