@@ -121,6 +121,24 @@ export async function updateUserEntryVibrationEnabled(userId: string, enabled: b
   }
 }
 
+// 自分の現在のusers.is_anonymousを取得する（US-013、Issue #184）
+export async function fetchUserIsAnonymous(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('users').select('is_anonymous').eq('id', userId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.is_anonymous ?? false;
+}
+
+// 自分のusers.is_anonymousを更新する（US-013、Issue #184）。ONの間、
+// 承認済みの友達にも名前・在席が見えなくなる（MapScreen側で絞り込み）
+export async function updateUserIsAnonymous(userId: string, isAnonymous: boolean): Promise<void> {
+  const { error } = await supabase.from('users').update({ is_anonymous: isAnonymous }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分の現在のusers.icon_urlを取得する
 export async function fetchUserIconUrl(userId: string): Promise<string | null> {
   const { data, error } = await supabase.from('users').select('icon_url').eq('id', userId).maybeSingle();
