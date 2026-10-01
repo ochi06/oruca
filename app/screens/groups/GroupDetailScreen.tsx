@@ -15,12 +15,12 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { ensureSignedIn } from '../../lib/auth';
+import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
 import { canSeeOpenGroupPresence } from '../../utils/groupOpenType';
-import { findUserName, resolveGroupMemberDisplay } from '../../utils/users';
+import { resolveGroupMemberDisplay, resolveUserName } from '../../utils/users';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { fetchPresentUserIds } from '../../lib/groups';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -53,6 +53,9 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const [presentUserIds, setPresentUserIds] = useState<Set<string> | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
+  // Issue #214: メンバー一覧・招待者表示に使う実際の名前。member.user_id・
+  // member.invited_byをまとめて1回のクエリで解決する
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
   function loadUser() {
     setAuthError(false);
@@ -65,6 +68,16 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     initialize();
     loadUser();
   }, [initialize]);
+
+  useEffect(() => {
+    const idsToResolve = members.flatMap((m) => [m.user_id, ...(m.invited_by ? [m.invited_by] : [])]);
+    if (idsToResolve.length === 0) return;
+    fetchUserNames(idsToResolve)
+      .then(setNameMap)
+      .catch(() => {
+        // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
+      });
+  }, [members]);
 
   useEffect(() => {
     if (group?.type !== 'open' || !group.area_id) {
@@ -171,7 +184,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     const result = await transferOwnership(groupId, target.user_id, userId);
     setTransferTarget(null);
     if (result.status === 'success') {
-      showToast(`${findUserName(target.user_id)}さんに管理者権限を譲りました`);
+      showToast(`${resolveUserName(nameMap, target.user_id)}さんに管理者権限を譲りました`);
     } else {
       showToast('管理者権限の譲渡に失敗しました');
     }
@@ -200,14 +213,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           ) : (
             pendingMembers.map((member) => {
               const display = resolveGroupMemberDisplay(member, {
-                name: findUserName(member.user_id),
+                name: resolveUserName(nameMap, member.user_id),
                 iconUrl: null,
               });
               return (
                 <ListItem
                   key={member.id}
                   title={display.name}
-                  subtitle={member.invited_by ? `${findUserName(member.invited_by)}からの招待` : '招待コードで参加申請'}
+                  subtitle={member.invited_by ? `${resolveUserName(nameMap, member.invited_by)}からの招待` : '招待コードで参加申請'}
                   leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
                   trailing={
                     <View style={styles.actions}>
@@ -234,7 +247,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         ) : (
           approvedMembers.map((member) => {
             const display = resolveGroupMemberDisplay(member, {
-              name: findUserName(member.user_id),
+              name: resolveUserName(nameMap, member.user_id),
               iconUrl: null,
             });
             return (
@@ -286,7 +299,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         title="管理者権限を譲りますか？"
       >
         <Text style={{ color: colors.text, marginBottom: spacing.md }}>
-          {transferTarget ? findUserName(transferTarget.user_id) : ''}さんに管理者権限を譲ります。
+          {transferTarget ? resolveUserName(nameMap, transferTarget.user_id) : ''}さんに管理者権限を譲ります。
           あなたはこのグループの管理者ではなくなります。この操作は取り消せません。
         </Text>
         <View style={styles.modalButtonRow}>

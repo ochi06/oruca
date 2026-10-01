@@ -1,6 +1,18 @@
-import { resolveGroupMemberDisplay } from './users';
+import { resolveGroupMemberDisplay, resolveUserName } from './users';
 
 const fallback = { name: '本名太郎', iconUrl: 'https://example.com/real-icon.jpg' };
+
+describe('resolveUserName', () => {
+  it('Mapに存在するuser_idは対応する名前を返す', () => {
+    const nameMap = new Map([['user-1', '田中']]);
+    expect(resolveUserName(nameMap, 'user-1')).toBe('田中');
+  });
+
+  it('Mapに存在しないuser_idは「不明なユーザー」を返す', () => {
+    const nameMap = new Map([['user-1', '田中']]);
+    expect(resolveUserName(nameMap, 'user-2')).toBe('不明なユーザー');
+  });
+});
 
 describe('resolveGroupMemberDisplay', () => {
   it('display_name/display_icon_url未設定時はUSERS側にフォールバックする', () => {

@@ -78,6 +78,21 @@ export async function fetchUserName(userId: string): Promise<string | null> {
   return data?.name ?? null;
 }
 
+// 複数ユーザーの名前をまとめて取得する（Issue #214）。グループ詳細・
+// グループ参加・通知ボックスの各画面が、表示対象のuser_id一覧を集めて
+// 1回のクエリで解決するために使う
+export async function fetchUserNames(userIds: string[]): Promise<Map<string, string>> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+  const { data, error } = await supabase.from('users').select('id, name').in('id', uniqueIds);
+  if (error) {
+    throw error;
+  }
+  return new Map((data ?? []).map((row) => [row.id as string, row.name as string]));
+}
+
 // 自分のusers.nameを更新する（Issue #111：Issue #106でAreaJoinScreen経由の
 // 名前設定導線が消え、他に呼び出し元が無くなった際に一度削除されていたが、
 // ProfileScreenでの名前編集用に復活させた）

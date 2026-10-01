@@ -12,9 +12,9 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { ensureSignedIn, fetchUserName } from '../../lib/auth';
+import { ensureSignedIn, fetchUserName, fetchUserNames } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
-import { findUserName } from '../../utils/users';
+import { resolveUserName } from '../../utils/users';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 import { GroupDisplayOverrideModal } from './GroupDisplayOverrideModal';
 
@@ -42,6 +42,8 @@ export default function GroupJoinScreen({ navigation }: Props) {
   const setMemberDisplay = useGroupStore((state) => state.setMemberDisplay);
   const initialize = useGroupStore((state) => state.initialize);
   const [acceptedMemberId, setAcceptedMemberId] = useState<string | null>(null);
+  // Issue #214: 招待者（invited_by）の実際の名前
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
   function loadUser() {
     setAuthError(false);
@@ -57,6 +59,16 @@ export default function GroupJoinScreen({ navigation }: Props) {
     initialize();
     loadUser();
   }, [initialize]);
+
+  useEffect(() => {
+    const inviterIds = invitations.map((i) => i.invited_by).filter((id): id is string => id !== null);
+    if (inviterIds.length === 0) return;
+    fetchUserNames(inviterIds)
+      .then(setNameMap)
+      .catch(() => {
+        // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
+      });
+  }, [invitations]);
 
   async function handleAccept(memberId: string) {
     const result = await acceptInvitation(memberId);
@@ -100,7 +112,7 @@ export default function GroupJoinScreen({ navigation }: Props) {
             <ListItem
               key={invitation.id}
               title={group?.name ?? '不明なグループ'}
-              subtitle={`${findUserName(invitation.invited_by!)}からの招待`}
+              subtitle={`${resolveUserName(nameMap, invitation.invited_by!)}からの招待`}
               trailing={
                 <View style={styles.actions}>
                   <Button
