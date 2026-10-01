@@ -28,7 +28,8 @@ export type FriendsGroupsStackParamList = {
 };
 
 export type SettingsStackParamList = {
-  SettingsTop: undefined;
+  ProfileTop: undefined;
+  Settings: undefined;
   NotificationBox: undefined;
 };
 
