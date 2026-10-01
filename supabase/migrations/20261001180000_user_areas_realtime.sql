@@ -1,0 +1,11 @@
+-- Issue #190の検証中に発見：useGeofenceMonitor（app/hooks/useGeofenceMonitor.ts）は
+-- user_areasテーブルの変更をRealtimeで購読し、オープングループ参加等で新しく
+-- 監視対象エリアが増えた際に再取得する設計だが、user_areasがsupabase_realtime
+-- publicationに登録されておらず、変更イベントが一切配信されていなかった。
+-- そのため、アプリ起動中にグループへ参加しても、再起動するまで新しいエリアの
+-- 位置監視が始まらない（presence_logsへの書き込みが発生しない）不具合があった。
+--
+-- useGeofenceMonitorの購読はuser_id=eq.<自分>でフィルタ済みのため、他ユーザーの
+-- 行が見えるようになるわけではない。postgres_changesを使っているのはこの購読の
+-- みのため、影響範囲はuseGeofenceMonitorに閉じる。
+alter publication supabase_realtime add table user_areas;
