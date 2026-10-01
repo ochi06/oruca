@@ -86,11 +86,15 @@ export type RedeemOtpResult =
   | { status: 'success'; friendId: string; friendName: string }
   | { status: 'expired' }
   | { status: 'not_found' }
-  | { status: 'self' };
+  | { status: 'self' }
+  // 匿名セッションからの呼び出し（Issue #151でクローズ機能から締め出された
+  // 匿名アカウント）。RLSをバイパスするSECURITY DEFINER関数のため、
+  // RPC本体で明示チェックしている（Issue #200）
+  | { status: 'forbidden' };
 
 // 相手が見せたOTPコードを検証し、FRIENDSHIPSを作成する（US-005）。
 // RLSをまたぐ処理のためSupabase側のRPC（redeem_friend_otp、SECURITY DEFINER）
-// を呼ぶ（supabase/migrations/20261001120100_friend_otp_redeem_rpc_v2.sql参照）
+// を呼ぶ（supabase/migrations/20261002091500_redeem_friend_otp_reject_anonymous.sql参照）
 export async function redeemOtp(code: string): Promise<RedeemOtpResult> {
   const { data, error } = await supabase.rpc('redeem_friend_otp', { p_code: code });
   if (error) {
@@ -101,7 +105,7 @@ export async function redeemOtp(code: string): Promise<RedeemOtpResult> {
   if (status === 'success') {
     return { status: 'success', friendId: data.friend_id as string, friendName: data.friend_name as string };
   }
-  if (status === 'expired' || status === 'not_found' || status === 'self') {
+  if (status === 'expired' || status === 'not_found' || status === 'self' || status === 'forbidden') {
     return { status };
   }
   throw new Error('友達追加の検証に失敗しました');

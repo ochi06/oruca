@@ -60,6 +60,9 @@ export default function AddFriendScreen({ navigation }: Props) {
       case 'not_found':
         showToast('コードが見つかりません');
         break;
+      case 'forbidden':
+        showToast('匿名アカウントでは友達追加はできません');
+        break;
       case 'error':
         showToast('通信に失敗しました。もう一度お試しください');
         break;
