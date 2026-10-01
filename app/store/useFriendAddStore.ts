@@ -10,6 +10,7 @@ export type AddFriendResult =
   | { status: 'expired' }
   | { status: 'not_found' }
   | { status: 'self' }
+  | { status: 'forbidden' }
   | { status: 'error' };
 
 type FriendAddState = {

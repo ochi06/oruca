@@ -49,6 +49,10 @@ export default function QrScanScreen({ navigation }: Props) {
         showToast('コードが見つかりません');
         onBack();
         break;
+      case 'forbidden':
+        showToast('匿名アカウントでは友達追加はできません');
+        onBack();
+        break;
       case 'error':
         showToast('通信に失敗しました。もう一度お試しください');
         onBack();
