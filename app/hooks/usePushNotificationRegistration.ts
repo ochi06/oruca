@@ -1,12 +1,17 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 
-import { ensureSignedIn, updateUserPushToken } from '../lib/auth';
+import { ensureSignedIn, fetchUserEntryVibrationEnabled, updateUserPushToken } from '../lib/auth';
 
 // 通知の許可状態に関わらず、フォアグラウンドで受信した通知はOSの通知センターにも
-// 表示する（デフォルトのまま何も設定しないと、フォアグラウンド中は無視されるため）
+// 表示する（デフォルトのまま何も設定しないと、フォアグラウンド中は無視されるため）。
+// フォアグラウンド中のsound/振動はOS側では鳴らさず（shouldPlaySound: false）、
+// 下記のNotifications.addNotificationReceivedListenerでexpo-hapticsを使い
+// 明示的に振動させる（Issue #169。OS通知自体の振動とは別経路）
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -15,6 +20,28 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Issue #169：入室通知の振動あり/なしを切り替えるための通知チャンネル。
+// supabase/functions/_shared/expoPush.tsのchannelIdと名前を揃えること
+// （Android以外では無視される）
+const ENTRY_VIBRATE_CHANNEL_ID = 'entry-vibrate';
+const ENTRY_SILENT_CHANNEL_ID = 'entry-silent';
+
+async function setupAndroidNotificationChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+
+  await Notifications.setNotificationChannelAsync(ENTRY_VIBRATE_CHANNEL_ID, {
+    name: '入室通知（振動あり）',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+  });
+  await Notifications.setNotificationChannelAsync(ENTRY_SILENT_CHANNEL_ID, {
+    name: '入室通知（振動なし）',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0],
+    enableVibrate: false,
+  });
+}
 
 async function registerForPushNotifications(): Promise<string | null> {
   // 実機以外（シミュレーター・一部のエミュレーター）ではPushトークンを取得できない
@@ -54,6 +81,7 @@ export function usePushNotificationRegistration(enabled: boolean): void {
 
     async function register() {
       try {
+        await setupAndroidNotificationChannels();
         const userId = await ensureSignedIn();
         const token = await registerForPushNotifications();
         if (!cancelled && token) {
@@ -67,8 +95,26 @@ export function usePushNotificationRegistration(enabled: boolean): void {
 
     register();
 
+    // Issue #169：フォアグラウンドで通知を受信した瞬間に、自分の
+    // entry_vibration_enabled設定を見てexpo-hapticsで振動させる。
+    // 毎回最新の設定値を取得する（設定画面でON/OFFを切り替えた直後にも
+    // 反映されるようにするため、ここではキャッシュしない）
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      ensureSignedIn()
+        .then((userId) => fetchUserEntryVibrationEnabled(userId))
+        .then((vibrationEnabled) => {
+          if (!cancelled && vibrationEnabled) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        })
+        .catch(() => {
+          // 振動の演出に失敗しても通知自体の受信・表示には影響させない
+        });
+    });
+
     return () => {
       cancelled = true;
+      subscription.remove();
     };
   }, [enabled]);
 }

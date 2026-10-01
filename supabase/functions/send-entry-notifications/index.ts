@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
 
   const { data: recipientUsers, error: recipientUsersError } = await supabase
     .from('users')
-    .select('id, push_token')
+    .select('id, push_token, entry_vibration_enabled')
     .in(
       'id',
       eligibleRecipients.map((r) => r.userId)
@@ -136,15 +136,28 @@ Deno.serve(async (req) => {
       .filter((u): u is { id: string; push_token: string } => !!u.push_token)
       .map((u) => [u.id, u.push_token])
   );
+  // Issue #169：受信者ごとの振動設定。行が見つからない場合はデフォルト
+  // （true、USERS.entry_vibration_enabledの既定値と同じ）扱いにする
+  const vibrationEnabledByUserId = new Map(
+    (recipientUsers ?? []).map((u) => [u.id, u.entry_vibration_enabled ?? true])
+  );
 
   const messages: ExpoPushMessage[] = eligibleRecipients
     .filter((recipient) => pushTokenByUserId.has(recipient.userId))
-    .map((recipient) => ({
-      to: pushTokenByUserId.get(recipient.userId)!,
-      title: recipient.reason === 'want_to_meet' ? '会いたい人が入室しました' : '友達が入室しました',
-      body: `${enteringUser.name}さんが${area.name}に入室しました`,
-      data: { areaId, enteringUserId },
-    }));
+    .map((recipient) => {
+      const vibrationEnabled = vibrationEnabledByUserId.get(recipient.userId) ?? true;
+      return {
+        to: pushTokenByUserId.get(recipient.userId)!,
+        title: recipient.reason === 'want_to_meet' ? '会いたい人が入室しました' : '友達が入室しました',
+        body: `${enteringUser.name}さんが${area.name}に入室しました`,
+        data: { areaId, enteringUserId },
+        // iOS：soundを省略するとサイレント通知（音・振動ともに鳴らない）になる
+        sound: vibrationEnabled ? 'default' : undefined,
+        // Android：事前にクライアント側で作成した通知チャンネル
+        // （app/hooks/usePushNotificationRegistration.ts参照）を指定する
+        channelId: vibrationEnabled ? 'entry-vibrate' : 'entry-silent',
+      };
+    });
 
   for (const batch of chunk(messages, EXPO_PUSH_CHUNK_SIZE)) {
     await sendExpoPushMessages(batch);

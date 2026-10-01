@@ -7,6 +7,17 @@ export type ExpoPushMessage = {
   title: string;
   body: string;
   data?: Record<string, unknown>;
+  // Issue #169：受信者のentry_vibration_enabledに応じて振動の有無を
+  // 切り替えるためのフィールド。
+  // iOS：soundを省略する（未指定）とサイレント通知になり、音と振動の両方が
+  // 鳴らない。APNs経由のリモート通知では音と振動を個別制御できないため、
+  // 振動だけを消すことはできない（Notification Service Extensionが
+  // 必要になるが、Expo管理アプリの範囲外のためスコープ外とする）
+  sound?: 'default';
+  // Android：振動あり/なしの通知チャンネル（クライアント側で事前に
+  // Notifications.setNotificationChannelAsyncで作成、
+  // app/hooks/usePushNotificationRegistration.ts参照）をchannelIdで指定する
+  channelId?: string;
 };
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';

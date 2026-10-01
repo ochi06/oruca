@@ -100,6 +100,33 @@ export async function updateUserPushToken(userId: string, pushToken: string): Pr
   }
 }
 
+// 自分の現在のusers.entry_vibration_enabledを取得する（Issue #169）
+export async function fetchUserEntryVibrationEnabled(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('entry_vibration_enabled')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.entry_vibration_enabled ?? true;
+}
+
+// 自分のusers.entry_vibration_enabledを更新する（Issue #169）。入室通知を
+// 受け取った時に振動させるかどうかの設定。send-entry-notifications
+// Edge Functionが受信者ごとにこの値を見て、Expo Pushメッセージの
+// sound/channelIdを切り替える
+export async function updateUserEntryVibrationEnabled(userId: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ entry_vibration_enabled: enabled })
+    .eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分の現在のusers.icon_urlを取得する
 export async function fetchUserIconUrl(userId: string): Promise<string | null> {
   const { data, error } = await supabase.from('users').select('icon_url').eq('id', userId).maybeSingle();

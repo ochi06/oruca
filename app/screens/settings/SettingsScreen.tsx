@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -19,9 +19,11 @@ import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import {
   DEFAULT_USER_NAME,
   ensureSignedIn,
+  fetchUserEntryVibrationEnabled,
   fetchUserIconUrl,
   fetchUserName,
   fetchUserStatus,
+  updateUserEntryVibrationEnabled,
   updateUserIcon,
   updateUserName,
   updateUserStatus,
@@ -56,19 +58,22 @@ export default function SettingsScreen({ navigation }: Props) {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
 
   function load() {
     setState('loading');
     ensureSignedIn()
       .then(async (userId) => {
-        const [fetchedName, fetchedIconUrl, fetchedStatus] = await Promise.all([
+        const [fetchedName, fetchedIconUrl, fetchedStatus, fetchedEntryVibrationEnabled] = await Promise.all([
           fetchUserName(userId),
           fetchUserIconUrl(userId),
           fetchUserStatus(userId),
+          fetchUserEntryVibrationEnabled(userId),
         ]);
         setName(fetchedName ?? DEFAULT_USER_NAME);
         setIconUrl(fetchedIconUrl);
         setStatus(fetchedStatus);
+        setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
         setState('loaded');
       })
       .catch(() => {
@@ -79,6 +84,20 @@ export default function SettingsScreen({ navigation }: Props) {
   useEffect(() => {
     load();
   }, []);
+
+  // 入室通知の振動ON/OFF（Issue #169）
+  async function handleToggleEntryVibration() {
+    const nextValue = !entryVibrationEnabled;
+    setEntryVibrationEnabled(nextValue);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserEntryVibrationEnabled(userId, nextValue);
+    } catch (error) {
+      console.error('updateUserEntryVibrationEnabled failed:', error);
+      setEntryVibrationEnabled(!nextValue);
+      showToast('設定の更新に失敗しました');
+    }
+  }
 
   // ワンタップで切り替える。既に選択中の項目をもう一度タップした場合は
   // 未設定（null）に戻す（Issue #10「ワンタップ切替UI」）
@@ -258,6 +277,19 @@ export default function SettingsScreen({ navigation }: Props) {
           ))}
         </View>
       </View>
+
+      <View style={styles.statusSection}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>入室通知</Text>
+        <View style={styles.toggleRow}>
+          <Text style={[styles.toggleLabel, { color: colors.text }]}>通知時に振動する</Text>
+          <Switch
+            value={entryVibrationEnabled}
+            onValueChange={handleToggleEntryVibration}
+            trackColor={{ true: colors.blue, false: colors.lightblue }}
+            accessibilityLabel="入室通知の振動"
+          />
+        </View>
+      </View>
     </Screen>
   );
 }
@@ -304,5 +336,13 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     paddingHorizontal: spacing.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleLabel: {
+    ...typography.body,
   },
 });
