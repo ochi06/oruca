@@ -94,6 +94,11 @@ RPC呼び出し自体のレート制限は未実装（上記の通り、許容�
   ```bash
   cd app && npm audit --omit=dev
   ```
+- [ ] prod環境のDBバックアップ（`supabase db dump --linked`）を取得する
+      （`docs/decisions/0013-backup-and-disaster-recovery.md`参照）
+- [ ] prodプロジェクトがSupabaseダッシュボード上で一時停止（pause）していないか
+      確認する（Freeプランは7日間無操作で自動一時停止するため、
+      `docs/decisions/0013-backup-and-disaster-recovery.md`参照）
 
 ## 参考
 
@@ -102,3 +107,4 @@ RPC呼び出し自体のレート制限は未実装（上記の通り、許容�
 - `docs/decisions/0009-auth-email-magic-link.md`
 - `docs/decisions/0010-auth-email-otp-code.md`
 - `docs/decisions/0011-secrets-management.md`
+- `docs/decisions/0013-backup-and-disaster-recovery.md`

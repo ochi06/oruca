@@ -17,6 +17,9 @@ web-build/
 .env.production
 .env*.local
 
+# DBバックアップ（個人情報・位置情報を含むため、ADR-0013参照）
+backups/
+
 # ログ
 *.log
 
