@@ -34,6 +34,16 @@ export function RootTabNavigator() {
         name="FriendsGroupsTab"
         component={FriendsGroupsStackNavigator}
         options={{ title: '友達・グループ' }}
+        // Issue #353: タブボタンをタップした時は、既に表示中かどうかに関わらず
+        // 常にそのタブの初期画面に戻るようにする（MapTabのIssue #280対応と
+        // 同じ、tabPress時にそのスタックのルート画面へnavigateするパターン。
+        // navigate先がスタック内に既に存在する場合、React Navigationは
+        // その画面まで自動的にpopする）
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList' });
+          },
+        })}
       />
       <Tab.Screen
         name="MapTab"
@@ -44,7 +54,8 @@ export function RootTabNavigator() {
         // 自動的にparamsをクリアしない。そのため一度絞り込み経由で開くと、以後タブを
         // 普通にタップしただけでも戻るボタン・絞り込みが残り続けてしまっていた。
         // タブボタンを直接タップした時（プログラムからのnavigateとは別のtabPress）だけ、
-        // 明示的にparamsをクリアする
+        // 明示的にparamsをクリアする（Issue #353：他の2タブと同じnavigate-to-root
+        // パターンで、スタックの巻き戻しも兼ねる）
         listeners={({ navigation }) => ({
           tabPress: () => {
             navigation.navigate('MapTab', {
@@ -54,7 +65,16 @@ export function RootTabNavigator() {
           },
         })}
       />
-      <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: 'プロフィール' }} />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsStackNavigator}
+        options={{ title: 'プロフィール' }}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('SettingsTab', { screen: 'ProfileTop' });
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 }
