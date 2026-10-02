@@ -363,7 +363,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         />
         <Button
           label="退会させる"
-          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          variant="destructive"
+          style={styles.menuButton}
           onPress={() => {
             if (menuTargetMember) handleRemove(menuTargetMember.id);
             setMenuTargetMember(null);
