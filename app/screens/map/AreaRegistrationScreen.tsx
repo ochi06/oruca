@@ -25,6 +25,7 @@ import { IconButton } from '../../components/IconButton';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
+import { spacing, radius } from '../../theme/spacing';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { Area, UserArea, mockAreas, mockUserAreas } from '../../mocks/areas';
@@ -381,30 +382,36 @@ const styles = StyleSheet.create({
   },
   sliderContainer: {
     position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
+    bottom: spacing.lg,
+    left: spacing.md,
+    right: spacing.md,
+    // padding: spacing.sm(8)/md(16)のどちらにも近く、近似トークンがないため
+    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
     padding: 12,
+    // borderRadius: radius.sm(6)/md(10)のどちらにも近く、近似トークンがないため
+    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
     borderRadius: 8,
-    gap: 8,
+    gap: spacing.sm,
   },
   closeModeButton: {
     position: 'absolute',
-    top: 8,
-    left: 16,
+    top: spacing.sm,
+    left: spacing.md,
   },
   handleDot: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 2,
     borderColor: 'white',
   },
   searchPanel: {
     position: 'absolute',
+    // top: spacing.xl(32)/xxl(48)のどちらにも近くないため、
+    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
     top: 56,
-    left: 16,
-    right: 16,
+    left: spacing.md,
+    right: spacing.md,
     padding: 12,
     borderRadius: 8,
     elevation: 3,
@@ -416,29 +423,29 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 4,
-    padding: 8,
-    marginRight: 8,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginRight: spacing.sm,
   },
   searchToggleButton: {
-    padding: 8,
+    padding: spacing.sm,
   },
   searchToggleButtonCollapsed: {
     position: 'absolute',
-    top: 8,
-    right: 16,
+    top: spacing.sm,
+    right: spacing.md,
   },
   searchResultList: {
     maxHeight: 240,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   searchResultRow: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
   },
   nameInput: {
     borderWidth: 1,
-    borderRadius: 4,
-    padding: 8,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
   },
 });

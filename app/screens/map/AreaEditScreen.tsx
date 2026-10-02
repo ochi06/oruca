@@ -17,6 +17,7 @@ import { Input } from '../../components/Input';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
+import { spacing, radius } from '../../theme/spacing';
 import { darkMapStyle } from '../../constants/mapStyle';
 import { RADIUS_MIN_M, RADIUS_MAX_M } from '../../constants/area';
 import { updateArea } from '../../lib/areas';
@@ -158,23 +159,25 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 8,
-    left: 16,
+    top: spacing.sm,
+    left: spacing.md,
   },
   handleDot: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 2,
     borderColor: 'white',
   },
   editPanel: {
     position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
+    bottom: spacing.lg,
+    left: spacing.md,
+    right: spacing.md,
+    // padding/borderRadius: AreaRegistrationScreen.tsxのsliderContainerと同じく
+    // 近似トークンがないため据え置き（Issue #319、司令塔チャット確認待ち）
     padding: 12,
     borderRadius: 8,
-    gap: 8,
+    gap: spacing.sm,
   },
 });
