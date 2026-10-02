@@ -13,12 +13,17 @@ type Props = PressableProps & {
   hapticsEnabled?: boolean;
 };
 
+// paddingを最小限にした分（Issue #354）、タップ領域が狭くなりすぎないよう
+// hitSlopで補う。個別に上書きしたい場合はpropでそのまま渡せる
+const DEFAULT_HIT_SLOP = { top: spacing.sm, bottom: spacing.sm, left: spacing.xs, right: spacing.xs };
+
 export function Button({
   label,
   variant = 'primary',
   style,
   onPress,
   hapticsEnabled = true,
+  hitSlop = DEFAULT_HIT_SLOP,
   ...rest
 }: Props) {
   const { colors } = useTheme();
@@ -41,6 +46,7 @@ export function Button({
         style as object,
       ]}
       onPress={handlePress}
+      hitSlop={hitSlop}
       {...rest}
     >
       <Text
@@ -57,8 +63,8 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
     alignItems: 'center',
   },
