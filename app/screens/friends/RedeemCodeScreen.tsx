@@ -18,19 +18,9 @@ import { useGroupStore } from '../../store/useGroupStore';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 import { GroupDisplayOverrideModal } from '../groups/GroupDisplayOverrideModal';
+import { redeemCode as redeemCodeWithDeps } from './redeemCode';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'RedeemCode'>;
-
-type RedeemResult =
-  | { source: 'group'; status: 'success'; groupName: string; memberId: string }
-  | { source: 'group'; status: 'already_member' }
-  | { source: 'friend'; status: 'success'; friendName: string }
-  | { source: 'friend'; status: 'expired' }
-  | { source: 'friend'; status: 'self' }
-  // 匿名セッションからの友達追加は拒否される（Issue #200）
-  | { source: 'friend'; status: 'forbidden' }
-  | { status: 'not_found' }
-  | { status: 'error' };
 
 // Issue #208: 「相手から渡されたコードを読み取る/入力する」操作を1画面に統合する。
 // グループの招待コード（英数字6桁）・友達追加のOTP（数字6桁）は文字種が完全に
@@ -73,31 +63,11 @@ export default function RedeemCodeScreen({ navigation }: Props) {
     };
   }, []);
 
-  async function redeemCode(trimmedCode: string, signedInUserId: string): Promise<RedeemResult> {
-    try {
-      const groupResult = await joinOpenGroupByInviteCode(trimmedCode, signedInUserId);
-      if (groupResult.status === 'success') {
-        return { source: 'group', status: 'success', groupName: groupResult.groupName, memberId: groupResult.memberId };
-      }
-      if (groupResult.status === 'already_member') {
-        return { source: 'group', status: 'already_member' };
-      }
-      // not_found → グループの招待コードではなかったので、友達OTPとして試す
-    } catch {
-      return { status: 'error' };
-    }
-
-    const friendResult = await verifyFriendCode(trimmedCode);
-    if (friendResult.status === 'success') {
-      return { source: 'friend', status: 'success', friendName: friendResult.friendName };
-    }
-    if (friendResult.status === 'expired' || friendResult.status === 'self' || friendResult.status === 'forbidden') {
-      return { source: 'friend', status: friendResult.status };
-    }
-    if (friendResult.status === 'error') {
-      return { status: 'error' };
-    }
-    return { status: 'not_found' };
+  function redeemCode(trimmedCode: string, signedInUserId: string) {
+    return redeemCodeWithDeps(trimmedCode, signedInUserId, {
+      joinOpenGroupByInviteCode,
+      verifyFriendCode,
+    });
   }
 
   // viaScanがtrueの場合、終了的な失敗（成功しなかった）時に前の画面へ戻る

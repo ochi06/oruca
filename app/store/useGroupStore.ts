@@ -114,7 +114,12 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
     await groupsApi.joinOpenGroup(found.id, userId, found.area_id);
     await get().initialize(userId);
-    const newMember = get().members.find((m) => m.group_id === found.id && m.user_id === userId);
+    // rejected済みの古い行が残っている場合（過去に退会/拒否されてからの再参加）、
+    // group_id・user_idだけで探すと新しく作られたapproved行より先に見つかって
+    // しまうことがあるため、rejectedは除外する（alreadyMemberの判定と同じ条件）
+    const newMember = get().members.find(
+      (m) => m.group_id === found.id && m.user_id === userId && m.status !== 'rejected'
+    );
     return { status: 'success', groupId: found.id, groupName: found.name, memberId: newMember?.id ?? '' };
   },
 
