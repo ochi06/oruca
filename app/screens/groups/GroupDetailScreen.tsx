@@ -8,12 +8,13 @@ import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { IconButton } from '../../components/IconButton';
 import { ListItem } from '../../components/ListItem';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { radius, spacing } from '../../theme/spacing';
+import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
 import { GroupMember } from '../../mocks/groups';
@@ -46,6 +47,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const initialize = useGroupStore((state) => state.initialize);
   const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
+  const [menuTargetMember, setMenuTargetMember] = useState<GroupMember | null>(null);
   const [isInviting, setIsInviting] = useState(false);
   // オープングループの在席ユーザーID集合（Issue #148の可視性ルール用）。
   // RLS（presence in monitored areas is readable）上、自分がそのエリアを
@@ -216,54 +218,13 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       <Button label="友達を招待する" onPress={() => setIsInviting(true)} style={styles.inviteButton} />
 
-      <View
-        style={
-          isAdmin ? [styles.adminMenu, { backgroundColor: colors.surface, borderColor: colors.lightblue }] : undefined
-        }
-      >
-        {isAdmin && <Text style={[styles.sectionTitle, { color: colors.text }]}>管理者メニュー</Text>}
-
-        {isAdmin && (
-          <View style={styles.section}>
-            <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>承認待ち</Text>
-            {pendingMembers.length === 0 ? (
-              <EmptyState icon="hourglass-outline" message="承認待ちの申請はありません" />
-            ) : (
-              pendingMembers.map((member) => {
-                const display = resolveGroupMemberDisplay(member, {
-                  name: resolveUserName(nameMap, member.user_id),
-                  iconUrl: null,
-                });
-                return (
-                  <ListItem
-                    key={member.id}
-                    title={display.name}
-                    subtitle={member.invited_by ? `${resolveUserName(nameMap, member.invited_by)}からの招待` : '招待コードで参加申請'}
-                    leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
-                    trailing={
-                      <View style={styles.actions}>
-                        <Button label="承認" onPress={() => handleApprove(member.id)} style={styles.actionButton} />
-                        <Button
-                          label="拒否"
-                          variant="secondary"
-                          onPress={() => handleReject(member.id)}
-                          style={styles.actionButton}
-                        />
-                      </View>
-                    }
-                  />
-                );
-              })
-            )}
-          </View>
-        )}
-
-        <View style={isAdmin ? undefined : styles.section}>
-          <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>メンバー</Text>
-          {approvedMembers.length === 0 ? (
-            <EmptyState icon="people-outline" message="メンバーがいません" />
+      {isAdmin && (
+        <View style={styles.section}>
+          <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>承認待ち</Text>
+          {pendingMembers.length === 0 ? (
+            <EmptyState icon="hourglass-outline" message="承認待ちの申請はありません" />
           ) : (
-            approvedMembers.map((member) => {
+            pendingMembers.map((member) => {
               const display = resolveGroupMemberDisplay(member, {
                 name: resolveUserName(nameMap, member.user_id),
                 iconUrl: null,
@@ -272,37 +233,70 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                 <ListItem
                   key={member.id}
                   title={display.name}
-                  subtitle={
-                    showPresence
-                      ? presentUserIds?.has(member.user_id)
-                        ? '在席中'
-                        : '不在'
-                      : undefined
-                  }
+                  subtitle={member.invited_by ? `${resolveUserName(nameMap, member.invited_by)}からの招待` : '招待コードで参加申請'}
                   leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
                   trailing={
-                    isAdmin && member.user_id !== group.owner_user_id ? (
-                      <View style={styles.actions}>
-                        <Button
-                          label="権限を譲る"
-                          variant="secondary"
-                          onPress={() => setTransferTarget(member)}
-                          style={styles.actionButton}
-                        />
-                        <Button
-                          label="退会させる"
-                          variant="secondary"
-                          onPress={() => handleRemove(member.id)}
-                          style={styles.actionButton}
-                        />
-                      </View>
-                    ) : undefined
+                    <View style={styles.actions}>
+                      <IconButton
+                        name="checkmark"
+                        variant="secondary"
+                        size={16}
+                        accessibilityLabel={`${display.name}の参加を承認`}
+                        onPress={() => handleApprove(member.id)}
+                      />
+                      <IconButton
+                        name="close"
+                        variant="secondary"
+                        size={16}
+                        accessibilityLabel={`${display.name}の参加を拒否`}
+                        onPress={() => handleReject(member.id)}
+                      />
+                    </View>
                   }
                 />
               );
             })
           )}
         </View>
+      )}
+
+      <View style={styles.section}>
+        <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>メンバー</Text>
+        {approvedMembers.length === 0 ? (
+          <EmptyState icon="people-outline" message="メンバーがいません" />
+        ) : (
+          approvedMembers.map((member) => {
+            const display = resolveGroupMemberDisplay(member, {
+              name: resolveUserName(nameMap, member.user_id),
+              iconUrl: null,
+            });
+            return (
+              <ListItem
+                key={member.id}
+                title={display.name}
+                subtitle={
+                  showPresence
+                    ? presentUserIds?.has(member.user_id)
+                      ? '在席中'
+                      : '不在'
+                    : undefined
+                }
+                leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
+                trailing={
+                  isAdmin && member.user_id !== group.owner_user_id ? (
+                    <IconButton
+                      name="ellipsis-vertical"
+                      variant="secondary"
+                      size={16}
+                      accessibilityLabel={`${display.name}のメニュー`}
+                      onPress={() => setMenuTargetMember(member)}
+                    />
+                  ) : undefined
+                }
+              />
+            );
+          })
+        )}
       </View>
 
       <Button
@@ -312,6 +306,30 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         style={styles.leaveButton}
       />
       </ScrollView>
+
+      <Modal
+        visible={menuTargetMember !== null}
+        onClose={() => setMenuTargetMember(null)}
+        title={menuTargetMember ? resolveUserName(nameMap, menuTargetMember.user_id) : undefined}
+      >
+        <Button
+          label="権限を譲る"
+          variant="secondary"
+          onPress={() => {
+            setTransferTarget(menuTargetMember);
+            setMenuTargetMember(null);
+          }}
+          style={styles.menuButton}
+        />
+        <Button
+          label="退会させる"
+          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          onPress={() => {
+            if (menuTargetMember) handleRemove(menuTargetMember.id);
+            setMenuTargetMember(null);
+          }}
+        />
+      </Modal>
 
       <Modal
         visible={transferTarget !== null}
@@ -369,12 +387,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
-  adminMenu: {
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
   sectionTitle: {
     ...typography.heading,
     marginBottom: spacing.sm,
@@ -382,6 +394,9 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  menuButton: {
+    marginBottom: spacing.sm,
   },
   actionButton: {
     paddingHorizontal: spacing.md,
