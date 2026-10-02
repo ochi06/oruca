@@ -20,6 +20,7 @@ import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { darkMapStyle } from '../../constants/mapStyle';
 import { userStatusIcon } from '../../constants/status';
+import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { Area } from '../../mocks/areas';
@@ -168,6 +169,9 @@ export default function MapScreen({ navigation, route }: Props) {
   const groups = useGroupStore((state) => state.groups);
   const groupStatus = useGroupStore((state) => state.status);
   const initializeGroups = useGroupStore((state) => state.initialize);
+  // Issue #278：AreaPresencePopupでアイコンタップ遷移を友達のみに限定するための判定に使う
+  const friends = useFriendUsers();
+  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends]);
 
   // グループ名検索で使うグループ一覧は、友達・グループタブを先に開いていないと
   // 空のままになるため、ここでも遅延初期化する（hooks/useFriendUsers.tsと同じ方針）
@@ -295,6 +299,16 @@ export default function MapScreen({ navigation, route }: Props) {
   // 戻るボタンが出る場合（origin指定時）は、Screen側が確保する分と同じ高さを
   // 検索欄側でも空けて重なりを避ける
   const overlayTop = insets.top + spacing.sm + (origin ? BACK_BUTTON_RESERVED_HEIGHT : 0);
+
+  // AreaPresencePopupの在席者アイコンタップ（Issue #278）。友達かどうかは
+  // 呼び出し側（AreaPresencePopup）でfriendIdsを見て判定済みのため、ここでは
+  // そのまま遷移するだけでよい
+  const handlePressPresenceUser = (userId: string) => {
+    navigation.getParent<BottomTabNavigationProp<RootTabParamList>>()?.navigate('FriendsGroupsTab', {
+      screen: 'FriendDetail',
+      params: { friendId: userId },
+    });
+  };
 
   return (
     <Screen style={styles.mapContainer} disableSafeAreaPadding onBack={origin ? () => navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList', params: { initialSegment: origin } }) : undefined}>
@@ -433,12 +447,14 @@ export default function MapScreen({ navigation, route }: Props) {
         <AreaPresencePopup
           areaName={selectedArea.name}
           users={data.areaPresence[selectedArea.id] ?? []}
+          friendIds={friendIds}
           onClose={() => setSelectedArea(null)}
           onSeeAll={() => {
             const users = data.areaPresence[selectedArea.id] ?? [];
             setSelectedArea(null);
             navigation.navigate('PresenceList', { areaName: selectedArea.name, users });
           }}
+          onPressUser={handlePressPresenceUser}
         />
       )}
     </Screen>
