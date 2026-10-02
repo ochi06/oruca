@@ -152,6 +152,12 @@ export default function ProfileScreen({ navigation }: Props) {
         <Text style={[styles.title, { color: colors.text }]}>プロフィール</Text>
         <View style={styles.headerIcons}>
           <IconButton
+            name="calendar-outline"
+            variant="secondary"
+            accessibilityLabel="滞在予定"
+            onPress={() => navigation.navigate('ScheduleAreaList')}
+          />
+          <IconButton
             name="notifications-outline"
             variant="secondary"
             accessibilityLabel="通知ボックス"
