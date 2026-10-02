@@ -55,3 +55,25 @@ export function resolveFriendAreaLinkState(
 export function canProposeFriendAreaLink(state: FriendAreaLinkState): boolean {
   return state.kind === 'none' || state.kind === 'rejected_by_me';
 }
+
+// この友達とのFRIEND_AREA_LINKSが指すエリアのうち、まだ自分が監視登録して
+// いない（＝monitoredAreaIdsに含まれない）もののIDを求める（Issue #340）。
+// FriendDetailScreen.tsxが、相手から提案された未監視エリアを「エリアの
+// 紐づけ」一覧に出すために、母集団を広げる際に使う。提案者側の提案は
+// 必ず自分が所有・監視中のエリアに限られるため、ここに出てくるのは
+// 「相手から提案された、自分が未監視のエリア」のみのはず
+export function computeUnmonitoredLinkedAreaIds(
+  links: FriendAreaLink[],
+  meId: string,
+  friendId: string,
+  monitoredAreaIds: Set<string>
+): string[] {
+  const relevantAreaIds = links
+    .filter(
+      (link) =>
+        (link.initiator_id === meId && link.friend_id === friendId) ||
+        (link.initiator_id === friendId && link.friend_id === meId)
+    )
+    .map((link) => link.area_id);
+  return [...new Set(relevantAreaIds)].filter((areaId) => !monitoredAreaIds.has(areaId));
+}
