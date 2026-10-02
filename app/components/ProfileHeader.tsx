@@ -33,6 +33,9 @@ type Props = {
   // とeditableは同時に渡さない想定
   topRightBadge?: ReactNode;
   bottomRightBadge?: ReactNode;
+  // Issue #370：会いたい人ハートは、Issue #362で右下に追加するステータス
+  // バッジと位置が競合するため左下に置く
+  bottomLeftBadge?: ReactNode;
 };
 
 export function ProfileHeader({
@@ -44,6 +47,7 @@ export function ProfileHeader({
   onSaveName,
   topRightBadge,
   bottomRightBadge,
+  bottomLeftBadge,
 }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -100,6 +104,7 @@ export function ProfileHeader({
           <View style={styles.avatarEditButton}>{bottomRightBadge}</View>
         ) : null}
         {topRightBadge ? <View style={styles.avatarTopBadge}>{topRightBadge}</View> : null}
+        {bottomLeftBadge ? <View style={styles.avatarBottomLeftBadge}>{bottomLeftBadge}</View> : null}
       </View>
 
       {editable && editingName ? (
@@ -181,6 +186,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
+  },
+  avatarBottomLeftBadge: {
+    position: 'absolute',
+    bottom: -4,
+    left: -4,
   },
   name: {
     ...typography.title,

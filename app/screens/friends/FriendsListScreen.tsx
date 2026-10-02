@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   heartBadge: {
     position: 'absolute',
     bottom: -2,
-    right: -2,
+    left: -2,
     width: WANT_TO_MEET_BADGE_SIZE,
     height: WANT_TO_MEET_BADGE_SIZE,
     alignItems: 'center',
