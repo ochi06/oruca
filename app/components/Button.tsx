@@ -39,7 +39,7 @@ export function Button({ label, variant = 'primary', style, ...rest }: Props) {
 const styles = StyleSheet.create({
   base: {
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
   },

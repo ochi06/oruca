@@ -130,7 +130,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                       </View>
                     ) : null}
                     <IconButton
-                      name="ellipsis-horizontal"
+                      name="ellipsis-vertical"
                       variant="secondary"
                       size={16}
                       accessibilityLabel={`${user.name}の詳細`}

@@ -3,11 +3,13 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
+import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LocationHiddenToggle } from '../../components/LocationHiddenToggle';
+import { Modal } from '../../components/Modal';
+import { ProfileHeader } from '../../components/ProfileHeader';
 import { Screen } from '../../components/Screen';
 import { FriendScheduleNote } from '../../components/schedule/FriendScheduleNote';
 import { useToast } from '../../components/Toast';
@@ -25,6 +27,7 @@ import {
   rejectFriendAreaLink,
 } from '../../lib/friendAreaLinks';
 import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
+import { matchesSearchQuery } from '../../utils/search';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -44,6 +47,10 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const [monitoredAreas, setMonitoredAreas] = useState<Area[]>([]);
   const [links, setLinks] = useState<FriendAreaLink[]>([]);
   const [busyAreaId, setBusyAreaId] = useState<string | null>(null);
+  // エリア紐づけの追加ピッカー（Issue #272）。まだ紐づけ状態のない
+  // （resolveFriendAreaLinkStateが'none'の）エリアのみを検索・選択できる
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
 
   function loadAreaLinks(signedInUserId: string) {
     Promise.all([fetchMonitoredAreas(signedInUserId), fetchMyFriendAreaLinks(signedInUserId)]).then(
@@ -68,6 +75,8 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     try {
       await proposeFriendAreaLink(userId, friendId, areaId);
       loadAreaLinks(userId);
+      setIsPickerVisible(false);
+      setPickerQuery('');
       showToast('エリアの紐づけを提案しました');
     } catch {
       showToast('提案に失敗しました');
@@ -112,13 +121,19 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  // 既に何らかの紐づけ状態があるエリアのみ通常表示し（Issue #272）、
+  // まだ紐づけ状態のない（'none'の）エリアは「追加」ピッカー側に回す
+  const areaStates = userId === null ? [] : monitoredAreas.map((area) => ({
+    area,
+    state: resolveFriendAreaLinkState(links, userId, friendId, area.id),
+  }));
+  const linkedAreas = areaStates.filter(({ state }) => state.kind !== 'none');
+  const pickableAreas = areaStates.filter(({ state }) => state.kind === 'none').map(({ area }) => area);
+
   return (
     <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Avatar name={friend.name} iconUrl={friend.icon_url} size={64} />
-        <Text style={[styles.name, { color: colors.text }]}>{friend.name}</Text>
-      </View>
+      <ProfileHeader name={friend.name} iconUrl={friend.icon_url} />
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>プライバシー設定</Text>
@@ -131,15 +146,24 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>エリアの紐づけ</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>エリアの紐づけ</Text>
+          {userId !== null && (
+            <Button
+              label="追加"
+              variant="secondary"
+              onPress={() => setIsPickerVisible(true)}
+              style={styles.addButton}
+            />
+          )}
+        </View>
         <Text style={[styles.sectionCaption, { color: colors.textSub }]}>
           紐づけを承認したエリアでは、お互いに名前つきで在席・滞在予定が見えるようになります
         </Text>
-        {userId === null ? null : monitoredAreas.length === 0 ? (
-          <EmptyState icon="location-outline" message="監視中のエリアがありません" />
+        {userId === null ? null : linkedAreas.length === 0 ? (
+          <EmptyState icon="location-outline" message="紐づけ中のエリアがありません" />
         ) : (
-          monitoredAreas.map((area) => {
-            const state = resolveFriendAreaLinkState(links, userId, friendId, area.id);
+          linkedAreas.map(({ area, state }) => {
             const busy = busyAreaId === area.id;
             let trailing: ReactNode;
             if (state.kind === 'approved') {
@@ -186,6 +210,53 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         )}
       </View>
       </ScrollView>
+
+      <Modal
+        visible={isPickerVisible}
+        onClose={() => {
+          setIsPickerVisible(false);
+          setPickerQuery('');
+        }}
+        title="エリアを追加"
+      >
+        {pickableAreas.length > 0 && (
+          <Input
+            style={styles.searchInput}
+            value={pickerQuery}
+            onChangeText={setPickerQuery}
+            placeholder="名前で検索"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        )}
+        {pickableAreas.length === 0 ? (
+          <EmptyState icon="location-outline" message="追加できるエリアがありません" />
+        ) : (
+          (() => {
+            const visiblePickableAreas = pickableAreas.filter((area) =>
+              matchesSearchQuery(area.name, pickerQuery)
+            );
+            return visiblePickableAreas.length === 0 ? (
+              <EmptyState icon="search-outline" message="該当するエリアが見つかりません" />
+            ) : (
+              visiblePickableAreas.map((area) => (
+                <ListItem
+                  key={area.id}
+                  title={area.name}
+                  trailing={
+                    <Button
+                      label="提案する"
+                      onPress={() => handlePropose(area.id)}
+                      disabled={busyAreaId === area.id}
+                      style={styles.actionButton}
+                    />
+                  }
+                />
+              ))
+            );
+          })()
+        )}
+      </Modal>
     </Screen>
   );
 }
@@ -194,20 +265,20 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  name: {
-    ...typography.title,
-    marginTop: spacing.sm,
-  },
   section: {
     marginBottom: spacing.lg,
   },
   sectionTitle: {
     ...typography.heading,
     marginBottom: spacing.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addButton: {
+    paddingHorizontal: spacing.md,
   },
   sectionCaption: {
     ...typography.caption,
@@ -219,5 +290,8 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    marginBottom: spacing.sm,
   },
 });

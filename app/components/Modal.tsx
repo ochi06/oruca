@@ -15,7 +15,9 @@ import { typography } from '../theme/typography';
 type Props = ModalProps & {
   visible: boolean;
   onClose: () => void;
-  title?: string;
+  // Issue #277：AreaPresencePopupがエリア名+在席人数の2段階フォントサイズを
+  // 組むために、文字列だけでなく任意のReactNodeも渡せるようにした
+  title?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -39,7 +41,11 @@ export function Modal({ visible, onClose, title, children, ...rest }: Props) {
         <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
           <View style={styles.header}>
             {title ? (
-              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+              typeof title === 'string' ? (
+                <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+              ) : (
+                <View style={styles.titleSpacer}>{title}</View>
+              )
             ) : (
               <View style={styles.titleSpacer} />
             )}
