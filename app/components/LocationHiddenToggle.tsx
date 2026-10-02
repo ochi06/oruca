@@ -1,9 +1,10 @@
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { useNotifyPreferencesStore } from '../store/useNotifyPreferencesStore';
+import { Switch } from './Switch';
 
 type Props = {
   friendId: string;

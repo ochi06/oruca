@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -16,6 +16,7 @@ import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
+import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';

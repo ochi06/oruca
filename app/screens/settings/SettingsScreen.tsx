@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
@@ -13,6 +13,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import { Button } from '../../components/Button';
+import { Switch } from '../../components/Switch';
 import {
   deleteAccount,
   ensureSignedIn,
