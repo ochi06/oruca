@@ -26,14 +26,14 @@ export async function fetchUsersByIds(userIds: string[]): Promise<User[]> {
 }
 
 // friendshipsの真偽値カラム1つを更新する共通ヘルパー（Issue #147）。
-// notify_enabled（US-007）・muted（US-008）・notify_only_when_copresent
-// （US-016）・want_to_meet（US-017）・location_hidden（Issue #121）は
-// いずれも「自分の行（user_id=userId）の1カラムをtoggleする」という形が
-// 同じため、フィールド名だけを差し替えて共通化した
+// notify_enabled（US-007）・muted（US-008）・want_to_meet（US-017）・
+// location_hidden（Issue #121）はいずれも「自分の行（user_id=userId）の
+// 1カラムをtoggleする」という形が同じため、フィールド名だけを差し替えて
+// 共通化した（notify_only_when_copresentはIssue #270で廃止）
 export async function updateFriendshipField(
   userId: string,
   friendId: string,
-  field: 'notify_enabled' | 'muted' | 'notify_only_when_copresent' | 'want_to_meet' | 'location_hidden',
+  field: 'notify_enabled' | 'muted' | 'want_to_meet' | 'location_hidden',
   value: boolean
 ): Promise<void> {
   const { error } = await supabase

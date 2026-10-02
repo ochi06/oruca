@@ -26,10 +26,9 @@ export type Friendship = {
   friend_id: string;
   notify_enabled: boolean;
   muted: boolean;
-  notify_only_when_copresent: boolean;
   want_to_meet: boolean;
   // Issue #121：一方向ブロック。自分の行でtrueにすると、相手（friend_id）は
-  // 自分のpresence_logsを閲覧できなくなる（他の3項目と違い「情報を隠す側」が
+  // 自分のpresence_logsを閲覧できなくなる（他の2項目と違い「情報を隠す側」が
   // 自分の行に設定する）。友達関係自体（status）は変更しない
   location_hidden: boolean;
   status: 'active';
@@ -71,9 +70,9 @@ export const mockUsers: User[] = [
 
 // 自分から見た友達関係。今回は user-a, user-b, user-c すべて友達とする
 export const mockFriendships: Friendship[] = [
-  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, notify_only_when_copresent: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, notify_only_when_copresent: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
-  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, notify_only_when_copresent: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-a', user_id: 'user-me', friend_id: 'user-a', notify_enabled: true, muted: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-b', user_id: 'user-me', friend_id: 'user-b', notify_enabled: true, muted: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
+  { id: 'friendship-c', user_id: 'user-me', friend_id: 'user-c', notify_enabled: true, muted: false, want_to_meet: false, location_hidden: false, status: 'active', created_at: now, updated_at: now },
 ];
 
 // このエリアで名前つきで見せ合うことに合意しているか（approved のみ名前表示）

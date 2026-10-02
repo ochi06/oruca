@@ -13,7 +13,8 @@ type Props = {
 // アカウント全体で1つの設定（USERS.allow_entry_notifications）で、友達ごとの
 // notify_enabled（US-007）とは別物。OFFの間は、自分を「会いたい人」に
 // 登録している相手にも、入室通知が届かなくなる
-// （utils/notifications.tsのshouldSendWantToMeetNotificationで分岐）。
+// （utils/notifications.tsのshouldSendEntryNotificationで分岐、
+// Issue #270で判定ルールを統合）。
 // 値の取得・更新はSettingsScreen側（他のグローバル設定と同じ構成）で行い、
 // このコンポーネントは表示専用（Issue #243）
 export function AllowEntryNotificationsToggle({ value, onValueChange }: Props) {
