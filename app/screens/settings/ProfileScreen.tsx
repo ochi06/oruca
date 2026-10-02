@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Modal as RNModal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -12,7 +12,7 @@ import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
 import {
@@ -50,6 +50,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [avatarZoomVisible, setAvatarZoomVisible] = useState(false);
 
   function load() {
     setState('loading');
@@ -192,7 +193,20 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
       </View>
       <View style={styles.avatarSection}>
-        <Avatar iconUrl={iconUrl} name={name} size={96} />
+        <View style={styles.avatarWrapper}>
+          <Pressable onPress={() => setAvatarZoomVisible(true)} accessibilityLabel="アイコンを拡大表示">
+            <Avatar iconUrl={iconUrl} name={name} size={96} />
+          </Pressable>
+          <IconButton
+            name="pencil-outline"
+            variant="secondary"
+            size={16}
+            style={styles.avatarEditButton}
+            accessibilityLabel="アイコンを変更する"
+            onPress={handleChangeIcon}
+            disabled={uploading}
+          />
+        </View>
 
         {editingName ? (
           <View style={styles.nameEditRow}>
@@ -204,9 +218,11 @@ export default function ProfileScreen({ navigation }: Props) {
               editable={!savingName}
               autoFocus
             />
-            <Button
-              label="キャンセル"
+            <IconButton
+              name="close-outline"
               variant="secondary"
+              size={20}
+              accessibilityLabel="名前の変更をキャンセル"
               onPress={() => setEditingName(false)}
               disabled={savingName}
             />
@@ -217,18 +233,37 @@ export default function ProfileScreen({ navigation }: Props) {
             />
           </View>
         ) : (
-          <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
-        )}
-
-        <Button
-          label={uploading ? 'アップロード中…' : 'アイコンを変更する'}
-          onPress={handleChangeIcon}
-          disabled={uploading}
-        />
-        {!editingName && (
-          <Button label="名前を変更する" variant="secondary" onPress={handleStartEditName} />
+          <View style={styles.nameRow}>
+            <IconButton
+              name="pencil-outline"
+              variant="secondary"
+              size={16}
+              accessibilityLabel="名前を変更する"
+              onPress={handleStartEditName}
+            />
+            <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
+          </View>
         )}
       </View>
+
+      <RNModal
+        visible={avatarZoomVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvatarZoomVisible(false)}
+      >
+        <Pressable style={styles.zoomOverlay} onPress={() => setAvatarZoomVisible(false)}>
+          <View style={styles.zoomCloseButton}>
+            <IconButton
+              name="close-outline"
+              variant="secondary"
+              accessibilityLabel="閉じる"
+              onPress={() => setAvatarZoomVisible(false)}
+            />
+          </View>
+          <Avatar iconUrl={iconUrl} name={name} size={240} />
+        </Pressable>
+      </RNModal>
 
       <View style={styles.statusSection}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>ステータス</Text>
@@ -270,8 +305,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarEditButton: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    borderRadius: radius.lg,
+  },
   name: {
     ...typography.body,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   nameEditRow: {
     flexDirection: 'row',
@@ -280,6 +329,17 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     flex: 1,
+  },
+  zoomOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomCloseButton: {
+    position: 'absolute',
+    top: spacing.xl,
+    right: spacing.md,
   },
   statusSection: {
     marginTop: spacing.xl,
