@@ -31,12 +31,30 @@ type NotifyPreferencesState = {
 
 type ToggleableField = 'want_to_meet' | 'location_hidden';
 
-// 楽観的更新→永続化を行う共通ヘルパー。永続化に失敗した場合は表示を戻す
+// toggleWantToMeetが5人上限超過で失敗した場合のエラーかどうかを判定する
+// （Issue #330）。DBトリガー（enforce_want_to_meet_limit、
+// supabase/migrations/20261003020000_want_to_meet_limit_and_reset.sql）が
+// 投げるraise exceptionのメッセージで判定する
+export function isWantToMeetLimitError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.includes('want_to_meet limit reached')
+  );
+}
+
+// 楽観的更新→永続化を行う共通ヘルパー。永続化に失敗した場合は表示を戻す。
+// rethrow=trueの場合、呼び出し側がエラー内容（例：Issue #330のwant_to_meet
+// 5人上限超過）を見てトースト等を出し分けられるよう、失敗時にエラーを
+// 投げ直す（location_hiddenは従来通り黙って戻すだけで十分なため既定false）
 async function toggleField(
   get: () => NotifyPreferencesState,
   set: (partial: Partial<NotifyPreferencesState>) => void,
   friendId: string,
-  field: ToggleableField
+  field: ToggleableField,
+  options: { rethrow?: boolean } = {}
 ): Promise<void> {
   const { currentUserId, friendships } = get();
   const target = friendships.find((f) => f.friend_id === friendId);
@@ -53,8 +71,11 @@ async function toggleField(
   apply(nextValue);
   try {
     await updateFriendshipField(currentUserId, friendId, field, nextValue);
-  } catch {
+  } catch (error) {
     apply(!nextValue);
+    if (options.rethrow) {
+      throw error;
+    }
   }
 }
 
@@ -81,7 +102,7 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set, ge
     }
   },
 
-  toggleWantToMeet: (friendId) => toggleField(get, set, friendId, 'want_to_meet'),
+  toggleWantToMeet: (friendId) => toggleField(get, set, friendId, 'want_to_meet', { rethrow: true }),
 
   toggleLocationHidden: (friendId) => toggleField(get, set, friendId, 'location_hidden'),
 

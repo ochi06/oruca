@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { useNotifyPreferencesStore } from '../store/useNotifyPreferencesStore';
+import { isWantToMeetLimitError, useNotifyPreferencesStore } from '../store/useNotifyPreferencesStore';
 import { Switch } from './Switch';
+import { useToast } from './Toast';
 
 type Props = {
   friendId: string;
@@ -16,6 +17,7 @@ type Props = {
 // USERS.allow_entry_notificationsをOFFにしている場合は届かない
 export function WantToMeetToggle({ friendId }: Props) {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const friendship = useNotifyPreferencesStore((state) =>
     state.friendships.find((f) => f.friend_id === friendId)
   );
@@ -23,6 +25,16 @@ export function WantToMeetToggle({ friendId }: Props) {
 
   if (!friendship) {
     return null;
+  }
+
+  // 会いたい人は5人まで（Issue #330、DBトリガーで強制）。上限超過時のみ
+  // 専用メッセージを出し、それ以外の失敗は汎用メッセージにする
+  async function handleToggle() {
+    try {
+      await toggleWantToMeet(friendId);
+    } catch (error) {
+      showToast(isWantToMeetLimitError(error) ? '会いたい人は5人まで登録できます' : '操作に失敗しました');
+    }
   }
 
   return (
@@ -35,7 +47,7 @@ export function WantToMeetToggle({ friendId }: Props) {
       </View>
       <Switch
         value={friendship.want_to_meet}
-        onValueChange={() => toggleWantToMeet(friendId)}
+        onValueChange={handleToggle}
         trackColor={{ true: colors.blue, false: colors.lightblue }}
         accessibilityLabel="会いたい人に登録"
       />
