@@ -115,6 +115,9 @@ function App() {
 }
 
 // Sentry.wrapで包むことで、レンダー中の未捕捉エラーもクラッシュとして
-// 報告される（Issue #27）。initSentry()がDSN未設定でスキップされていても、
-// Sentry.wrap自体は安全に素通りする
-export default Sentry.wrap(App);
+// 報告される（Issue #27）。ただしSentry.wrap自体はinitSentry()の成否に
+// 関わらず無条件でSentry内部状態を参照するため、DSN未設定（＝initSentry()が
+// Sentry.init()を呼んでいない）の開発環境でwrapすると
+// 「Sentry.wrap was called before Sentry.init」という警告が出る（実害は無いが、
+// 開発中のログが煩わしい。Issue #174）。DSNが設定されている場合のみwrapする
+export default process.env.EXPO_PUBLIC_SENTRY_DSN ? Sentry.wrap(App) : App;
