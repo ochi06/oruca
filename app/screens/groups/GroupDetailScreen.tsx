@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -48,6 +49,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
   const [menuTargetMember, setMenuTargetMember] = useState<GroupMember | null>(null);
+  // Issue #343: 承認待ち・メンバーの各セクションを折りたたみ可能にする。
+  // 承認待ちは見落とし防止のため初期表示は開く、メンバーは人数が多くなり
+  // がちなため初期表示は閉じておく（developer確認済み）
+  const [pendingOpen, setPendingOpen] = useState(true);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   // オープングループの在席ユーザーID集合（Issue #148の可視性ルール用）。
   // RLS（presence in monitored areas is readable）上、自分がそのエリアを
@@ -220,11 +226,82 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       {isAdmin && (
         <View style={styles.section}>
-          <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>承認待ち</Text>
-          {pendingMembers.length === 0 ? (
-            <EmptyState icon="hourglass-outline" message="承認待ちの申請はありません" />
+          <Pressable
+            style={styles.sectionHeader}
+            onPress={() => setPendingOpen((open) => !open)}
+            accessibilityLabel={pendingOpen ? '承認待ちを閉じる' : '承認待ちを開く'}
+          >
+            <Text style={[typography.body, { color: colors.text }]}>
+              承認待ち{pendingMembers.length > 0 ? `（${pendingMembers.length}）` : ''}
+            </Text>
+            <Ionicons
+              name={pendingOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+              size={20}
+              color={colors.textSub}
+            />
+          </Pressable>
+          {pendingOpen &&
+            (pendingMembers.length === 0 ? (
+              <EmptyState icon="hourglass-outline" message="承認待ちの申請はありません" />
+            ) : (
+              pendingMembers.map((member) => {
+                const display = resolveGroupMemberDisplay(member, {
+                  name: resolveUserName(nameMap, member.user_id),
+                  iconUrl: null,
+                });
+                return (
+                  <ListItem
+                    key={member.id}
+                    title={display.name}
+                    subtitle={member.invited_by ? `${resolveUserName(nameMap, member.invited_by)}からの招待` : '招待コードで参加申請'}
+                    leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
+                    trailing={
+                      <View style={styles.actions}>
+                        <IconButton
+                          name="checkmark"
+                          variant="ghost"
+                          color={colors.green}
+                          size={16}
+                          accessibilityLabel={`${display.name}の参加を承認`}
+                          onPress={() => handleApprove(member.id)}
+                        />
+                        <IconButton
+                          name="close"
+                          variant="ghost"
+                          color={colors.coral}
+                          size={16}
+                          accessibilityLabel={`${display.name}の参加を拒否`}
+                          onPress={() => handleReject(member.id)}
+                        />
+                      </View>
+                    }
+                  />
+                );
+              })
+            ))}
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <Pressable
+          style={styles.sectionHeader}
+          onPress={() => setMembersOpen((open) => !open)}
+          accessibilityLabel={membersOpen ? 'メンバーを閉じる' : 'メンバーを開く'}
+        >
+          <Text style={[typography.body, { color: colors.text }]}>
+            メンバー{approvedMembers.length > 0 ? `（${approvedMembers.length}）` : ''}
+          </Text>
+          <Ionicons
+            name={membersOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+            size={20}
+            color={colors.textSub}
+          />
+        </Pressable>
+        {membersOpen &&
+          (approvedMembers.length === 0 ? (
+            <EmptyState icon="people-outline" message="メンバーがいません" />
           ) : (
-            pendingMembers.map((member) => {
+            approvedMembers.map((member) => {
               const display = resolveGroupMemberDisplay(member, {
                 name: resolveUserName(nameMap, member.user_id),
                 iconUrl: null,
@@ -233,72 +310,29 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                 <ListItem
                   key={member.id}
                   title={display.name}
-                  subtitle={member.invited_by ? `${resolveUserName(nameMap, member.invited_by)}からの招待` : '招待コードで参加申請'}
+                  subtitle={
+                    showPresence
+                      ? presentUserIds?.has(member.user_id)
+                        ? '在席中'
+                        : '不在'
+                      : undefined
+                  }
                   leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
                   trailing={
-                    <View style={styles.actions}>
+                    isAdmin && member.user_id !== group.owner_user_id ? (
                       <IconButton
-                        name="checkmark"
+                        name="ellipsis-vertical"
                         variant="ghost"
-                        color={colors.green}
                         size={16}
-                        accessibilityLabel={`${display.name}の参加を承認`}
-                        onPress={() => handleApprove(member.id)}
+                        accessibilityLabel={`${display.name}のメニュー`}
+                        onPress={() => setMenuTargetMember(member)}
                       />
-                      <IconButton
-                        name="close"
-                        variant="ghost"
-                        color={colors.coral}
-                        size={16}
-                        accessibilityLabel={`${display.name}の参加を拒否`}
-                        onPress={() => handleReject(member.id)}
-                      />
-                    </View>
+                    ) : undefined
                   }
                 />
               );
             })
-          )}
-        </View>
-      )}
-
-      <View style={styles.section}>
-        <Text style={[typography.body, { color: colors.text, marginBottom: spacing.sm }]}>メンバー</Text>
-        {approvedMembers.length === 0 ? (
-          <EmptyState icon="people-outline" message="メンバーがいません" />
-        ) : (
-          approvedMembers.map((member) => {
-            const display = resolveGroupMemberDisplay(member, {
-              name: resolveUserName(nameMap, member.user_id),
-              iconUrl: null,
-            });
-            return (
-              <ListItem
-                key={member.id}
-                title={display.name}
-                subtitle={
-                  showPresence
-                    ? presentUserIds?.has(member.user_id)
-                      ? '在席中'
-                      : '不在'
-                    : undefined
-                }
-                leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
-                trailing={
-                  isAdmin && member.user_id !== group.owner_user_id ? (
-                    <IconButton
-                      name="ellipsis-vertical"
-                      variant="ghost"
-                      size={16}
-                      accessibilityLabel={`${display.name}のメニュー`}
-                      onPress={() => setMenuTargetMember(member)}
-                    />
-                  ) : undefined
-                }
-              />
-            );
-          })
-        )}
+          ))}
       </View>
 
       <Button
@@ -383,6 +417,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
   groupMetaRow: {
     flexDirection: 'row',
