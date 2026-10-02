@@ -385,12 +385,8 @@ const styles = StyleSheet.create({
     bottom: spacing.lg,
     left: spacing.md,
     right: spacing.md,
-    // padding: spacing.sm(8)/md(16)のどちらにも近く、近似トークンがないため
-    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
-    padding: 12,
-    // borderRadius: radius.sm(6)/md(10)のどちらにも近く、近似トークンがないため
-    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
-    borderRadius: 8,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
     gap: spacing.sm,
   },
   closeModeButton: {
@@ -407,13 +403,11 @@ const styles = StyleSheet.create({
   },
   searchPanel: {
     position: 'absolute',
-    // top: spacing.xl(32)/xxl(48)のどちらにも近くないため、
-    // 現状の見た目を保つマジックナンバーのまま据え置き（Issue #319、司令塔チャット確認待ち）
-    top: 56,
+    top: spacing.xxl,
     left: spacing.md,
     right: spacing.md,
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
     elevation: 3,
   },
   searchRow: {

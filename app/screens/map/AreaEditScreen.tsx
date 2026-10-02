@@ -174,10 +174,8 @@ const styles = StyleSheet.create({
     bottom: spacing.lg,
     left: spacing.md,
     right: spacing.md,
-    // padding/borderRadius: AreaRegistrationScreen.tsxのsliderContainerと同じく
-    // 近似トークンがないため据え置き（Issue #319、司令塔チャット確認待ち）
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
     gap: spacing.sm,
   },
 });
