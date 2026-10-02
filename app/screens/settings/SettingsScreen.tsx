@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
@@ -12,6 +13,7 @@ import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import { Button } from '../../components/Button';
 import {
+  deleteAccount,
   ensureSignedIn,
   fetchUserEntryVibrationEnabled,
   fetchUserIsAnonymous,
@@ -45,6 +47,8 @@ export default function SettingsScreen({ navigation }: Props) {
   // auth.uidの匿名セッション（signInAnonymously由来）かどうか。USERS.is_anonymous
   // （匿名モード設定、上のisAnonymous）とは別物（Issue #168）
   const [isAnonymousSession, setIsAnonymousSession] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function load() {
     setState('loading');
@@ -96,6 +100,22 @@ export default function SettingsScreen({ navigation }: Props) {
       console.error('updateUserIsAnonymous failed:', error);
       setIsAnonymous(!nextValue);
       showToast('設定の更新に失敗しました');
+    }
+  }
+
+  // アカウント削除（Issue #228、Apple 5.1.1(v)・Google Playのアカウント
+  // 削除ポリシー対応）。成功するとApp.tsx側のonAuthStateChangeがSIGNED_OUTを
+  // 検知し、自動でログイン画面に遷移する
+  async function handleConfirmDeleteAccount() {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      // 成功後は画面自体がアンマウントされるため、ここでのstate更新は不要
+    } catch (error) {
+      console.error('deleteAccount failed:', error);
+      setDeleting(false);
+      setDeleteConfirmVisible(false);
+      showToast('アカウントの削除に失敗しました');
     }
   }
 
@@ -171,6 +191,43 @@ export default function SettingsScreen({ navigation }: Props) {
           />
         </View>
       </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>危険な操作</Text>
+        <Button
+          label="アカウントを削除する"
+          variant="secondary"
+          onPress={() => setDeleteConfirmVisible(true)}
+          style={{ backgroundColor: colors.coral }}
+        />
+      </View>
+
+      <Modal
+        visible={deleteConfirmVisible}
+        onClose={() => (deleting ? undefined : setDeleteConfirmVisible(false))}
+        title="アカウントを削除しますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          アカウントを削除すると、プロフィール・位置情報・友達関係・グループの
+          参加状況など、すべてのデータが完全に削除されます。この操作は
+          取り消せません。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setDeleteConfirmVisible(false)}
+            disabled={deleting}
+            style={styles.modalButton}
+          />
+          <Button
+            label={deleting ? '削除中…' : '削除する'}
+            onPress={handleConfirmDeleteAccount}
+            disabled={deleting}
+            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+          />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -212,5 +269,12 @@ const styles = StyleSheet.create({
   },
   toggleSubLabel: {
     ...typography.caption,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
