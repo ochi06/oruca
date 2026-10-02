@@ -13,7 +13,7 @@ import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
 import { GroupMember } from '../../mocks/groups';
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   adminMenu: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
