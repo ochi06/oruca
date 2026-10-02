@@ -286,7 +286,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                   isAdmin && member.user_id !== group.owner_user_id ? (
                     <IconButton
                       name="ellipsis-vertical"
-                      variant="secondary"
+                      variant="ghost"
                       size={16}
                       accessibilityLabel={`${display.name}のメニュー`}
                       onPress={() => setMenuTargetMember(member)}

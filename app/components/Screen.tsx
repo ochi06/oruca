@@ -86,7 +86,7 @@ export function Screen({
       {onMenu ? (
         <IconButton
           name="ellipsis-vertical"
-          variant="secondary"
+          variant="ghost"
           size={20}
           accessibilityLabel="メニュー"
           onPress={onMenu}

@@ -8,7 +8,9 @@ import { triggerTapHaptic } from '../utils/haptics';
 type Props = PressableProps & {
   name: keyof typeof Ionicons.glyphMap;
   size?: number;
-  variant?: 'primary' | 'secondary';
+  // ghost: 背景なし（Issue #318）。一覧行・ヘッダーの⋮メニューなど、
+  // 常時表示されるボタンとして強調したくない箇所向け
+  variant?: 'primary' | 'secondary' | 'ghost';
   // アイコンのみのボタンはスクリーンリーダーに文字情報が伝わらないため、
   // accessibilityLabelを必須にしている（docs/design-system.md参照）。
   accessibilityLabel: string;
@@ -27,6 +29,7 @@ export function IconButton({
 }: Props) {
   const { colors } = useTheme();
   const isPrimary = variant === 'primary';
+  const isGhost = variant === 'ghost';
 
   function handlePress(event: GestureResponderEvent) {
     if (hapticsEnabled) {
@@ -39,7 +42,7 @@ export function IconButton({
     <Pressable
       style={[
         styles.base,
-        { backgroundColor: isPrimary ? colors.blue : colors.lightblue },
+        { backgroundColor: isPrimary ? colors.blue : isGhost ? 'transparent' : colors.lightblue },
         style as object,
       ]}
       onPress={handlePress}

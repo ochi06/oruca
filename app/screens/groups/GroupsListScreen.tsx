@@ -131,7 +131,7 @@ export default function GroupsListScreen({ searchQuery }: Props) {
               trailing={
                 <IconButton
                   name="ellipsis-vertical"
-                  variant="secondary"
+                  variant="ghost"
                   size={16}
                   accessibilityLabel={`${group.name}の詳細`}
                   onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}

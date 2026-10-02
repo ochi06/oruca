@@ -334,7 +334,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                     ) : null}
                     <IconButton
                       name="ellipsis-vertical"
-                      variant="secondary"
+                      variant="ghost"
                       size={16}
                       accessibilityLabel={`${user.name}のメニュー`}
                       onPress={() => setMenuTargetId(user.id)}
