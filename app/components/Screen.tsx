@@ -31,6 +31,10 @@ type Props = ViewProps & {
   // 独自にinsetsを扱いたい場合に使う（戻るボタンの位置自体は変わらず、
   // 常にinsets分オフセットする）
   disableSafeAreaPadding?: boolean;
+  // 渡すと右上に「…」メニューボタンをオーバーレイ表示する（Issue #276、
+  // onBackと対称のパターン）。ブロック・削除など、画面単位の操作をまとめる
+  // メニューを開く用途を想定
+  onMenu?: () => void;
 };
 
 // 各画面のルートで使う共通レイアウト。ノッチ・ホームバー等を避けるセーフエリア
@@ -41,6 +45,7 @@ export function Screen({
   avoidKeyboard = false,
   onBack,
   disableSafeAreaPadding = false,
+  onMenu,
   ...rest
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -65,7 +70,7 @@ export function Screen({
       ]}
     >
       <View style={[styles.base, style as object]} {...rest}>
-        {onBack ? <View style={{ height: BACK_BUTTON_RESERVED_HEIGHT }} /> : null}
+        {onBack || onMenu ? <View style={{ height: BACK_BUTTON_RESERVED_HEIGHT }} /> : null}
         {children}
       </View>
       {onBack ? (
@@ -76,6 +81,16 @@ export function Screen({
           accessibilityLabel="戻る"
           onPress={onBack}
           style={[styles.backButton, { top: insets.top + spacing.sm, left: insets.left + spacing.sm }]}
+        />
+      ) : null}
+      {onMenu ? (
+        <IconButton
+          name="ellipsis-vertical"
+          variant="secondary"
+          size={20}
+          accessibilityLabel="メニュー"
+          onPress={onMenu}
+          style={[styles.menuButton, { top: insets.top + spacing.sm, right: insets.right + spacing.sm }]}
         />
       ) : null}
     </View>
@@ -100,6 +115,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
+    position: 'absolute',
+    zIndex: 1,
+  },
+  menuButton: {
     position: 'absolute',
     zIndex: 1,
   },

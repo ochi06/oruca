@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -5,11 +6,13 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
+import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
@@ -43,12 +46,45 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
   const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
   const toggleMuted = useNotifyPreferencesStore((state) => state.toggleMuted);
+  const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
+  const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
   // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
   // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
+  // 「...」メニュー（ブロック・削除、Issue #276）の対象。選んだ友達のidを
+  // 保持し、メニュー・削除確認の2段階モーダルをこのidの有無で出し分ける
+  const [menuTargetId, setMenuTargetId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const menuTarget = friends.find((user) => user.id === menuTargetId) ?? null;
+  const menuTargetFriendship = menuTargetId
+    ? friendships.find((f) => f.friend_id === menuTargetId) ?? null
+    : null;
+  const deleteTarget = friends.find((user) => user.id === deleteConfirmId) ?? null;
+
+  function handleToggleBlock() {
+    if (!menuTargetId) return;
+    toggleLocationHidden(menuTargetId);
+    setMenuTargetId(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
+    try {
+      await removeFriend(deleteConfirmId);
+      setDeleteConfirmId(null);
+      showToast('友達を削除しました');
+    } catch (error) {
+      console.error('removeFriend failed:', error);
+      showToast('友達の削除に失敗しました');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // 行タップでその友達が現在在席しているエリアに絞ったマップへ遷移する（Issue #261）。
   // 在席中かどうかはpresence_logsの未退室（exited_at is null）行で判定する
@@ -133,8 +169,8 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                       name="ellipsis-vertical"
                       variant="secondary"
                       size={16}
-                      accessibilityLabel={`${user.name}の詳細`}
-                      onPress={() => navigation.navigate('FriendDetail', { friendId: user.id })}
+                      accessibilityLabel={`${user.name}のメニュー`}
+                      onPress={() => setMenuTargetId(user.id)}
                     />
                   </View>
                 }
@@ -143,6 +179,57 @@ export default function FriendsListScreen({ searchQuery }: Props) {
           }}
         />
       )}
+
+      <Modal visible={menuTarget !== null} onClose={() => setMenuTargetId(null)} title={menuTarget?.name}>
+        <Button
+          label="詳細を見る"
+          variant="secondary"
+          onPress={() => {
+            if (menuTargetId) navigation.navigate('FriendDetail', { friendId: menuTargetId });
+            setMenuTargetId(null);
+          }}
+          style={styles.menuButton}
+        />
+        <Button
+          label={menuTargetFriendship?.location_hidden ? 'ブロックを解除する' : 'ブロックする'}
+          variant="secondary"
+          onPress={handleToggleBlock}
+          style={styles.menuButton}
+        />
+        <Button
+          label="削除する"
+          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          onPress={() => {
+            setDeleteConfirmId(menuTargetId);
+            setMenuTargetId(null);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        visible={deleteTarget !== null}
+        onClose={() => (deleting ? undefined : setDeleteConfirmId(null))}
+        title="友達を削除しますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          {deleteTarget?.name}さんとの友達関係を解消します。この操作は取り消せません。再度友達になるには、OTPコードでの追加が必要です。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setDeleteConfirmId(null)}
+            disabled={deleting}
+            style={styles.modalButton}
+          />
+          <Button
+            label={deleting ? '削除中…' : '削除する'}
+            onPress={handleConfirmDelete}
+            disabled={deleting}
+            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+          />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -170,5 +257,15 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     ...typography.caption,
+  },
+  menuButton: {
+    marginBottom: spacing.sm,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
