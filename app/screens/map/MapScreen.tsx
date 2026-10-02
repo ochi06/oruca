@@ -154,18 +154,24 @@ export default function MapScreen({ navigation, route }: Props) {
   // 「エリア1件に絞った表示」を共用する（Issue #261）。この画面はタブ内で使い回され、
   // 2回目以降のnavigateでもroute.paramsの変化を反映する必要があるため、
   // レンダー中にstateを更新する公式パターン（useEffectでの同期は避ける）を使う
-  // （https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes）
+  // （https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes）。
+  // route.paramsの参照そのものをトラッキングし、filterAreaIdが無くなった場合
+  // （Issue #280：タブを直接タップして戻った場合のparamsクリア）も含めて同期する
   const [filterAreaId, setFilterAreaId] = useState<string | null>(route.params?.filterAreaId ?? null);
-  const [prevRouteFilterAreaId, setPrevRouteFilterAreaId] = useState(route.params?.filterAreaId);
-  if (route.params?.filterAreaId && route.params.filterAreaId !== prevRouteFilterAreaId) {
-    setPrevRouteFilterAreaId(route.params.filterAreaId);
-    setFilterAreaId(route.params.filterAreaId);
+  const [prevRouteParams, setPrevRouteParams] = useState(route.params);
+  if (route.params !== prevRouteParams) {
+    setPrevRouteParams(route.params);
+    setFilterAreaId(route.params?.filterAreaId ?? null);
   }
   // 一覧からの遷移時のみ戻る矢印を出す（検索による絞り込みはこのタブ内で完結するため不要）
   const origin = route.params?.origin;
 
+  // 検索欄は通常時アイコンのみ表示し、タップで展開する（Issue #279）
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>('area');
   const [searchQuery, setSearchQuery] = useState('');
+  // 絞り込み済みのエリア名タップで、他の登録エリアへ切り替えるプルダウン（Issue #285）
+  const [areaSwitcherOpen, setAreaSwitcherOpen] = useState(false);
   const groups = useGroupStore((state) => state.groups);
   const groupStatus = useGroupStore((state) => state.status);
   const initializeGroups = useGroupStore((state) => state.initialize);
@@ -313,21 +319,61 @@ export default function MapScreen({ navigation, route }: Props) {
   return (
     <Screen style={styles.mapContainer} disableSafeAreaPadding onBack={origin ? () => navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList', params: { initialSegment: origin } }) : undefined}>
       <View style={[styles.searchOverlay, { top: overlayTop }]}>
-        {activeArea ? (
-          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
-            <Ionicons name="location-outline" size={18} color={colors.blue} />
-            <Text style={[styles.filterChipLabel, { color: colors.text }]} numberOfLines={1}>
-              {activeArea.name}
-            </Text>
+        <View style={styles.headerRow}>
+          {activeArea ? (
+            <Pressable
+              style={[styles.areaNameButton, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}
+              onPress={() => setAreaSwitcherOpen((v) => !v)}
+            >
+              <Ionicons name="location-outline" size={18} color={colors.blue} />
+              <Text style={[styles.filterChipLabel, { color: colors.text }]} numberOfLines={1}>
+                {activeArea.name}
+              </Text>
+              {data.areas.length > 1 && (
+                <Ionicons name="chevron-down-outline" size={16} color={colors.textSub} />
+              )}
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {!searchOpen && (
+            <IconButton
+              name="search-outline"
+              variant="secondary"
+              accessibilityLabel="検索"
+              onPress={() => setSearchOpen(true)}
+            />
+          )}
+          {activeArea && !origin && (
             <IconButton
               name="close-outline"
               variant="secondary"
-              size={16}
               accessibilityLabel="絞り込みを解除"
               onPress={handleClearFilter}
             />
+          )}
+        </View>
+
+        {areaSwitcherOpen && activeArea && data.areas.length > 1 && (
+          <View style={[styles.searchDropdown, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+            {data.areas
+              .filter((area) => area.id !== activeArea.id)
+              .map((area) => (
+                <Pressable
+                  key={area.id}
+                  style={styles.searchResultRow}
+                  onPress={() => {
+                    setFilterAreaId(area.id);
+                    setAreaSwitcherOpen(false);
+                  }}
+                >
+                  <Text style={[typography.body, { color: colors.text }]}>{area.name}</Text>
+                </Pressable>
+              ))}
           </View>
-        ) : (
+        )}
+
+        {searchOpen && (
           <View>
             <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
               <View style={[styles.searchModeToggle, { borderColor: colors.lightblue }]}>
@@ -355,16 +401,18 @@ export default function MapScreen({ navigation, route }: Props) {
                 placeholder={searchMode === 'area' ? 'エリア名で検索' : 'グループ名で検索'}
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoFocus
               />
-              {searchQuery.length > 0 && (
-                <IconButton
-                  name="close-outline"
-                  variant="secondary"
-                  size={16}
-                  accessibilityLabel="検索を閉じる"
-                  onPress={handleClearFilter}
-                />
-              )}
+              <IconButton
+                name="close-outline"
+                variant="secondary"
+                size={16}
+                accessibilityLabel="検索を閉じる"
+                onPress={() => {
+                  setSearchOpen(false);
+                  setSearchQuery('');
+                }}
+              />
             </View>
             {searchResults.length > 0 && (
               <View style={[styles.searchDropdown, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
@@ -372,7 +420,10 @@ export default function MapScreen({ navigation, route }: Props) {
                   <Pressable
                     key={result.id}
                     style={styles.searchResultRow}
-                    onPress={() => handleSelectSearchResult(result)}
+                    onPress={() => {
+                      handleSelectSearchResult(result);
+                      setSearchOpen(false);
+                    }}
                   >
                     <Text style={[typography.body, { color: colors.text }]}>{result.name}</Text>
                   </Pressable>
@@ -504,6 +555,25 @@ const styles = StyleSheet.create({
     right: spacing.md,
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  areaNameButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   searchBar: {
     flexDirection: 'row',
