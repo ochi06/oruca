@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Modal as RNModal, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -20,17 +20,16 @@ type Props = {
   iconUrl: string | null;
   // Issue #266：SettingsScreen（編集可能）・FriendDetailScreen（読み取り専用）の
   // アイコン＋名前表示部分（タップでの拡大表示モーダル含む）を共通化した。
-  // editableがtrueの間のみ、アイコン変更・名前変更の編集導線を表示する
+  // editableがtrueの間のみ、名前編集の入力欄UIを表示できる（Issue #362：
+  // 編集の開始自体はこのコンポーネントの外（⋮メニュー）から、refのstartEditingName
+  // 経由で行う。アイコン編集は呼び出し側が完全に持つため、このコンポーネントは
+  // 関与しない）
   editable?: boolean;
-  onEditIcon?: () => void;
-  iconUploading?: boolean;
   // 保存に失敗した場合はrejectする。resolveすると編集モードを閉じる
   // （成功/失敗のトースト文言は画面ごとに異なりうるため呼び出し側の責務とする）
   onSaveName?: (trimmedName: string) => Promise<void>;
   // Issue #274：FriendDetailScreenの会いたい人ハート・ステータスアイコンを
-  // アバターの右下/右上に重ねて表示するための汎用スロット。editable画面
-  // （SettingsScreen）はアイコン編集ボタンが右下を使うため、bottomRightBadge
-  // とeditableは同時に渡さない想定
+  // アバターの右下/右上に重ねて表示するための汎用スロット
   topRightBadge?: ReactNode;
   bottomRightBadge?: ReactNode;
   // Issue #370：会いたい人ハートは、Issue #362で右下に追加するステータス
@@ -38,17 +37,16 @@ type Props = {
   bottomLeftBadge?: ReactNode;
 };
 
-export function ProfileHeader({
-  name,
-  iconUrl,
-  editable = false,
-  onEditIcon,
-  iconUploading = false,
-  onSaveName,
-  topRightBadge,
-  bottomRightBadge,
-  bottomLeftBadge,
-}: Props) {
+export type ProfileHeaderHandle = {
+  // Issue #362：アイコン・名前の変更を⋮メニュー経由にしたため、名前編集の
+  // 開始を外部から呼び出せるようにする
+  startEditingName: () => void;
+};
+
+export const ProfileHeader = forwardRef<ProfileHeaderHandle, Props>(function ProfileHeader(
+  { name, iconUrl, editable = false, onSaveName, topRightBadge, bottomRightBadge, bottomLeftBadge },
+  ref
+) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const [avatarZoomVisible, setAvatarZoomVisible] = useState(false);
@@ -60,6 +58,10 @@ export function ProfileHeader({
     setNameInput(name);
     setEditingName(true);
   }
+
+  useImperativeHandle(ref, () => ({
+    startEditingName: handleStartEditName,
+  }));
 
   async function handleSaveName() {
     const trimmed = nameInput.trim();
@@ -90,19 +92,7 @@ export function ProfileHeader({
         <Pressable onPress={() => setAvatarZoomVisible(true)} accessibilityLabel="アイコンを拡大表示">
           <Avatar iconUrl={iconUrl} name={name} size={96} />
         </Pressable>
-        {editable && onEditIcon ? (
-          <IconButton
-            name="pencil-outline"
-            variant="secondary"
-            size={16}
-            style={styles.avatarEditButton}
-            accessibilityLabel="アイコンを変更する"
-            onPress={onEditIcon}
-            disabled={iconUploading}
-          />
-        ) : bottomRightBadge ? (
-          <View style={styles.avatarEditButton}>{bottomRightBadge}</View>
-        ) : null}
+        {bottomRightBadge ? <View style={styles.avatarEditButton}>{bottomRightBadge}</View> : null}
         {topRightBadge ? <View style={styles.avatarTopBadge}>{topRightBadge}</View> : null}
         {bottomLeftBadge ? <View style={styles.avatarBottomLeftBadge}>{bottomLeftBadge}</View> : null}
       </View>
@@ -133,15 +123,6 @@ export function ProfileHeader({
         </View>
       ) : (
         <View style={styles.nameRow}>
-          {editable ? (
-            <IconButton
-              name="pencil-outline"
-              variant="secondary"
-              size={16}
-              accessibilityLabel="名前を変更する"
-              onPress={handleStartEditName}
-            />
-          ) : null}
           <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
         </View>
       )}
@@ -166,7 +147,7 @@ export function ProfileHeader({
       </RNModal>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

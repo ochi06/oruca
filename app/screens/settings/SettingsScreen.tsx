@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
 import { Button } from '../../components/Button';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
+import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
-import { ProfileHeader } from '../../components/ProfileHeader';
+import { ProfileHeader, ProfileHeaderHandle } from '../../components/ProfileHeader';
 import { Screen } from '../../components/Screen';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
@@ -17,7 +19,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
-import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
+import { USER_STATUS_OPTIONS, UserStatus, userStatusIcon } from '../../constants/status';
 import {
   DEFAULT_USER_NAME,
   deleteAccount,
@@ -50,18 +52,22 @@ type Props = NativeStackScreenProps<SettingsStackParamList, 'ProfileTop'>;
 
 // Issue #356：プロフィール編集（アイコン・名前・ステータス）と詳細設定
 // （テーマ・入室通知・匿名モード等）を1画面に統合した（Issue #176の方針転換）。
-// タブのトップ画面として表示するため、戻るボタンは持たない
+// タブのトップ画面として表示するため、戻るボタンは持たない。
+// Issue #362：アイコン・名前の変更は、アバター上のボタンではなく右上の⋮メニュー
+// 経由にした。ステータスはアバター右下の丸バッジ化し、タップでモーダル選択する
 export default function SettingsScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const themeMode = useThemeModeStore((state) => state.mode);
   const setThemeMode = useThemeModeStore((state) => state.setMode);
+  const profileHeaderRef = useRef<ProfileHeaderHandle>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [name, setName] = useState(DEFAULT_USER_NAME);
   const [iconUrl, setIconUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<UserStatus | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
   const [allowEntryNotifications, setAllowEntryNotifications] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -116,6 +122,7 @@ export default function SettingsScreen({ navigation }: Props) {
     const nextStatus = status === value ? null : value;
     const previousStatus = status;
     setStatus(nextStatus);
+    setStatusModalVisible(false);
     setUpdatingStatus(true);
     try {
       const userId = await ensureSignedIn();
@@ -160,7 +167,6 @@ export default function SettingsScreen({ navigation }: Props) {
     }
 
     const asset = result.assets[0];
-    setUploading(true);
     try {
       const userId = await ensureSignedIn();
       const newIconUrl = await updateUserIcon(userId, asset.uri);
@@ -169,8 +175,6 @@ export default function SettingsScreen({ navigation }: Props) {
     } catch (error) {
       console.error('updateUserIcon failed:', error);
       showToast('アイコンの更新に失敗しました');
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -249,8 +253,10 @@ export default function SettingsScreen({ navigation }: Props) {
     );
   }
 
+  const currentStatusIcon = status ? userStatusIcon(status) : null;
+
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onMenu={() => setMenuVisible(true)}>
       <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>プロフィール</Text>
@@ -270,29 +276,26 @@ export default function SettingsScreen({ navigation }: Props) {
         </View>
       </View>
       <ProfileHeader
+        ref={profileHeaderRef}
         name={name}
         iconUrl={iconUrl}
         editable
-        onEditIcon={handleChangeIcon}
-        iconUploading={uploading}
         onSaveName={handleSaveName}
-      />
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: colors.textSub }]}>ステータス</Text>
-        <View style={styles.options}>
-          {USER_STATUS_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              label={option.label}
-              variant={status === option.value ? 'primary' : 'secondary'}
-              onPress={() => handleSelectStatus(option.value)}
-              disabled={updatingStatus}
-              style={styles.chip}
+        bottomRightBadge={
+          <Pressable
+            onPress={() => setStatusModalVisible(true)}
+            disabled={updatingStatus}
+            style={[styles.statusBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}
+            accessibilityLabel="ステータスを変更する"
+          >
+            <Ionicons
+              name={currentStatusIcon ?? 'ellipse-outline'}
+              size={14}
+              color={currentStatusIcon ? colors.blue : colors.textSub}
             />
-          ))}
-        </View>
-      </View>
+          </Pressable>
+        }
+      />
 
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>表示モード</Text>
@@ -362,6 +365,39 @@ export default function SettingsScreen({ navigation }: Props) {
       </View>
       </ScrollView>
 
+      <Modal visible={menuVisible} onClose={() => setMenuVisible(false)} title="プロフィールを編集">
+        <Button
+          label="アイコンを変更する"
+          variant="secondary"
+          onPress={() => {
+            setMenuVisible(false);
+            handleChangeIcon();
+          }}
+          style={styles.menuButton}
+        />
+        <Button
+          label="名前を変更する"
+          variant="secondary"
+          onPress={() => {
+            setMenuVisible(false);
+            profileHeaderRef.current?.startEditingName();
+          }}
+          style={styles.menuButton}
+        />
+      </Modal>
+
+      <Modal visible={statusModalVisible} onClose={() => setStatusModalVisible(false)} title="ステータス">
+        {USER_STATUS_OPTIONS.map((option) => (
+          <ListItem
+            key={option.value}
+            title={option.label}
+            leading={<Ionicons name={option.icon} size={20} color={colors.text} />}
+            trailing={status === option.value ? <Ionicons name="checkmark" size={20} color={colors.blue} /> : undefined}
+            onPress={() => handleSelectStatus(option.value)}
+          />
+        ))}
+      </Modal>
+
       <Modal
         visible={deleteConfirmVisible}
         onClose={() => (deleting ? undefined : setDeleteConfirmVisible(false))}
@@ -424,6 +460,14 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: spacing.md,
   },
+  statusBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,6 +482,9 @@ const styles = StyleSheet.create({
   },
   toggleSubLabel: {
     ...typography.caption,
+  },
+  menuButton: {
+    marginBottom: spacing.sm,
   },
   modalButtonRow: {
     flexDirection: 'row',
