@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
@@ -15,9 +16,11 @@ import { Button } from '../../components/Button';
 import {
   deleteAccount,
   ensureSignedIn,
+  fetchUserAllowEntryNotifications,
   fetchUserEntryVibrationEnabled,
   fetchUserIsAnonymous,
   isCurrentSessionAnonymous,
+  updateUserAllowEntryNotifications,
   updateUserEntryVibrationEnabled,
   updateUserIsAnonymous,
 } from '../../lib/auth';
@@ -43,6 +46,7 @@ export default function SettingsScreen({ navigation }: Props) {
   const setThemeMode = useThemeModeStore((state) => state.setMode);
   const [state, setState] = useState<LoadState>('loading');
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
+  const [allowEntryNotifications, setAllowEntryNotifications] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
   // auth.uidの匿名セッション（signInAnonymously由来）かどうか。USERS.is_anonymous
   // （匿名モード設定、上のisAnonymous）とは別物（Issue #168）
@@ -54,13 +58,19 @@ export default function SettingsScreen({ navigation }: Props) {
     setState('loading');
     ensureSignedIn()
       .then(async (userId) => {
-        const [fetchedEntryVibrationEnabled, fetchedIsAnonymous, fetchedIsAnonymousSession] =
-          await Promise.all([
-            fetchUserEntryVibrationEnabled(userId),
-            fetchUserIsAnonymous(userId),
-            isCurrentSessionAnonymous(),
-          ]);
+        const [
+          fetchedEntryVibrationEnabled,
+          fetchedAllowEntryNotifications,
+          fetchedIsAnonymous,
+          fetchedIsAnonymousSession,
+        ] = await Promise.all([
+          fetchUserEntryVibrationEnabled(userId),
+          fetchUserAllowEntryNotifications(userId),
+          fetchUserIsAnonymous(userId),
+          isCurrentSessionAnonymous(),
+        ]);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
+        setAllowEntryNotifications(fetchedAllowEntryNotifications);
         setIsAnonymous(fetchedIsAnonymous);
         setIsAnonymousSession(fetchedIsAnonymousSession);
         setState('loaded');
@@ -84,6 +94,20 @@ export default function SettingsScreen({ navigation }: Props) {
     } catch (error) {
       console.error('updateUserEntryVibrationEnabled failed:', error);
       setEntryVibrationEnabled(!nextValue);
+      showToast('設定の更新に失敗しました');
+    }
+  }
+
+  // 「会いたい人」への入室通知の許可ワンタップ切替（US-017、Issue #243）
+  async function handleToggleAllowEntryNotifications() {
+    const nextValue = !allowEntryNotifications;
+    setAllowEntryNotifications(nextValue);
+    try {
+      const userId = await ensureSignedIn();
+      await updateUserAllowEntryNotifications(userId, nextValue);
+    } catch (error) {
+      console.error('updateUserAllowEntryNotifications failed:', error);
+      setAllowEntryNotifications(!nextValue);
       showToast('設定の更新に失敗しました');
     }
   }
@@ -165,6 +189,10 @@ export default function SettingsScreen({ navigation }: Props) {
             accessibilityLabel="入室通知の振動"
           />
         </View>
+        <AllowEntryNotificationsToggle
+          value={allowEntryNotifications}
+          onValueChange={handleToggleAllowEntryNotifications}
+        />
       </View>
 
       {isAnonymousSession ? (
