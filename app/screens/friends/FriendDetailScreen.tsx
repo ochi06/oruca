@@ -15,6 +15,11 @@ import { Screen } from '../../components/Screen';
 import { FriendScheduleNote } from '../../components/schedule/FriendScheduleNote';
 import { useToast } from '../../components/Toast';
 import { WantToMeetToggle } from '../../components/WantToMeetToggle';
+import {
+  WANT_TO_MEET_BADGE_HIT_SLOP,
+  WANT_TO_MEET_BADGE_ICON_SIZE,
+  WANT_TO_MEET_BADGE_SIZE,
+} from '../../constants/wantToMeetBadge';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -183,6 +188,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           friendship ? (
             <Pressable
               onPress={() => toggleWantToMeet(friendId)}
+              hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
               style={[styles.heartBadge, { backgroundColor: colors.surface, borderColor: colors.coral }]}
               accessibilityLabel={
                 friendship.want_to_meet ? '会いたい人から外す' : '会いたい人に登録'
@@ -190,7 +196,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
             >
               <Ionicons
                 name={friendship.want_to_meet ? 'heart' : 'heart-outline'}
-                size={14}
+                size={WANT_TO_MEET_BADGE_ICON_SIZE}
                 color={colors.coral}
               />
             </Pressable>
@@ -378,9 +384,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   heartBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: WANT_TO_MEET_BADGE_SIZE,
+    height: WANT_TO_MEET_BADGE_SIZE,
+    borderRadius: WANT_TO_MEET_BADGE_SIZE / 2,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

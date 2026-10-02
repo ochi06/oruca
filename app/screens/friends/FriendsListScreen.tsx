@@ -21,6 +21,11 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import {
+  WANT_TO_MEET_BADGE_HIT_SLOP,
+  WANT_TO_MEET_BADGE_ICON_SIZE,
+  WANT_TO_MEET_BADGE_SIZE,
+} from '../../constants/wantToMeetBadge';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
@@ -284,6 +289,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                     {friendship ? (
                       <Pressable
                         onPress={() => toggleWantToMeet(user.id)}
+                        hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
                         style={[
                           styles.heartBadge,
                           { backgroundColor: colors.surface, borderColor: colors.coral },
@@ -296,7 +302,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                       >
                         <Ionicons
                           name={friendship.want_to_meet ? 'heart' : 'heart-outline'}
-                          size={10}
+                          size={WANT_TO_MEET_BADGE_ICON_SIZE}
                           color={colors.coral}
                         />
                       </Pressable>
@@ -486,9 +492,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: WANT_TO_MEET_BADGE_SIZE,
+    height: WANT_TO_MEET_BADGE_SIZE,
+    borderRadius: WANT_TO_MEET_BADGE_SIZE / 2,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
