@@ -68,3 +68,11 @@
   `oruca://login-callback`は、今後不要（削除してもしなくても動作に影響はない）
 - メールテンプレートの変更（`supabase/config.toml`）は`supabase config push`
   でリモートプロジェクトに反映する
+- **Issue #237（2026-10-02）**：`signInWithOtp`に未登録メールを渡した場合
+  （新規ユーザーの初回ログイン）、GoTrueは`magic_link`ではなく
+  `confirmation`（signup確認）テンプレートを使う。Issue #168で
+  `enable_confirmations`を`true`に変更した副作用で、`[auth.email.template.
+  confirmation]`を用意していなかったため、新規ユーザー全員に標準の
+  クリック型リンクメールが送られてしまっていた。`magic_link`/
+  `email_change`と同じ理由（本ADR参照）で`confirmation.html`を追加し
+  解消した
