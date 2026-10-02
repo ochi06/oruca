@@ -15,11 +15,12 @@ export type FriendshipRow = {
 // エリアに在席中)に統合。旧notify_only_when_copresent列（「共在時のみ通知」の
 // 個別トグル）は廃止し、常時適用のルールにした。
 // Issue #352：enteringUserIsAnonymous（入室した本人のUSERS.is_anonymous）が
-// trueの間は、want_to_meetや共在の有無に関わらず誰にも通知を送ってはいけない
+// trueの間は、want_to_meetや共在の有無に関わらず誰にも通知を送ってはいけない。
+// Issue #360：USERS.allow_entry_notifications（US-017専用の個別許可設定）は
+// 廃止し、常に許可されている前提にした（DBカラム自体は削除せず参照しないだけ）
 export function shouldSendEntryNotification(
   friendship: FriendshipRow,
   isRecipientPresentInSameArea: boolean,
-  enteringUserAllowsEntryNotifications: boolean,
   enteringUserIsAnonymous: boolean
 ): boolean {
   if (enteringUserIsAnonymous) {
@@ -31,5 +32,5 @@ export function shouldSendEntryNotification(
   if (isRecipientPresentInSameArea) {
     return true;
   }
-  return friendship.want_to_meet && enteringUserAllowsEntryNotifications;
+  return friendship.want_to_meet;
 }

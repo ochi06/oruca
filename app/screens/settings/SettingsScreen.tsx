@@ -4,7 +4,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
 import { Button } from '../../components/Button';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
@@ -24,14 +23,12 @@ import {
   DEFAULT_USER_NAME,
   deleteAccount,
   ensureSignedIn,
-  fetchUserAllowEntryNotifications,
   fetchUserEntryVibrationEnabled,
   fetchUserIconUrl,
   fetchUserIsAnonymous,
   fetchUserName,
   fetchUserStatus,
   isCurrentSessionAnonymous,
-  updateUserAllowEntryNotifications,
   updateUserEntryVibrationEnabled,
   updateUserIcon,
   updateUserIsAnonymous,
@@ -69,7 +66,6 @@ export default function SettingsScreen({ navigation }: Props) {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
-  const [allowEntryNotifications, setAllowEntryNotifications] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
   // auth.uidの匿名セッション（signInAnonymously由来）かどうか。USERS.is_anonymous
   // （匿名モード設定、上のisAnonymous）とは別物（Issue #168）
@@ -86,7 +82,6 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchedIconUrl,
           fetchedStatus,
           fetchedEntryVibrationEnabled,
-          fetchedAllowEntryNotifications,
           fetchedIsAnonymous,
           fetchedIsAnonymousSession,
         ] = await Promise.all([
@@ -94,7 +89,6 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchUserIconUrl(userId),
           fetchUserStatus(userId),
           fetchUserEntryVibrationEnabled(userId),
-          fetchUserAllowEntryNotifications(userId),
           fetchUserIsAnonymous(userId),
           isCurrentSessionAnonymous(),
         ]);
@@ -102,7 +96,6 @@ export default function SettingsScreen({ navigation }: Props) {
         setIconUrl(fetchedIconUrl);
         setStatus(fetchedStatus);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
-        setAllowEntryNotifications(fetchedAllowEntryNotifications);
         setIsAnonymous(fetchedIsAnonymous);
         setIsAnonymousSession(fetchedIsAnonymousSession);
         setState('loaded');
@@ -188,20 +181,6 @@ export default function SettingsScreen({ navigation }: Props) {
     } catch (error) {
       console.error('updateUserEntryVibrationEnabled failed:', error);
       setEntryVibrationEnabled(!nextValue);
-      showToast('設定の更新に失敗しました');
-    }
-  }
-
-  // 「会いたい人」への入室通知の許可ワンタップ切替（US-017、Issue #243）
-  async function handleToggleAllowEntryNotifications() {
-    const nextValue = !allowEntryNotifications;
-    setAllowEntryNotifications(nextValue);
-    try {
-      const userId = await ensureSignedIn();
-      await updateUserAllowEntryNotifications(userId, nextValue);
-    } catch (error) {
-      console.error('updateUserAllowEntryNotifications failed:', error);
-      setAllowEntryNotifications(!nextValue);
       showToast('設定の更新に失敗しました');
     }
   }
@@ -323,10 +302,6 @@ export default function SettingsScreen({ navigation }: Props) {
             accessibilityLabel="入室通知の振動"
           />
         </View>
-        <AllowEntryNotificationsToggle
-          value={allowEntryNotifications}
-          onValueChange={handleToggleAllowEntryNotifications}
-        />
       </View>
 
       {isAnonymousSession ? (

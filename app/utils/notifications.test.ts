@@ -22,61 +22,51 @@ function makeFriendship(overrides: Partial<Friendship> = {}): Friendship {
 describe('shouldSendEntryNotification', () => {
   test('notify_enabledがtrueで共在していれば通知してよいと判定する', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: true }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: true }), true, false)
     ).toBe(true);
   });
 
   test('notify_enabledがfalseなら、共在していても通知しないと判定する', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: false }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: false }), true, false)
     ).toBe(false);
   });
 
   test('notify_enabledがtrueでもmutedがtrueなら通知しないと判定する（Issue #8、mutedが優先）', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: true }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: true }), true, false)
     ).toBe(false);
   });
 
   test('notify_enabledがfalseでmutedもtrueなら通知しないと判定する', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: false, muted: true }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: false, muted: true }), true, false)
     ).toBe(false);
   });
 
   test('Issue #270：共在時のみ通知は個別トグルではなく常時適用のルールになったため、want_to_meetがfalseでも共在していれば通知する', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: false }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ want_to_meet: false }), true, false)
     ).toBe(true);
   });
 
   test('共在しておらずwant_to_meetもfalseなら通知しない', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: false }), false, true, false)
+      shouldSendEntryNotification(makeFriendship({ want_to_meet: false }), false, false)
     ).toBe(false);
   });
 
-  test('US-017：want_to_meetがtrueで、共在していなくても入室した本人がallow_entry_notifications=trueなら通知する', () => {
+  // Issue #360：USERS.allow_entry_notifications（個別許可設定）は廃止した。
+  // want_to_meetがtrueで共在していなくても、常に通知してよいと判定する
+  test('US-017：want_to_meetがtrueなら、共在していなくても通知する', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), false, true, false)
-    ).toBe(true);
-  });
-
-  test('US-017：want_to_meetがtrueでも、共在しておらず入室した本人がallow_entry_notifications=falseなら通知しない', () => {
-    expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), false, false, false)
-    ).toBe(false);
-  });
-
-  test('want_to_meetがtrueで共在中なら、allow_entry_notificationsがfalseでも通知する（共在ルールが優先）', () => {
-    expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), true, false, false)
+      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), false, false)
     ).toBe(true);
   });
 
   test('want_to_meetがtrueで共在中でも、mutedがtrueなら通知しない（mutedが優先）', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: true, muted: true }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ want_to_meet: true, muted: true }), true, false)
     ).toBe(false);
   });
 
@@ -84,19 +74,19 @@ describe('shouldSendEntryNotification', () => {
   // 他の条件がすべて通知を許可する状態であっても、誰にも通知してはいけない
   test('入室した本人が匿名モード中なら、共在していても通知しない', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: false }), true, true, true)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: false }), true, true)
     ).toBe(false);
   });
 
-  test('入室した本人が匿名モード中なら、want_to_meetかつallow_entry_notifications=trueでも通知しない', () => {
+  test('入室した本人が匿名モード中なら、want_to_meetでも通知しない', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), false, true, true)
+      shouldSendEntryNotification(makeFriendship({ want_to_meet: true }), false, true)
     ).toBe(false);
   });
 
   test('入室した本人が匿名モード中でなければ、従来通り判定する（回帰防止）', () => {
     expect(
-      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: false }), true, true, false)
+      shouldSendEntryNotification(makeFriendship({ notify_enabled: true, muted: false }), true, false)
     ).toBe(true);
   });
 });
