@@ -16,7 +16,7 @@ import { Screen } from '../../components/Screen';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import { USER_STATUS_OPTIONS, UserStatus, userStatusIcon } from '../../constants/status';
@@ -338,20 +338,27 @@ export default function SettingsScreen({ navigation }: Props) {
 
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>匿名モード</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleTextContainer}>
-            <Text style={[styles.toggleLabel, { color: colors.text }]}>匿名モード</Text>
-            <Text style={[styles.toggleSubLabel, { color: colors.textSub }]}>
-              ONの間、友達にも名前・在席が表示されません
-            </Text>
-          </View>
-          <Switch
-            value={isAnonymous}
-            onValueChange={handleToggleAnonymous}
-            trackColor={{ true: colors.blue, false: colors.lightblue }}
-            accessibilityLabel="匿名モード"
-          />
-        </View>
+        <Text style={[styles.toggleSubLabel, { color: colors.textSub, marginBottom: spacing.sm }]}>
+          ONの間、友達にも名前・在席が表示されません
+        </Text>
+        <Button
+          label={isAnonymous ? '匿名モードを解除' : '匿名モードにする'}
+          variant="secondary"
+          onPress={handleToggleAnonymous}
+          style={[
+            styles.anonymousButton,
+            isAnonymous
+              ? {
+                  backgroundColor: colors.sand,
+                  shadowColor: colors.sand,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.8,
+                  shadowRadius: 12,
+                  elevation: 8,
+                }
+              : { backgroundColor: colors.lightblue },
+          ]}
+        />
       </View>
 
       <View style={styles.section}>
@@ -467,6 +474,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Issue #359：匿名モードは使う頻度・とっさ性が高いため、他の設定項目とは
+  // 別格の大きいボタンにする。ON時はcolors.sand背景+シャドウで光るような
+  // 強調表現にする（developer指示・司令塔チャットで方針確認済み）
+  anonymousButton: {
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
   },
   toggleRow: {
     flexDirection: 'row',
