@@ -5,7 +5,9 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 type Props = PressableProps & {
-  title: string;
+  // Issue #278：AreaPresencePopupの在席者一覧のように、名前を表示しない
+  // 使い方もあるためoptionalにした
+  title?: string;
   subtitle?: string;
   leading?: React.ReactNode; // Avatarなど
   trailing?: React.ReactNode; // 在席ドット・アイコンなど
@@ -33,15 +35,17 @@ export function ListItem({
     >
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <View style={styles.textContainer}>
-        <Text
-          style={{
-            color: colors.text,
-            fontFamily: typography.body.fontFamily,
-            fontSize: typography.body.fontSize,
-          }}
-        >
-          {title}
-        </Text>
+        {title ? (
+          <Text
+            style={{
+              color: colors.text,
+              fontFamily: typography.body.fontFamily,
+              fontSize: typography.body.fontSize,
+            }}
+          >
+            {title}
+          </Text>
+        ) : null}
         {subtitle ? (
           <Text
             style={{
