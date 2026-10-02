@@ -184,7 +184,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
       <ProfileHeader
         name={friend.name}
         iconUrl={friend.icon_url}
-        bottomRightBadge={
+        bottomLeftBadge={
           friendship ? (
             <Pressable
               onPress={() => toggleWantToMeet(friendId)}
