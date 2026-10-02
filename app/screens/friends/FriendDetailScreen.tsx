@@ -3,13 +3,13 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LocationHiddenToggle } from '../../components/LocationHiddenToggle';
 import { Modal } from '../../components/Modal';
+import { ProfileHeader } from '../../components/ProfileHeader';
 import { Screen } from '../../components/Screen';
 import { FriendScheduleNote } from '../../components/schedule/FriendScheduleNote';
 import { useToast } from '../../components/Toast';
@@ -133,10 +133,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   return (
     <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Avatar name={friend.name} iconUrl={friend.icon_url} size={64} />
-        <Text style={[styles.name, { color: colors.text }]}>{friend.name}</Text>
-      </View>
+      <ProfileHeader name={friend.name} iconUrl={friend.icon_url} />
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>プライバシー設定</Text>
@@ -267,14 +264,6 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  name: {
-    ...typography.title,
-    marginTop: spacing.sm,
   },
   section: {
     marginBottom: spacing.lg,

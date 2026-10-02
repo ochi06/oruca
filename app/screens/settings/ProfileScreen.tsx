@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Modal as RNModal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
-import { Input } from '../../components/Input';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { ProfileHeader } from '../../components/ProfileHeader';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { radius, spacing } from '../../theme/spacing';
+import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
 import {
@@ -26,10 +25,6 @@ import {
   updateUserStatus,
 } from '../../lib/auth';
 import { SettingsStackParamList } from '../../navigation/types';
-
-// エリア名（AREA_NAME_MAX_LENGTH）と同程度の上限を設ける。DB側に長さ制約は
-// 無いが、一覧・アイコン横での表示崩れを防ぐための画面側のガード
-const DISPLAY_NAME_MAX_LENGTH = 30;
 
 type LoadState = 'loading' | 'loaded' | 'error';
 
@@ -47,10 +42,6 @@ export default function ProfileScreen({ navigation }: Props) {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<UserStatus | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [savingName, setSavingName] = useState(false);
-  const [avatarZoomVisible, setAvatarZoomVisible] = useState(false);
 
   function load() {
     setState('loading');
@@ -94,34 +85,16 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   }
 
-  function handleStartEditName() {
-    setNameInput(name);
-    setEditingName(true);
-  }
-
-  async function handleSaveName() {
-    const trimmed = nameInput.trim();
-    if (!trimmed) {
-      showToast('名前を入力してください');
-      return;
-    }
-    if (trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
-      showToast(`名前は${DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください`);
-      return;
-    }
-
-    setSavingName(true);
+  async function handleSaveName(trimmed: string) {
     try {
       const userId = await ensureSignedIn();
       await updateUserName(userId, trimmed);
       setName(trimmed);
-      setEditingName(false);
       showToast('名前を更新しました');
     } catch (error) {
       console.error('updateUserName failed:', error);
       showToast('名前の更新に失敗しました');
-    } finally {
-      setSavingName(false);
+      throw error;
     }
   }
 
@@ -192,78 +165,14 @@ export default function ProfileScreen({ navigation }: Props) {
           />
         </View>
       </View>
-      <View style={styles.avatarSection}>
-        <View style={styles.avatarWrapper}>
-          <Pressable onPress={() => setAvatarZoomVisible(true)} accessibilityLabel="アイコンを拡大表示">
-            <Avatar iconUrl={iconUrl} name={name} size={96} />
-          </Pressable>
-          <IconButton
-            name="pencil-outline"
-            variant="secondary"
-            size={16}
-            style={styles.avatarEditButton}
-            accessibilityLabel="アイコンを変更する"
-            onPress={handleChangeIcon}
-            disabled={uploading}
-          />
-        </View>
-
-        {editingName ? (
-          <View style={styles.nameEditRow}>
-            <Input
-              style={styles.nameInput}
-              value={nameInput}
-              onChangeText={setNameInput}
-              maxLength={DISPLAY_NAME_MAX_LENGTH}
-              editable={!savingName}
-              autoFocus
-            />
-            <IconButton
-              name="close-outline"
-              variant="secondary"
-              size={20}
-              accessibilityLabel="名前の変更をキャンセル"
-              onPress={() => setEditingName(false)}
-              disabled={savingName}
-            />
-            <Button
-              label={savingName ? '保存中…' : '保存'}
-              onPress={handleSaveName}
-              disabled={savingName}
-            />
-          </View>
-        ) : (
-          <View style={styles.nameRow}>
-            <IconButton
-              name="pencil-outline"
-              variant="secondary"
-              size={16}
-              accessibilityLabel="名前を変更する"
-              onPress={handleStartEditName}
-            />
-            <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
-          </View>
-        )}
-      </View>
-
-      <RNModal
-        visible={avatarZoomVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAvatarZoomVisible(false)}
-      >
-        <Pressable style={styles.zoomOverlay} onPress={() => setAvatarZoomVisible(false)}>
-          <View style={styles.zoomCloseButton}>
-            <IconButton
-              name="close-outline"
-              variant="secondary"
-              accessibilityLabel="閉じる"
-              onPress={() => setAvatarZoomVisible(false)}
-            />
-          </View>
-          <Avatar iconUrl={iconUrl} name={name} size={240} />
-        </Pressable>
-      </RNModal>
+      <ProfileHeader
+        name={name}
+        iconUrl={iconUrl}
+        editable
+        onEditIcon={handleChangeIcon}
+        iconUploading={uploading}
+        onSaveName={handleSaveName}
+      />
 
       <View style={styles.statusSection}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>ステータス</Text>
@@ -300,46 +209,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.heading,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  avatarWrapper: {
-    position: 'relative',
-  },
-  avatarEditButton: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    borderRadius: radius.lg,
-  },
-  name: {
-    ...typography.body,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  nameEditRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  nameInput: {
-    flex: 1,
-  },
-  zoomOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomCloseButton: {
-    position: 'absolute',
-    top: spacing.xl,
-    right: spacing.md,
   },
   statusSection: {
     marginTop: spacing.xl,
