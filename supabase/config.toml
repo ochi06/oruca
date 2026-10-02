@@ -256,6 +256,16 @@ otp_expiry = 3600
 subject = "oruca ログインコード"
 content_path = "./supabase/templates/magic_link.html"
 
+# Issue #237: signInWithOtpに未登録メールを渡した場合（初めてのログイン）、
+# GoTrueはmagic_linkではなくsignup confirmation（本テンプレート）を使う。
+# enable_confirmations=true（Issue #168でemail_change確認メールを実際に
+# 送らせるために変更）の副作用で、未対応のままだと標準のクリック型リンクが
+# 新規ユーザー全員に送られてしまっていた。magic_link/email_changeと同じ
+# 理由（ADR-0010）でカスタマイズし、平文の6桁コードのみ届ける
+[auth.email.template.confirmation]
+subject = "oruca ログインコード"
+content_path = "./supabase/templates/confirmation.html"
+
 # Issue #168: 匿名アカウントの本登録（updateUser({ email })）確認メール。
 # magic_linkと同じ理由（ADR-0010参照）でクリック可能なリンクを含めず、
 # 平文の6桁コードのみ届ける
