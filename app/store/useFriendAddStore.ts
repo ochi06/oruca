@@ -4,6 +4,7 @@ import { ensureSignedIn } from '../lib/auth';
 import { issueMyOtp, redeemOtp } from '../lib/friends';
 import { useNotifyPreferencesStore } from './useNotifyPreferencesStore';
 import { isOtpExpired, OtpCode } from '../utils/otp';
+import { isNetworkError } from '../utils/network';
 
 export type AddFriendResult =
   | { status: 'success'; friendName: string }
@@ -11,7 +12,9 @@ export type AddFriendResult =
   | { status: 'not_found' }
   | { status: 'self' }
   | { status: 'forbidden' }
-  | { status: 'error' };
+  // isNetworkErrorは「入力されたコードの誤り」と区別し、呼び出し側で
+  // 再試行を促す案内を出し分けるために使う（Issue #314）
+  | { status: 'error'; isNetworkError: boolean };
 
 type FriendAddState = {
   myOtp: OtpCode | null;
@@ -48,8 +51,8 @@ export const useFriendAddStore = create<FriendAddState>((set, get) => ({
         return { status: 'success', friendName: result.friendName };
       }
       return { status: result.status };
-    } catch {
-      return { status: 'error' };
+    } catch (error) {
+      return { status: 'error', isNetworkError: isNetworkError(error) };
     }
   },
 }));

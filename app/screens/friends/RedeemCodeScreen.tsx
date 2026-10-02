@@ -22,6 +22,9 @@ import { redeemCode as redeemCodeWithDeps } from './redeemCode';
 
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'RedeemCode'>;
 
+// 会場Wi-Fi等の不安定な回線を想定した案内（Issue #314）
+const NETWORK_ERROR_MESSAGE = 'ネットワークに接続できません。電波の良い場所でもう一度お試しください';
+
 // Issue #208: 「相手から渡されたコードを読み取る/入力する」操作を1画面に統合する。
 // グループの招待コード（英数字6桁）・友達追加のOTP（数字6桁）は文字種が完全に
 // 排他ではないため、フォーマットでの事前判別はせず、まずグループ招待コードとして
@@ -124,6 +127,14 @@ export default function RedeemCodeScreen({ navigation }: Props) {
     }
 
     if (result.status === 'error') {
+      if (result.isNetworkError) {
+        // 会場Wi-Fi等での一時的な通信断の可能性が高いため、スキャン画面からは
+        // 追い出さず、再スキャン（手入力ならそのまま再送信）で再試行できるように
+        // する（Issue #314）
+        showToast(NETWORK_ERROR_MESSAGE);
+        if (viaScan) handledRef.current = false;
+        return;
+      }
       showToast('通信に失敗しました。もう一度お試しください');
       if (viaScan) onBack();
       return;

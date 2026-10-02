@@ -8,6 +8,11 @@ import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { sendLoginCode, signInAnonymously, verifyLoginCode } from '../lib/auth';
+import { isNetworkError } from '../utils/network';
+
+// 会場Wi-Fi等の不安定な回線を想定し、ネットワーク起因のエラーだけは
+// 「コードが間違っている」等と区別した案内にする（Issue #314）
+const NETWORK_ERROR_MESSAGE = 'ネットワークに接続できません。電波の良い場所でもう一度お試しください';
 
 // 簡易的な形式チェックのみ（実際に届くかどうかはSupabase側の送信結果に委ねる）
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,8 +38,8 @@ export default function LoginScreen() {
     setErrorMessage(null);
     try {
       await signInAnonymously();
-    } catch {
-      setErrorMessage('参加処理に失敗しました。時間をおいて再度お試しください');
+    } catch (error) {
+      setErrorMessage(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : '参加処理に失敗しました。時間をおいて再度お試しください');
     } finally {
       setJoiningAnonymously(false);
     }
@@ -52,8 +57,8 @@ export default function LoginScreen() {
     try {
       await sendLoginCode(trimmed);
       setSentTo(trimmed);
-    } catch {
-      setErrorMessage('送信に失敗しました。時間をおいて再度お試しください');
+    } catch (error) {
+      setErrorMessage(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : '送信に失敗しました。時間をおいて再度お試しください');
     } finally {
       setSending(false);
     }
@@ -71,8 +76,8 @@ export default function LoginScreen() {
     try {
       await verifyLoginCode(sentTo, code.trim());
       // 成功時はApp.tsx側のonAuthStateChangeがセッションを検知して画面遷移する
-    } catch {
-      setErrorMessage('コードが正しくないか、有効期限が切れています');
+    } catch (error) {
+      setErrorMessage(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : 'コードが正しくないか、有効期限が切れています');
     } finally {
       setVerifying(false);
     }

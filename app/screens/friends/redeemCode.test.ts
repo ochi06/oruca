@@ -73,23 +73,35 @@ describe('redeemCode', () => {
 
   test('joinOpenGroupByInviteCodeが例外を投げた場合はerrorを返し、友達OTPは試さない', async () => {
     const deps = makeDeps({
-      joinOpenGroupByInviteCode: jest.fn().mockRejectedValue(new Error('network error')),
+      joinOpenGroupByInviteCode: jest.fn().mockRejectedValue(new Error('duplicate key value violates unique constraint')),
     });
 
     const result = await redeemCode('ABC123', 'user-1', deps);
 
-    expect(result).toEqual({ status: 'error' });
+    expect(result).toEqual({ status: 'error', isNetworkError: false });
     expect(deps.verifyFriendCode).not.toHaveBeenCalled();
   });
 
-  test('友達OTPの検証がerrorの場合はerrorを返す', async () => {
+  // Issue #314: 会場Wi-Fi等の不安定な回線を想定し、ネットワーク起因の失敗は
+  // isNetworkError:trueを付けて返す（呼び出し側で再試行導線を出し分けるため）
+  test('joinOpenGroupByInviteCodeがネットワークエラーで失敗した場合はisNetworkError:trueを返す', async () => {
     const deps = makeDeps({
-      verifyFriendCode: jest.fn().mockResolvedValue({ status: 'error' }),
+      joinOpenGroupByInviteCode: jest.fn().mockRejectedValue({ message: 'TypeError: Network request failed' }),
+    });
+
+    const result = await redeemCode('ABC123', 'user-1', deps);
+
+    expect(result).toEqual({ status: 'error', isNetworkError: true });
+  });
+
+  test('友達OTPの検証がerrorの場合はisNetworkErrorの値をそのまま返す', async () => {
+    const deps = makeDeps({
+      verifyFriendCode: jest.fn().mockResolvedValue({ status: 'error', isNetworkError: true }),
     });
 
     const result = await redeemCode('123456', 'user-1', deps);
 
-    expect(result).toEqual({ status: 'error' });
+    expect(result).toEqual({ status: 'error', isNetworkError: true });
   });
 
   // 匿名セッション（Issue #151のsignInAnonymously経由）のuserIdも、通常ユーザーと
