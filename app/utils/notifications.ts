@@ -22,12 +22,21 @@ import { Friendship } from '../mocks/presence';
 // ロジックを持たない）。enteringUserAllowsEntryNotificationsは、入室した
 // 本人がUSERS.allow_entry_notifications（US-017専用の許可、2026-09-24
 // 開発者確認済み）をtrueにしているか。共在していない間（want_to_meet由来の
-// 通知のみが対象）にしか影響せず、通常の共在通知には影響しない
+// 通知のみが対象）にしか影響せず、通常の共在通知には影響しない。
+//
+// enteringUserIsAnonymousは、入室した本人のUSERS.is_anonymous（US-013、
+// 匿名モード）。trueの間は、docs/schema.mdの定義（友達に対して名前だけでなく
+// 在席も非表示にする）通り、want_to_meetや共在の有無に関わらず誰にも通知を
+// 送ってはいけない（Issue #352）ため、他のどの条件よりも先に判定する
 export function shouldSendEntryNotification(
   friendship: Friendship,
   isRecipientPresentInSameArea: boolean,
-  enteringUserAllowsEntryNotifications: boolean
+  enteringUserAllowsEntryNotifications: boolean,
+  enteringUserIsAnonymous: boolean
 ): boolean {
+  if (enteringUserIsAnonymous) {
+    return false;
+  }
   if (!friendship.notify_enabled || friendship.muted) {
     return false;
   }
