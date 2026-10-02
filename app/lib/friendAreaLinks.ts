@@ -32,11 +32,24 @@ export async function proposeFriendAreaLink(
 }
 
 // 提案を承認する（Issue #221）。RLS（"friends can approve links proposed to
-// them"）により、friend_id = auth.uid()の行のみ更新できる
-export async function approveFriendAreaLink(linkId: string): Promise<void> {
+// them"）により、friend_id = auth.uid()の行のみ更新できる。
+//
+// 承認者が未監視のエリアだった場合も、承認した時点でそのエリアの在席検知・
+// 表示の対象に含める必要があるため、USER_AREASへも自動登録する（Issue #340、
+// オープングループ参加時のjoinOpenGroup（app/lib/groups.ts）と同じ考え方）。
+// approverIdはfriend_id（＝auth.uid()）そのものだが、RLSのwith checkではなく
+// upsertの対象行を明示するために引数で受け取る
+export async function approveFriendAreaLink(linkId: string, approverId: string, areaId: string): Promise<void> {
   const { error } = await supabase.from('friend_area_links').update({ status: 'approved' }).eq('id', linkId);
   if (error) {
     throw error;
+  }
+
+  const { error: userAreaError } = await supabase
+    .from('user_areas')
+    .upsert({ user_id: approverId, area_id: areaId }, { onConflict: 'user_id,area_id', ignoreDuplicates: true });
+  if (userAreaError) {
+    throw userAreaError;
   }
 }
 

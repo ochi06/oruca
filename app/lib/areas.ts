@@ -48,6 +48,20 @@ export async function deleteArea(areaId: string): Promise<void> {
   }
 }
 
+// 指定したIDのエリアをまとめて取得する（Issue #340）。RLS上読めない
+// （所有・監視中でも、自分宛のpending/approvedなFRIEND_AREA_LINKSも無い）
+// エリアは単に結果から外れる
+export async function fetchAreasByIds(areaIds: string[]): Promise<Area[]> {
+  if (areaIds.length === 0) {
+    return [];
+  }
+  const { data, error } = await supabase.from('areas').select('*').in('id', areaIds);
+  if (error) {
+    throw error;
+  }
+  return (data ?? []) as Area[];
+}
+
 // ユーザーが実際に参加している（USER_AREASに行がある）エリアを全件取得する
 // （Issue #109）。ジオフェンス監視は複数エリアを同時に見る必要があるため、
 // 「user_areas→areas」の2段階クエリを全件版にしたもの
