@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -26,8 +26,11 @@ import { ensureSignedIn } from '../../lib/auth';
 import { fetchMonitoredAreas } from '../../lib/areas';
 import { fetchMyFriendAreaLinks, proposeFriendAreaLink } from '../../lib/friendAreaLinks';
 import { fetchOpenPresenceLogs } from '../../lib/presence';
+import { fetchAllVisibleAreaSchedules, fetchAllVisibleAreaScheduleOverrides } from '../../lib/schedules';
 import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
+import { friendIdsWithVisibleNotes } from '../../utils/schedules';
+import { todayDateString } from '../../utils/format';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList, RootTabParamList } from '../../navigation/types';
@@ -55,10 +58,26 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
   const toggleMuted = useNotifyPreferencesStore((state) => state.toggleMuted);
   const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
+  const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
   const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
+  // 滞在予定・ステータスメッセージが設定されている友達のidセット（Issue #274）。
+  // エリアを問わず自分が閲覧できる全件をRLSに任せて取得し、クライアント側で
+  // 空文字を除外して判定する
+  const [friendIdsWithNotes, setFriendIdsWithNotes] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    ensureSignedIn().then(async (currentUserId) => {
+      const today = todayDateString(new Date());
+      const [schedules, overrides] = await Promise.all([
+        fetchAllVisibleAreaSchedules(),
+        fetchAllVisibleAreaScheduleOverrides(today),
+      ]);
+      setFriendIdsWithNotes(friendIdsWithVisibleNotes(currentUserId, schedules, overrides));
+    });
+  }, []);
   // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
   // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
@@ -253,13 +272,43 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                 />
               );
             }
+            const hasNote = friendIdsWithNotes.has(user.id);
             return (
               <ListItem
                 title={user.name}
                 onPress={() => handlePressFriend(user.id, user.name)}
-                leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
+                leading={
+                  <View style={styles.avatarWrapper}>
+                    <Avatar name={user.name} iconUrl={user.icon_url} />
+                    {friendship ? (
+                      <Pressable
+                        onPress={() => toggleWantToMeet(user.id)}
+                        style={[
+                          styles.heartBadge,
+                          { backgroundColor: colors.surface, borderColor: colors.coral },
+                        ]}
+                        accessibilityLabel={
+                          friendship.want_to_meet
+                            ? `${user.name}を会いたい人から外す`
+                            : `${user.name}を会いたい人に登録`
+                        }
+                      >
+                        <Ionicons
+                          name={friendship.want_to_meet ? 'heart' : 'heart-outline'}
+                          size={10}
+                          color={colors.coral}
+                        />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                }
                 trailing={
                   <View style={styles.trailingRow}>
+                    {hasNote ? (
+                      <View accessibilityLabel={`${user.name}の滞在予定あり`}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.textSub} />
+                      </View>
+                    ) : null}
                     {friendship ? (
                       <View style={styles.toggles}>
                         <View style={styles.toggleRow}>
@@ -428,6 +477,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  heartBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toggles: {
     gap: spacing.xs,

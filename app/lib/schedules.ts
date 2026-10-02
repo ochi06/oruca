@@ -30,6 +30,26 @@ export async function fetchAreaScheduleOverrides(
   return (data ?? []) as AreaScheduleOverride[];
 }
 
+// 友達一覧・詳細画面のステータスアイコン表示用（Issue #274）。特定のエリアに
+// 絞らず、自分が閲覧できる全件を取得する。RLSが「自分の行＋そのエリアで
+// 承認済みFRIEND_AREA_LINKSの相手の行」のみを返すため、area_idで絞り込まなくても
+// 可視性は保たれる
+export async function fetchAllVisibleAreaSchedules(): Promise<AreaSchedule[]> {
+  const { data, error } = await supabase.from('area_schedules').select('*');
+  if (error) {
+    throw error;
+  }
+  return (data ?? []) as AreaSchedule[];
+}
+
+export async function fetchAllVisibleAreaScheduleOverrides(date: string): Promise<AreaScheduleOverride[]> {
+  const { data, error } = await supabase.from('area_schedule_overrides').select('*').eq('date', date);
+  if (error) {
+    throw error;
+  }
+  return (data ?? []) as AreaScheduleOverride[];
+}
+
 // このエリアで名前つき表示に合意している（承認済み）FRIEND_AREA_LINKSを取得する。
 // resolveFriendSchedule（app/utils/schedules.ts）の可視性判定に渡す
 export async function fetchFriendAreaLinks(areaId: string): Promise<FriendAreaLink[]> {
