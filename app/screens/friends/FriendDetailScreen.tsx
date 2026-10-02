@@ -9,7 +9,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
 import { LocationHiddenToggle } from '../../components/LocationHiddenToggle';
 import { Screen } from '../../components/Screen';
+import { FriendScheduleNote } from '../../components/schedule/FriendScheduleNote';
 import { useToast } from '../../components/Toast';
+import { WantToMeetToggle } from '../../components/WantToMeetToggle';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -27,8 +29,9 @@ import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
-// 中身はIssue #121（ブロック設定）・Issue #221（エリア紐づけの提案・承認）。
-// 滞在予定の閲覧（US-011）は別Issueで別途追加する想定
+// 中身はIssue #121（ブロック設定）・Issue #221（エリア紐づけの提案・承認）・
+// Issue #242（会いたい人登録・滞在予定表示の組み込み。共在時のみ通知は
+// Issue #270で個別トグルを廃止し常時適用のルールに統合されたため対象外）
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendDetail'>;
 
 export default function FriendDetailScreen({ route, navigation }: Props) {
@@ -123,6 +126,11 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>通知設定</Text>
+        <WantToMeetToggle friendId={friendId} />
+      </View>
+
+      <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>エリアの紐づけ</Text>
         <Text style={[styles.sectionCaption, { color: colors.textSub }]}>
           紐づけを承認したエリアでは、お互いに名前つきで在席・滞在予定が見えるようになります
@@ -168,7 +176,12 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
                 />
               );
             }
-            return <ListItem key={area.id} title={area.name} trailing={trailing} />;
+            return (
+              <View key={area.id}>
+                <ListItem title={area.name} trailing={trailing} />
+                <FriendScheduleNote friendId={friendId} areaId={area.id} />
+              </View>
+            );
           })
         )}
       </View>
@@ -180,10 +193,6 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
   },
   header: {
     alignItems: 'center',
