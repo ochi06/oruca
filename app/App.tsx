@@ -13,8 +13,10 @@ import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
 import { usePushNotificationRegistration } from './hooks/usePushNotificationRegistration';
 import { RootTabNavigator } from './navigation/RootTabNavigator';
+import { useOnboardingStore } from './store/useOnboardingStore';
 
 import LoginScreen from './screens/LoginScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 // モジュール読み込み時（起動直後）に初期化する（Issue #27）。
 // App関数コンポーネント内で呼ぶと、再レンダリングのたびに呼ばれる・
@@ -29,6 +31,12 @@ function App() {
   // undefined＝起動直後でまだ判定中、null＝未ログイン
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [signInError, setSignInError] = useState<Error | null>(null);
+  // 初回起動時のオンボーディング（Issue #246）。未ログインの間だけ、まだ
+  // 見ていなければLoginScreenの前に挟む。hasHydratedがtrueになるまでは
+  // AsyncStorageからの読み込み中なので、ローディング扱いにする
+  const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);
+  const hasOnboardingHydrated = useOnboardingStore((state) => state.hasHydrated);
+  const markOnboardingSeen = useOnboardingStore((state) => state.markOnboardingSeen);
 
   // ログイン完了後は、どのタブを表示していても常時マウントされるApp本体から
   // 呼び出すことで、タブ切り替えによるアンマウントで監視が止まらないようにする
@@ -84,7 +92,7 @@ function App() {
     );
   }
 
-  if (userId === undefined) {
+  if (userId === undefined || !hasOnboardingHydrated) {
     return (
       <SafeAreaProvider>
         <LoadingIndicator />
@@ -93,6 +101,13 @@ function App() {
   }
 
   if (userId === null) {
+    if (!hasSeenOnboarding) {
+      return (
+        <SafeAreaProvider>
+          <OnboardingScreen onDone={markOnboardingSeen} />
+        </SafeAreaProvider>
+      );
+    }
     return (
       <SafeAreaProvider>
         <WebDemoNotice />
