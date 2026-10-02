@@ -111,8 +111,14 @@ QR等、Web版の自動確認では検証できない項目を含む）。
       自分の名前・在席が見えなくなることを別アカウントから確認する
       （Issue #184。マップ側の可視性フィルタ自体は実装済み）
 - [ ] プロフィール画面の通知アイコンから通知ボックスに遷移し、グループ招待
-      の通知から直接「承諾」できる（グループ招待以外の通知種別の自動生成は
-      未実装、Issue #163）
+      の通知から直接「承諾」できる
+- [ ] グループに招待されると、招待された本人に`group_invite`通知が作成される
+      （Issue #163。`send-group-invite-notification` Edge Function、
+      Database Webhookのdev/prod環境ダッシュボード設定が別途必要）
+- [ ] エリアに入室した時、そのエリアでFRIEND_AREA_LINKSが承認済み、かつ
+      現在在席中の相手がいれば、入室した本人に`arrival_summary`通知
+      （「今会える人」1人1行）が作成される（Issue #163。
+      `send-entry-notifications` Edge Functionを拡張）
 
 ### マップ・エリア（US-018, US-004, US-001）
 
