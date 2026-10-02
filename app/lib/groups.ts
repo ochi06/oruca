@@ -151,9 +151,18 @@ export async function leaveGroup(memberId: string): Promise<void> {
   if (error) throw error;
 }
 
-// 管理者権限を承認済みの別メンバーに譲る。GROUPS.owner_user_idの付け替え
+// 管理者権限を承認済みの別メンバーに譲る。GROUPS.owner_user_idの付け替え。
+// 直接UPDATEするとRLSのWITH CHECK（owner_user_id = auth.uid()）に必ず
+// 違反するため（Issue #198、更新後の行は譲渡先のIDになりauth.uid()と
+// 一致しなくなる）、security definer関数（transfer_group_ownership）経由で
+// 行う。呼び出し元の権限チェック（現オーナー本人か・譲渡先が承認済み
+// メンバーか）は関数内でも行われる（store/groupValidation.tsのチェックと
+// 二重になるが、クライアントを信用しない方針に合わせる）
 export async function transferOwnership(groupId: string, newOwnerUserId: string): Promise<void> {
-  const { error } = await supabase.from('groups').update({ owner_user_id: newOwnerUserId }).eq('id', groupId);
+  const { error } = await supabase.rpc('transfer_group_ownership', {
+    p_group_id: groupId,
+    p_new_owner_id: newOwnerUserId,
+  });
   if (error) throw error;
 }
 
