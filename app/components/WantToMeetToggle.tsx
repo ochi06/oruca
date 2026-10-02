@@ -12,8 +12,8 @@ type Props = {
 
 // 会いたい人の入室通知ON/OFF（US-017）。ONの間、この友達の入室通知は
 // 共在していなくても届く（utils/notifications.tsのshouldSendEntryNotification
-// で分岐、Issue #270で判定ルールを統合）。ただし相手（friend_id）が
-// USERS.allow_entry_notificationsをOFFにしている場合は届かない
+// で分岐、Issue #270で判定ルールを統合。Issue #360でUSERS.allow_entry_
+// notificationsによる個別許可設定は廃止し、常に許可されている前提にした）
 export function WantToMeetToggle({ friendId }: Props) {
   const { colors } = useTheme();
   const friendship = useNotifyPreferencesStore((state) =>

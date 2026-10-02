@@ -19,10 +19,12 @@ import { Friendship } from '../mocks/presence';
 //
 // isRecipientPresentInSameAreaは、呼び出し側が「受信者が、入室したエリアに
 // 在席中か」を判定して渡す（PRESENCE_LOGS参照。この関数自体は在席判定
-// ロジックを持たない）。enteringUserAllowsEntryNotificationsは、入室した
-// 本人がUSERS.allow_entry_notifications（US-017専用の許可、2026-09-24
-// 開発者確認済み）をtrueにしているか。共在していない間（want_to_meet由来の
-// 通知のみが対象）にしか影響せず、通常の共在通知には影響しない。
+// ロジックを持たない）。
+//
+// Issue #360：USERS.allow_entry_notifications（US-017専用の個別許可設定）は
+// 廃止した。この設定でカバーしていた「通知を止めたい」ケースは匿名モード
+// （Issue #352）で代替できるため、常に許可されている前提にする
+// （DBカラム自体は削除せず、ロジックから参照しないだけ）。
 //
 // enteringUserIsAnonymousは、入室した本人のUSERS.is_anonymous（US-013、
 // 匿名モード）。trueの間は、docs/schema.mdの定義（友達に対して名前だけでなく
@@ -31,7 +33,6 @@ import { Friendship } from '../mocks/presence';
 export function shouldSendEntryNotification(
   friendship: Friendship,
   isRecipientPresentInSameArea: boolean,
-  enteringUserAllowsEntryNotifications: boolean,
   enteringUserIsAnonymous: boolean
 ): boolean {
   if (enteringUserIsAnonymous) {
@@ -43,5 +44,5 @@ export function shouldSendEntryNotification(
   if (isRecipientPresentInSameArea) {
     return true;
   }
-  return friendship.want_to_meet && enteringUserAllowsEntryNotifications;
+  return friendship.want_to_meet;
 }
