@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
@@ -111,6 +111,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 
   return (
     <Screen style={styles.container} onBack={() => navigation.goBack()}>
+      <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Avatar name={friend.name} iconUrl={friend.icon_url} size={64} />
         <Text style={[styles.name, { color: colors.text }]}>{friend.name}</Text>
@@ -171,6 +172,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           })
         )}
       </View>
+      </ScrollView>
     </Screen>
   );
 }
