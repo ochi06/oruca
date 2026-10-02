@@ -76,7 +76,7 @@ export function Screen({
       {onBack ? (
         <IconButton
           name="arrow-back-outline"
-          variant="secondary"
+          variant="ghost"
           size={20}
           accessibilityLabel="戻る"
           onPress={onBack}

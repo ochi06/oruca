@@ -11,6 +11,9 @@ type Props = PressableProps & {
   // ghost: 背景なし（Issue #318）。一覧行・ヘッダーの⋮メニューなど、
   // 常時表示されるボタンとして強調したくない箇所向け
   variant?: 'primary' | 'secondary' | 'ghost';
+  // アイコン色をvariantの既定色（primaryは白、secondary/ghostはnavy）から
+  // 上書きする（Issue #341、グループ詳細画面の承認/拒否アイコンを緑/赤に）
+  color?: string;
   // アイコンのみのボタンはスクリーンリーダーに文字情報が伝わらないため、
   // accessibilityLabelを必須にしている（docs/design-system.md参照）。
   accessibilityLabel: string;
@@ -22,6 +25,7 @@ export function IconButton({
   name,
   size = 24,
   variant = 'primary',
+  color,
   style,
   onPress,
   hapticsEnabled = true,
@@ -51,7 +55,7 @@ export function IconButton({
       <Ionicons
         name={name}
         size={size}
-        color={isPrimary ? '#FFFFFF' : colors.navy}
+        color={color ?? (isPrimary ? '#FFFFFF' : colors.navy)}
       />
     </Pressable>
   );
