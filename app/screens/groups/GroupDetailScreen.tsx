@@ -15,7 +15,7 @@ import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
 import { GroupMember } from '../../mocks/groups';
@@ -319,7 +319,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                   }
                   leading={<Avatar name={display.name} iconUrl={display.iconUrl} />}
                   trailing={
-                    isAdmin && member.user_id !== group.owner_user_id ? (
+                    member.user_id === group.owner_user_id ? (
+                      <View style={[styles.adminBadge, { backgroundColor: colors.lightblue }]}>
+                        <Text style={[styles.adminBadgeText, { color: colors.navy }]}>管理者</Text>
+                      </View>
+                    ) : isAdmin ? (
                       <IconButton
                         name="ellipsis-vertical"
                         variant="ghost"
@@ -436,6 +440,14 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  adminBadge: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  adminBadgeText: {
+    ...typography.caption,
   },
   menuButton: {
     marginBottom: spacing.sm,
