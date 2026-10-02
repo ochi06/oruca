@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -9,7 +8,6 @@ import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
-import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
@@ -30,7 +28,13 @@ type FriendsListNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList>
 >;
 
-export default function FriendsListScreen() {
+type Props = {
+  // 検索欄はFriendsGroupsListScreen側（セグメント切替の外側）に1つだけ配置する
+  // ように変更したため（Issue #284）、検索語はこの画面の外からpropsで受け取る
+  searchQuery: string;
+};
+
+export default function FriendsListScreen({ searchQuery }: Props) {
   const navigation = useNavigation<FriendsListNavigationProp>();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -42,9 +46,8 @@ export default function FriendsListScreen() {
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
-  // 名前の部分一致で絞り込む検索欄（Issue #251）。自分が既に参加している
-  // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
-  const [searchQuery, setSearchQuery] = useState('');
+  // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
+  // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
 
   // 行タップでその友達が現在在席しているエリアに絞ったマップへ遷移する（Issue #261）。
@@ -86,17 +89,6 @@ export default function FriendsListScreen() {
   return (
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>友達</Text>
-
-      {friends.length > 0 ? (
-        <Input
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="名前で検索"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      ) : null}
 
       {friends.length === 0 ? (
         <EmptyState icon="people-outline" message="まだ友達がいません" />
@@ -158,9 +150,6 @@ export default function FriendsListScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
-  },
-  searchInput: {
-    marginBottom: spacing.md,
   },
   title: {
     ...typography.title,

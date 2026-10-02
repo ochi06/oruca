@@ -8,7 +8,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
-import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
@@ -29,7 +28,13 @@ type GroupsListNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList>
 >;
 
-export default function GroupsListScreen() {
+type Props = {
+  // 検索欄はFriendsGroupsListScreen側（セグメント切替の外側）に1つだけ配置する
+  // ように変更したため（Issue #284）、検索語はこの画面の外からpropsで受け取る
+  searchQuery: string;
+};
+
+export default function GroupsListScreen({ searchQuery }: Props) {
   const navigation = useNavigation<GroupsListNavigationProp>();
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -70,9 +75,8 @@ export default function GroupsListScreen() {
   const groups = allGroups.filter(
     (group) => group.owner_user_id === userId || myGroupIds.has(group.id)
   );
-  // 名前の部分一致で絞り込む検索欄（Issue #251）。自分が既に参加している
-  // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
-  const [searchQuery, setSearchQuery] = useState('');
+  // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
+  // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleGroups = groups.filter((group) => matchesSearchQuery(group.name, searchQuery));
 
   // 行タップでそのグループのエリアに絞ったマップへ遷移する（Issue #261）
@@ -112,17 +116,6 @@ export default function GroupsListScreen() {
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>グループ</Text>
 
-      {groups.length > 0 ? (
-        <Input
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="名前で検索"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      ) : null}
-
       {groups.length === 0 ? (
         <EmptyState icon="people-circle-outline" message="まだグループがありません" />
       ) : visibleGroups.length === 0 ? (
@@ -155,9 +148,6 @@ export default function GroupsListScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
-  },
-  searchInput: {
-    marginBottom: spacing.md,
   },
   title: {
     ...typography.title,
