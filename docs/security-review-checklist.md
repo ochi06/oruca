@@ -20,9 +20,11 @@
   ```bash
   grep -n "using (true)\|with check (true)" supabase/migrations/*.sql
   ```
-- [ ] 名前・アイコンなど個人情報を返すSELECTポリシーが、必ず
-      `FRIEND_AREA_LINKS.status = 'approved'`（またはそれに相当する承認条件）を
-      経由しているか確認する（`docs/schema.md`「設計上の重要な原則」2.参照）
+- [ ] `USERS`の名前・アイコンを返すSELECTポリシーが、必ず
+      `FRIENDSHIPS.status = 'active'`（またはそれに相当する関係条件）を
+      経由しているか確認する（Issue #219でFRIEND_AREA_LINKSベースから変更済み。
+      FRIEND_AREA_LINKSは「エリア単位の在席表示」専用の合意に役割を純化した。
+      `docs/schema.md`「設計上の重要な原則」2.参照）
 - [ ] 新規に追加したRPC（`security definer`関数）が、RLSを意図的に
       バイパスする理由を持っているか確認する。バイパスが必要なのは基本的に
       「自分の権限だけでは他人の行を読み書きできないが、業務上必要な処理」
