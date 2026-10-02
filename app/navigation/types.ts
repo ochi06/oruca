@@ -35,6 +35,8 @@ export type SettingsStackParamList = {
   ProfileTop: undefined;
   Settings: undefined;
   NotificationBox: undefined;
+  // Issue #168: 匿名セッション中のみ設定画面から遷移する本登録導線
+  AccountUpgrade: undefined;
 };
 
 export type RootTabParamList = {
