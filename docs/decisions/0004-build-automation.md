@@ -34,3 +34,23 @@
 ## 参考
 
 - Issue #22での調査コメント：https://github.com/Greek-Academy/oruca/issues/22
+
+## 振り返り（2026-10-02追記、Issue #33）
+
+- **良かった点**：`eas.json`1つでプロファイル（`preview`：internal
+  distribution、APK直接配布）を定義でき、学習コストの低さという選定理由が
+  そのまま効いた。EAS Environment Variables（`eas env:set`）でプロファイル
+  ごとに環境変数を分離でき、ADR-0011で決めた「`service role key`は
+  クライアントに含めない」方針もそのまま運用できている
+- **苦労した点**：初回ビルドが、`@sentry/react-native/expo`
+  （ADR-0012）のビルド時ソースマップ自動アップロードタスクで失敗した
+  （`An organization ID or slug is required`）。ADR-0012側で「EAS Build
+  導入時に改めて設定する想定」と書いていた宿題を、実際にEAS Buildを
+  導入するタイミングで拾い忘れていたのが原因。`SENTRY_DISABLE_AUTO_UPLOAD`
+  環境変数で回避したが、本番用のSentry組織・認証情報の設定自体は
+  まだ未着手（ADR-0012参照）
+- 無料枠（月iOS 15件+Android 15件）は、現時点（開発終盤）まで一度も
+  上限に達していない。選定時の想定通り、個人開発の規模には十分だった
+- **今作り直すなら変える点**：ADR間の依存（「このADRの宿題はあのADR導入時に
+  拾う」）を、各ADR本文に“TODO”として残すだけでなく、実際に着手した時に
+  チェックリスト化して拾い漏れを防ぐ仕組みがあればよかった

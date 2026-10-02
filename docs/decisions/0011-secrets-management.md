@@ -69,3 +69,25 @@
 - `docs/decisions/0003-environments-and-branching.md`
 - `docs/decisions/0004-build-automation.md`
 - `~/dev-notes.md`「Expo環境変数」の節
+
+## 振り返り（2026-10-02追記、Issue #33）
+
+- **良かった点**：EAS Build導入時、本ADRで決めていた判断基準
+  （`anon key`は`EXPO_PUBLIC_`でplaintext可、`service role key`は
+  クライアントに一切含めない等）をそのまま当てはめるだけでよく、
+  迷いなく`eas env:set`でプロファイルごとの環境変数（`preview`環境に
+  `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`はplaintext、
+  `GOOGLE_MAPS_API_KEY`はsensitive）を設定できた。「先に判断基準を
+  言語化しておく」ことの効果を実感できた
+- **未解決のまま残った項目**：`GOOGLE_MAPS_API_KEY`のGoogle Cloud
+  Console側のアプリ制限（bundle ID/パッケージ名・APIでの制限）は、
+  本ADR作成時点（EAS Build導入前）から「別途対応する」として先送りに
+  したまま、2026-10-02時点でも着手できていない（本振り返り作成時点では
+  未確認・担当チャット側での実施状況は要確認）。APIキー自体は
+  ビルド済みアプリ内に残り続けるため、プレースホルダーのまま放置する
+  リスクを認識した上で、優先度を下げ続けた形になる
+- **今作り直すなら変える点**：「別途対応する」と書いたまま放置しやすい
+  項目（Google Cloud Console側の設定のような、コードに現れない
+  インフラ設定）は、ADRの末尾に書くだけでなく、GitHub Issueとして
+  明示的に起票しておくべきだった（本件は結局Issue化されないまま
+  本開発終盤を迎えた）
