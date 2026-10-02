@@ -37,6 +37,7 @@ export function ListItem({
       <View style={styles.textContainer}>
         {title ? (
           <Text
+            numberOfLines={1}
             style={{
               color: colors.text,
               fontFamily: typography.body.fontFamily,
@@ -48,6 +49,7 @@ export function ListItem({
         ) : null}
         {subtitle ? (
           <Text
+            numberOfLines={2}
             style={{
               color: colors.textSub,
               fontFamily: typography.caption.fontFamily,
