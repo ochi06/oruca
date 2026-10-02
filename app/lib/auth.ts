@@ -192,8 +192,8 @@ export async function fetchUserAllowEntryNotifications(userId: string): Promise<
 // 自分のusers.allow_entry_notificationsを更新する（US-017、Issue #15）。
 // 「自分の入室を、自分をFRIENDSHIPS.want_to_meetで登録している相手に通知して
 // よいか」のアカウント全体での許可。OFFの間は、want_to_meet側の設定に関わらず
-// 通知が送られない（utils/notifications.tsのshouldSendWantToMeetNotification
-// で判定）
+// 通知が送られない（utils/notifications.tsのshouldSendEntryNotification
+// で判定、Issue #270で判定ルールを統合）
 export async function updateUserAllowEntryNotifications(userId: string, allowed: boolean): Promise<void> {
   const { error } = await supabase
     .from('users')

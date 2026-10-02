@@ -17,11 +17,7 @@
 // 行う（US-021の要件が「通知ボックスに表示」のため）。
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import {
-  FriendshipRow,
-  shouldSendEntryNotification,
-  shouldSendWantToMeetNotification,
-} from '../_shared/notifications.ts';
+import { FriendshipRow, shouldSendEntryNotification } from '../_shared/notifications.ts';
 import { ExpoPushMessage, sendExpoPushMessages } from '../_shared/expoPush.ts';
 
 type PresenceLogRow = {
@@ -121,7 +117,7 @@ Deno.serve(async (req) => {
   // friend_id = enteringUserId の行＝「入室した本人を友達として持っている人（受信者候補）」の設定
   const { data: friendships, error: friendshipsError } = await supabase
     .from('friendships')
-    .select('user_id, notify_enabled, muted, notify_only_when_copresent, want_to_meet')
+    .select('user_id, notify_enabled, muted, want_to_meet')
     .eq('friend_id', enteringUserId)
     .eq('status', 'active');
   if (friendshipsError) throw friendshipsError;
@@ -131,7 +127,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ notified: 0 }), { status: 200 });
   }
 
-  // 受信者候補のうち、入室先エリアに現在在席している人（notify_only_when_copresent判定用）
+  // 受信者候補のうち、入室先エリアに現在在席している人（Issue #270：
+  // 共在時のみ通知の個別トグルを廃止し、常時適用のルールになったための判定）
   const { data: copresentLogs, error: copresentError } = await supabase
     .from('presence_logs')
     .select('user_id')
@@ -141,6 +138,9 @@ Deno.serve(async (req) => {
   if (copresentError) throw copresentError;
   const copresentUserIds = new Set((copresentLogs ?? []).map((log) => log.user_id));
 
+  // reasonはpush文言・NOTIFICATIONS.typeの出し分け用。共在していればentry、
+  // 共在していない場合にshouldSendEntryNotificationがtrueを返すのは
+  // want_to_meet由来の通知のみなのでwant_to_meetと判定できる
   type EligibleRecipient = { userId: string; reason: 'entry' | 'want_to_meet' };
   const eligibleRecipients: EligibleRecipient[] = [];
 
@@ -148,15 +148,15 @@ Deno.serve(async (req) => {
     const friendshipRow: FriendshipRow = {
       notify_enabled: friendship.notify_enabled,
       muted: friendship.muted,
-      notify_only_when_copresent: friendship.notify_only_when_copresent,
       want_to_meet: friendship.want_to_meet,
     };
     const isRecipientPresent = copresentUserIds.has(friendship.user_id);
 
-    if (shouldSendEntryNotification(friendshipRow, isRecipientPresent)) {
-      eligibleRecipients.push({ userId: friendship.user_id, reason: 'entry' });
-    } else if (shouldSendWantToMeetNotification(friendshipRow, enteringUser.allow_entry_notifications)) {
-      eligibleRecipients.push({ userId: friendship.user_id, reason: 'want_to_meet' });
+    if (shouldSendEntryNotification(friendshipRow, isRecipientPresent, enteringUser.allow_entry_notifications)) {
+      eligibleRecipients.push({
+        userId: friendship.user_id,
+        reason: isRecipientPresent ? 'entry' : 'want_to_meet',
+      });
     }
   }
 
