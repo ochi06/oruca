@@ -4,12 +4,13 @@ import { useTheme } from '../theme/useTheme';
 import { radius, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
-export function Input(props: TextInputProps) {
+export function Input({ style, ...rest }: TextInputProps) {
   const { colors } = useTheme();
 
   return (
     <TextInput
       placeholderTextColor={colors.textSub}
+      {...rest}
       style={[
         styles.base,
         {
@@ -17,9 +18,8 @@ export function Input(props: TextInputProps) {
           borderColor: colors.lightblue,
           color: colors.text,
         },
-        props.style as object,
+        style as object,
       ]}
-      {...props}
     />
   );
 }

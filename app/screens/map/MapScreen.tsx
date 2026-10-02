@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -11,15 +11,19 @@ import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
+import { Input } from '../../components/Input';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
 import { darkMapStyle } from '../../constants/mapStyle';
 import { userStatusIcon } from '../../constants/status';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { Area } from '../../mocks/areas';
+import { useGroupStore } from '../../store/useGroupStore';
+import { matchesSearchQuery } from '../../utils/search';
 import {
   AreaPresentUser,
   buildAreaPresentUsers,
@@ -42,6 +46,17 @@ type PresenceMapData = {
   markers: PresenceMarker[];
   // エリアID→そのエリアの在席者一覧（Issue #120のポップアップ・フルリスト用）
   areaPresence: Record<string, AreaPresentUser[]>;
+  // エリアID→そのエリアの在席者マーカー（lat/lng付き）。1件のエリアに絞った表示
+  // （Issue #261：友達/グループ一覧からの絞り込み・マップ内検索で共用）で使う
+  markersByArea: Record<string, PresenceMarker[]>;
+};
+
+type SearchMode = 'area' | 'group';
+
+type SearchResult = {
+  id: string;
+  name: string;
+  areaId: string;
 };
 
 // 自分が参加している全エリア（USER_AREAS）と、その中の在席者をまとめて取得する（Issue #62）
@@ -56,7 +71,7 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const areaIds = Array.from(new Set((userAreas ?? []).map((row) => row.area_id)));
   if (areaIds.length === 0) {
-    return { currentUserId, areas: [], markers: [], areaPresence: {} };
+    return { currentUserId, areas: [], markers: [], areaPresence: {}, markersByArea: {} };
   }
 
   const { data: areas, error: areasError } = await supabase
@@ -91,14 +106,17 @@ async function fetchPresenceMapData(): Promise<PresenceMapData> {
   const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
 
   const areaPresence: Record<string, AreaPresentUser[]> = {};
+  // エリア1件に絞った表示（Issue #261）用に、エリアごとのマーカー（lat/lng付き）も
+  // 同じループでまとめて作る。再フェッチせずクライアント側で絞り込めるようにするため
+  const markersByArea: Record<string, PresenceMarker[]> = {};
   for (const areaId of areaIds) {
-    const areaUserIds = Array.from(
-      new Set(presenceLocations.filter((location) => location.area_id === areaId).map((location) => location.user_id))
-    );
+    const areaLocations = presenceLocations.filter((location) => location.area_id === areaId);
+    const areaUserIds = Array.from(new Set(areaLocations.map((location) => location.user_id)));
     areaPresence[areaId] = buildAreaPresentUsers(currentUserId, areaUserIds, visibleUserIds, users ?? []);
+    markersByArea[areaId] = buildPresenceMarkers(currentUserId, areaLocations, visibleUserIds, users ?? []);
   }
 
-  return { currentUserId, areas: (areas ?? []) as Area[], markers, areaPresence };
+  return { currentUserId, areas: (areas ?? []) as Area[], markers, areaPresence, markersByArea };
 }
 
 // タブをまたいでネストしたStack Navigatorの画面（友達・グループタブのFriendDetail）へ
@@ -112,14 +130,75 @@ type Props = NativeStackScreenProps<MapStackParamList, 'Map'> & {
   navigation: MapScreenNavigationProp;
 };
 
-export default function MapScreen({ navigation }: Props) {
+export default function MapScreen({ navigation, route }: Props) {
   const { colors, isDark } = useTheme();
   const [state, setState] = useState<LoadState>('loading');
-  const [data, setData] = useState<PresenceMapData>({ currentUserId: '', areas: [], markers: [], areaPresence: {} });
+  const [data, setData] = useState<PresenceMapData>({
+    currentUserId: '',
+    areas: [],
+    markers: [],
+    areaPresence: {},
+    markersByArea: {},
+  });
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   // 新規エリア登録画面に渡す現在の表示範囲（Issue #186）。stateにすると
   // 地図操作のたびに再レンダーが走ってしまうため、refで持つ
   const currentRegionRef = useRef<Region | null>(null);
+  const mapRef = useRef<MapView>(null);
+
+  // 友達・グループ一覧からの絞り込み遷移（route.params）、またはこの画面内の検索
+  // （下のsearchQuery等）のどちらで設定された場合も、同じfilterAreaIdで
+  // 「エリア1件に絞った表示」を共用する（Issue #261）。この画面はタブ内で使い回され、
+  // 2回目以降のnavigateでもroute.paramsの変化を反映する必要があるため、
+  // レンダー中にstateを更新する公式パターン（useEffectでの同期は避ける）を使う
+  // （https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes）
+  const [filterAreaId, setFilterAreaId] = useState<string | null>(route.params?.filterAreaId ?? null);
+  const [prevRouteFilterAreaId, setPrevRouteFilterAreaId] = useState(route.params?.filterAreaId);
+  if (route.params?.filterAreaId && route.params.filterAreaId !== prevRouteFilterAreaId) {
+    setPrevRouteFilterAreaId(route.params.filterAreaId);
+    setFilterAreaId(route.params.filterAreaId);
+  }
+  // 一覧からの遷移時のみ戻る矢印を出す（検索による絞り込みはこのタブ内で完結するため不要）
+  const origin = route.params?.origin;
+
+  const [searchMode, setSearchMode] = useState<SearchMode>('area');
+  const [searchQuery, setSearchQuery] = useState('');
+  const groups = useGroupStore((state) => state.groups);
+  const groupStatus = useGroupStore((state) => state.status);
+  const initializeGroups = useGroupStore((state) => state.initialize);
+
+  // グループ名検索で使うグループ一覧は、友達・グループタブを先に開いていないと
+  // 空のままになるため、ここでも遅延初期化する（hooks/useFriendUsers.tsと同じ方針）
+  useEffect(() => {
+    if (groupStatus === 'idle' && data.currentUserId) {
+      initializeGroups(data.currentUserId);
+    }
+  }, [groupStatus, data.currentUserId, initializeGroups]);
+
+  const searchResults: SearchResult[] = useMemo(() => {
+    if (searchQuery.trim().length === 0) return [];
+    if (searchMode === 'area') {
+      return data.areas
+        .filter((area) => matchesSearchQuery(area.name, searchQuery))
+        .map((area) => ({ id: area.id, name: area.name, areaId: area.id }));
+    }
+    return groups
+      .filter((group): group is typeof group & { area_id: string } => Boolean(group.area_id))
+      .filter((group) => matchesSearchQuery(group.name, searchQuery))
+      .map((group) => ({ id: group.id, name: group.name, areaId: group.area_id }));
+  }, [searchQuery, searchMode, data.areas, groups]);
+
+  function handleSelectSearchResult(result: SearchResult) {
+    setFilterAreaId(result.areaId);
+    setSearchQuery('');
+  }
+
+  // 検索欄を閉じる・絞り込み済みの状態から✕で戻る、のどちらも同じ「通常の
+  // 全体マップ表示に戻る」操作として扱う（Issue #261）
+  function handleClearFilter() {
+    setFilterAreaId(null);
+    setSearchQuery('');
+  }
 
   const load = useCallback(() => {
     setState('loading');
@@ -142,6 +221,26 @@ export default function MapScreen({ navigation }: Props) {
     const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
   }, [navigation, load]);
+
+  // filterAreaIdが指すエリア1件に絞った表示（Issue #261）。見つからない場合
+  // （未取得・対象外のエリア等）は通常の全エリア表示にフォールバックする
+  const activeArea = filterAreaId ? data.areas.find((area) => area.id === filterAreaId) ?? null : null;
+  const visibleAreas = activeArea ? [activeArea] : data.areas;
+  const visibleMarkers = activeArea ? data.markersByArea[activeArea.id] ?? [] : data.markers;
+
+  // 全エリア（または絞り込み時は対象1件）の中心が収まる大まかな表示範囲
+  // （半径のフィッティングまでは行わない簡易対応）
+  const region: Region = computeRegionForAreas(
+    visibleAreas.map((area) => ({ latitude: area.center_lat, longitude: area.center_lng }))
+  );
+
+  // 絞り込み対象が変わるたび（絞り込み解除で全エリア表示に戻る場合も含む）、
+  // 地図の表示範囲を追従させる
+  useEffect(() => {
+    mapRef.current?.animateToRegion(region, 400);
+    // regionは毎レンダー新しいオブジェクトになるため、依存はactiveArea.idのみにする
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeArea?.id]);
 
   if (state === 'loading') {
     return (
@@ -168,16 +267,11 @@ export default function MapScreen({ navigation }: Props) {
     );
   }
 
-  // 全エリアの中心が収まる大まかな表示範囲（半径のフィッティングまでは行わない簡易対応）
-  const region: Region = computeRegionForAreas(
-    data.areas.map((area) => ({ latitude: area.center_lat, longitude: area.center_lng }))
-  );
-
   // react-native-mapsのCircleはタップイベントを持たないため、MapView全体のonPressで
   // タップ座標と各エリアの中心との距離を比較し、半径内に収まるエリアを選択する（Issue #120）
   const handleMapPress = (event: MapPressEvent) => {
     const tapped = event.nativeEvent.coordinate;
-    const hitArea = data.areas.find(
+    const hitArea = visibleAreas.find(
       (area) =>
         distanceInMeters(tapped, { latitude: area.center_lat, longitude: area.center_lng }) <= area.radius_m
     );
@@ -195,8 +289,77 @@ export default function MapScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onBack={origin ? () => navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList', params: { initialSegment: origin } }) : undefined}>
+      {activeArea ? (
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+          <Ionicons name="location-outline" size={18} color={colors.blue} />
+          <Text style={[styles.filterChipLabel, { color: colors.text }]} numberOfLines={1}>
+            {activeArea.name}
+          </Text>
+          <IconButton
+            name="close-outline"
+            variant="secondary"
+            size={16}
+            accessibilityLabel="絞り込みを解除"
+            onPress={handleClearFilter}
+          />
+        </View>
+      ) : (
+        <View>
+          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+            <View style={[styles.searchModeToggle, { borderColor: colors.lightblue }]}>
+              <Pressable
+                style={[styles.searchModeButton, searchMode === 'area' && { backgroundColor: colors.blue }]}
+                onPress={() => setSearchMode('area')}
+              >
+                <Text style={[typography.caption, { color: searchMode === 'area' ? '#FFFFFF' : colors.text }]}>
+                  エリア名
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.searchModeButton, searchMode === 'group' && { backgroundColor: colors.blue }]}
+                onPress={() => setSearchMode('group')}
+              >
+                <Text style={[typography.caption, { color: searchMode === 'group' ? '#FFFFFF' : colors.text }]}>
+                  グループ名
+                </Text>
+              </Pressable>
+            </View>
+            <Input
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={searchMode === 'area' ? 'エリア名で検索' : 'グループ名で検索'}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <IconButton
+                name="close-outline"
+                variant="secondary"
+                size={16}
+                accessibilityLabel="検索を閉じる"
+                onPress={handleClearFilter}
+              />
+            )}
+          </View>
+          {searchResults.length > 0 && (
+            <View style={[styles.searchDropdown, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+              {searchResults.map((result) => (
+                <Pressable
+                  key={result.id}
+                  style={styles.searchResultRow}
+                  onPress={() => handleSelectSearchResult(result)}
+                >
+                  <Text style={[typography.body, { color: colors.text }]}>{result.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
       <MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={region}
         customMapStyle={isDark ? darkMapStyle : EMPTY_MAP_STYLE}
@@ -205,7 +368,7 @@ export default function MapScreen({ navigation }: Props) {
           currentRegionRef.current = nextRegion;
         }}
       >
-        {data.areas.map((area) => (
+        {visibleAreas.map((area) => (
           <Circle
             key={area.id}
             center={{ latitude: area.center_lat, longitude: area.center_lng }}
@@ -214,7 +377,7 @@ export default function MapScreen({ navigation }: Props) {
             fillColor={`${colors.blue}33`}
           />
         ))}
-        {data.markers.map((marker) => {
+        {visibleMarkers.map((marker) => {
           const statusIcon = userStatusIcon(marker.status);
           return (
             <Marker
@@ -308,5 +471,45 @@ const styles = StyleSheet.create({
     right: spacing.md,
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  searchModeToggle: {
+    flexDirection: 'row',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  searchModeButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+  },
+  filterChipLabel: {
+    ...typography.body,
+    flex: 1,
+  },
+  searchDropdown: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  searchResultRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
   },
 });

@@ -7,7 +7,9 @@ import { AreaPresentUser } from '../utils/presenceMarkers';
 import { Region } from '../utils/mapRegion';
 
 export type MapStackParamList = {
-  Map: undefined;
+  // 友達・グループ一覧の行タップからの絞り込み遷移（Issue #261）。
+  // originを渡すと左上に戻る矢印を出し、遷移元の一覧（FriendsGroupsList）に戻れるようにする
+  Map: { filterAreaId?: string; origin?: 'friends' | 'groups' } | undefined;
   // マップ画面が既に取得済みのそのエリアの在席者一覧をそのまま渡す
   // （Issue #120。再フェッチしないためRealtimeでの自動更新はされない点に注意）
   PresenceList: { areaName: string; users: AreaPresentUser[] };
@@ -19,7 +21,9 @@ export type MapStackParamList = {
 };
 
 export type FriendsGroupsStackParamList = {
-  FriendsGroupsList: undefined;
+  // マップ画面の戻る矢印から戻ってきた際、遷移前のセグメント（友達/グループ）を
+  // 復元できるようにする（Issue #261）
+  FriendsGroupsList: { initialSegment?: 'friends' | 'groups' } | undefined;
   FriendDetail: { friendId: string };
   GroupDetail: { groupId: string };
   AddFriend: undefined;
