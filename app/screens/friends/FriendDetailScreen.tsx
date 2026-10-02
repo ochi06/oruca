@@ -5,7 +5,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
-import { CopresenceNotificationToggle } from '../../components/CopresenceNotificationToggle';
 import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
 import { LocationHiddenToggle } from '../../components/LocationHiddenToggle';
@@ -31,7 +30,8 @@ import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 // 中身はIssue #121（ブロック設定）・Issue #221（エリア紐づけの提案・承認）・
-// Issue #242（共在時のみ通知・会いたい人登録・滞在予定表示の組み込み）
+// Issue #242（会いたい人登録・滞在予定表示の組み込み。共在時のみ通知は
+// Issue #270で個別トグルを廃止し常時適用のルールに統合されたため対象外）
 type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendDetail'>;
 
 export default function FriendDetailScreen({ route, navigation }: Props) {
@@ -127,7 +127,6 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>通知設定</Text>
-        <CopresenceNotificationToggle friendId={friendId} />
         <WantToMeetToggle friendId={friendId} />
       </View>
 
