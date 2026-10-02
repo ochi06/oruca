@@ -39,12 +39,11 @@ export function AreaPresencePopup({ areaName, users, onClose, onSeeAll }: Props)
           leading={<Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />}
         />
       ))}
-      <View style={styles.buttonRow}>
-        {users.length > PREVIEW_COUNT && (
+      {users.length > PREVIEW_COUNT && (
+        <View style={styles.buttonRow}>
           <Button label="もっと見る" onPress={onSeeAll} style={styles.button} />
-        )}
-        <Button label="閉じる" variant="secondary" onPress={onClose} style={styles.button} />
-      </View>
+        </View>
+      )}
     </Modal>
   );
 }
