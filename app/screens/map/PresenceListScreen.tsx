@@ -2,6 +2,7 @@ import { FlatList, StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/EmptyState';
 import { ListItem } from '../../components/ListItem';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
@@ -29,17 +30,21 @@ export default function PresenceListScreen({ route, navigation }: Props) {
         {formatPresenceCount(users.length)}
       </Text>
 
-      <FlatList
-        data={users}
-        keyExtractor={(user) => user.userId}
-        renderItem={({ item: user }) => (
-          <ListItem
-            title={user.displayName ?? '非公開'}
-            subtitle={userStatusLabel(user.status) ?? undefined}
-            leading={<Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />}
-          />
-        )}
-      />
+      {users.length === 0 ? (
+        <EmptyState icon="people-outline" message="在席中の人がいません" />
+      ) : (
+        <FlatList
+          data={users}
+          keyExtractor={(user) => user.userId}
+          renderItem={({ item: user }) => (
+            <ListItem
+              title={user.displayName ?? '非公開'}
+              subtitle={userStatusLabel(user.status) ?? undefined}
+              leading={<Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />}
+            />
+          )}
+        />
+      )}
     </Screen>
   );
 }
