@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { Area } from '../mocks/areas';
 import { roundCoordinate } from '../utils/geo';
+import { matchesSearchQuery } from '../utils/search';
 
 // 自分が作成した（owner_user_id = 自分）エリア一覧を取得する（Issue #50）
 export async function fetchOwnedAreas(userId: string): Promise<Area[]> {
@@ -66,7 +67,12 @@ export async function fetchAreasByIds(areaIds: string[]): Promise<Area[]> {
 // AreaRegistrationScreenの「既存の公開エリアを検索して選択する」機能用。
 // RLS側に"public areas are readable by anyone"ポリシーが無いと、他ユーザー
 // 所有のis_public=trueエリアはここでも0件になる点に注意
-// （supabase/migrations/20261003010000_public_areas_readable.sql参照）
+// （supabase/migrations/20261003010000_public_areas_readable.sql参照）。
+//
+// Issue #335：ひらがな／カタカナ等の表記揺れを吸収したあいまいマッチに
+// するため、PostgreSQLのilikeでは行わず（Unicodeのスクリプト正規化が
+// できないため）、is_public=trueの全件を取得してからクライアント側で
+// matchesSearchQuery（utils/kana.tsの正規化込み）でフィルタする
 export async function searchPublicAreas(query: string): Promise<Area[]> {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -76,12 +82,11 @@ export async function searchPublicAreas(query: string): Promise<Area[]> {
     .from('areas')
     .select('*')
     .eq('is_public', true)
-    .ilike('name', `%${trimmed}%`)
     .order('name', { ascending: true });
   if (error) {
     throw error;
   }
-  return (data ?? []) as Area[];
+  return ((data ?? []) as Area[]).filter((area) => matchesSearchQuery(area.name, trimmed));
 }
 
 // 指定したエリアが既に自分の監視対象（USER_AREAS）に入っているかを調べる
