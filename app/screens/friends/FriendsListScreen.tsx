@@ -4,12 +4,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
+import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
@@ -20,8 +22,14 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
+import { ensureSignedIn } from '../../lib/auth';
+import { fetchMonitoredAreas } from '../../lib/areas';
+import { fetchMyFriendAreaLinks, proposeFriendAreaLink } from '../../lib/friendAreaLinks';
 import { fetchOpenPresenceLogs } from '../../lib/presence';
+import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
+import { Area } from '../../mocks/areas';
+import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList, RootTabParamList } from '../../navigation/types';
 
 // タブをまたいでマップ画面（絞り込み表示）へ直接遷移できるように、
@@ -64,6 +72,77 @@ export default function FriendsListScreen({ searchQuery }: Props) {
     ? friendships.find((f) => f.friend_id === menuTargetId) ?? null
     : null;
   const deleteTarget = friends.find((user) => user.id === deleteConfirmId) ?? null;
+
+  // 複数の友達を選んでまとめてエリア紐づけを提案する（Issue #245、Issue #221の拡張）。
+  // 1対1の提案・承認ロジック（proposeFriendAreaLink・resolveFriendAreaLinkState）は
+  // そのまま流用し、選択した友達それぞれに対して提案してよいか（まだ提案していない・
+  // 相手の拒否を受けていない）を判定してから一括で提案する
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | null>(null);
+  const [monitoredAreas, setMonitoredAreas] = useState<Area[]>([]);
+  const [links, setLinks] = useState<FriendAreaLink[]>([]);
+  const [isAreaPickerVisible, setIsAreaPickerVisible] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [proposing, setProposing] = useState(false);
+
+  function handleToggleSelectionMode() {
+    if (selectionMode) {
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectionMode(true);
+    ensureSignedIn().then((signedInUserId) => {
+      setUserId(signedInUserId);
+      Promise.all([fetchMonitoredAreas(signedInUserId), fetchMyFriendAreaLinks(signedInUserId)]).then(
+        ([areas, fetchedLinks]) => {
+          setMonitoredAreas(areas);
+          setLinks(fetchedLinks);
+        }
+      );
+    });
+  }
+
+  function handleToggleSelected(friendId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(friendId)) {
+        next.delete(friendId);
+      } else {
+        next.add(friendId);
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkPropose(area: Area) {
+    if (!userId || selectedIds.size === 0) return;
+    setProposing(true);
+    try {
+      const eligibleIds = Array.from(selectedIds).filter((friendId) =>
+        canProposeFriendAreaLink(resolveFriendAreaLinkState(links, userId, friendId, area.id))
+      );
+      await Promise.all(eligibleIds.map((friendId) => proposeFriendAreaLink(userId, friendId, area.id)));
+      const skippedCount = selectedIds.size - eligibleIds.length;
+      setIsAreaPickerVisible(false);
+      setPickerQuery('');
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      if (eligibleIds.length === 0) {
+        showToast('選択した全員が提案済み・紐づけ済みのため、提案できませんでした');
+      } else if (skippedCount > 0) {
+        showToast(`${eligibleIds.length}人に提案しました（${skippedCount}人は提案済みのためスキップ）`);
+      } else {
+        showToast(`${eligibleIds.length}人に提案しました`);
+      }
+    } catch (error) {
+      console.error('bulk proposeFriendAreaLink failed:', error);
+      showToast('提案に失敗しました');
+    } finally {
+      setProposing(false);
+    }
+  }
 
   function handleToggleBlock() {
     if (!menuTargetId) return;
@@ -124,7 +203,28 @@ export default function FriendsListScreen({ searchQuery }: Props) {
 
   return (
     <Screen style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>友達</Text>
+      <View style={styles.headerRow}>
+        <Text style={[styles.title, { color: colors.text }]}>友達</Text>
+        {friends.length > 0 && (
+          <IconButton
+            name={selectionMode ? 'close-outline' : 'checkbox-outline'}
+            variant="secondary"
+            accessibilityLabel={selectionMode ? '選択モードを終了' : '複数選択してエリアを提案'}
+            onPress={handleToggleSelectionMode}
+          />
+        )}
+      </View>
+
+      {selectionMode && selectedIds.size > 0 && (
+        <View style={styles.selectionBar}>
+          <Text style={[typography.body, { color: colors.text }]}>{selectedIds.size}人を選択中</Text>
+          <Button
+            label="エリアを提案する"
+            onPress={() => setIsAreaPickerVisible(true)}
+            style={styles.selectionButton}
+          />
+        </View>
+      )}
 
       {friends.length === 0 ? (
         <EmptyState icon="people-outline" message="まだ友達がいません" />
@@ -136,6 +236,23 @@ export default function FriendsListScreen({ searchQuery }: Props) {
           keyExtractor={(user) => user.id}
           renderItem={({ item: user }) => {
             const friendship = friendships.find((f) => f.friend_id === user.id);
+            const isSelected = selectedIds.has(user.id);
+            if (selectionMode) {
+              return (
+                <ListItem
+                  title={user.name}
+                  onPress={() => handleToggleSelected(user.id)}
+                  leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
+                  trailing={
+                    <Ionicons
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={24}
+                      color={isSelected ? colors.blue : colors.textSub}
+                    />
+                  }
+                />
+              );
+            }
             return (
               <ListItem
                 title={user.name}
@@ -230,6 +347,51 @@ export default function FriendsListScreen({ searchQuery }: Props) {
           />
         </View>
       </Modal>
+
+      <Modal
+        visible={isAreaPickerVisible}
+        onClose={() => {
+          setIsAreaPickerVisible(false);
+          setPickerQuery('');
+        }}
+        title="エリアを選んで提案する"
+      >
+        {monitoredAreas.length > 0 && (
+          <Input
+            style={styles.searchInput}
+            value={pickerQuery}
+            onChangeText={setPickerQuery}
+            placeholder="名前で検索"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        )}
+        {monitoredAreas.length === 0 ? (
+          <EmptyState icon="location-outline" message="参加しているエリアがありません" />
+        ) : (
+          (() => {
+            const visibleAreas = monitoredAreas.filter((area) => matchesSearchQuery(area.name, pickerQuery));
+            return visibleAreas.length === 0 ? (
+              <EmptyState icon="search-outline" message="該当するエリアが見つかりません" />
+            ) : (
+              visibleAreas.map((area) => (
+                <ListItem
+                  key={area.id}
+                  title={area.name}
+                  trailing={
+                    <Button
+                      label="提案する"
+                      onPress={() => handleBulkPropose(area)}
+                      disabled={proposing}
+                      style={styles.actionButton}
+                    />
+                  }
+                />
+              ))
+            );
+          })()
+        )}
+      </Modal>
     </Screen>
   );
 }
@@ -240,7 +402,27 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.title,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
+  },
+  selectionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  selectionButton: {
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    marginBottom: spacing.sm,
+  },
+  actionButton: {
+    paddingHorizontal: spacing.md,
   },
   trailingRow: {
     flexDirection: 'row',
