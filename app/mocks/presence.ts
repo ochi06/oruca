@@ -42,7 +42,7 @@ export type FriendAreaLink = {
   initiator_id: string;
   friend_id: string;
   area_id: string;
-  status: 'pending' | 'approved';
+  status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
 };
