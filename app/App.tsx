@@ -11,6 +11,7 @@ import { DEFAULT_USER_NAME, ensureUserRow } from './lib/auth';
 import { initSentry, Sentry } from './lib/sentry';
 import { supabase } from './lib/supabase';
 import { useGeofenceMonitor } from './hooks/useGeofenceMonitor';
+import { usePresenceAppStateRefresh } from './hooks/usePresenceAppStateRefresh';
 import { usePushNotificationRegistration } from './hooks/usePushNotificationRegistration';
 import { RootTabNavigator } from './navigation/RootTabNavigator';
 import { useOnboardingStore } from './store/useOnboardingStore';
@@ -43,6 +44,9 @@ function App() {
   useGeofenceMonitor(!!userId);
   // 同じ理由で、Pushトークンの登録も常時マウントされるApp本体から呼び出す（Issue #131）
   usePushNotificationRegistration(!!userId);
+  // 同じ理由で、バックグラウンド復帰時の在席データ再取得も常時マウントされる
+  // App本体から呼び出す（Issue #309）
+  usePresenceAppStateRefresh(!!userId);
 
   // ログイン状態の監視（ADR-0010）。起動時の既存セッション確認と、以後の
   // ログイン・ログアウトの両方をこのリスナー1つでまとめて扱う
