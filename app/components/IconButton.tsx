@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, PressableProps, StyleSheet } from 'react-native';
+import { GestureResponderEvent, Pressable, PressableProps, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/useTheme';
 import { radius, spacing } from '../theme/spacing';
+import { triggerTapHaptic } from '../utils/haptics';
 
 type Props = PressableProps & {
   name: keyof typeof Ionicons.glyphMap;
@@ -11,6 +12,8 @@ type Props = PressableProps & {
   // アイコンのみのボタンはスクリーンリーダーに文字情報が伝わらないため、
   // accessibilityLabelを必須にしている（docs/design-system.md参照）。
   accessibilityLabel: string;
+  // タップ時の触覚フィードバック（Issue #38）。既定でON
+  hapticsEnabled?: boolean;
 };
 
 export function IconButton({
@@ -18,10 +21,19 @@ export function IconButton({
   size = 24,
   variant = 'primary',
   style,
+  onPress,
+  hapticsEnabled = true,
   ...rest
 }: Props) {
   const { colors } = useTheme();
   const isPrimary = variant === 'primary';
+
+  function handlePress(event: GestureResponderEvent) {
+    if (hapticsEnabled) {
+      triggerTapHaptic();
+    }
+    onPress?.(event);
+  }
 
   return (
     <Pressable
@@ -30,6 +42,7 @@ export function IconButton({
         { backgroundColor: isPrimary ? colors.blue : colors.lightblue },
         style as object,
       ]}
+      onPress={handlePress}
       {...rest}
     >
       <Ionicons
