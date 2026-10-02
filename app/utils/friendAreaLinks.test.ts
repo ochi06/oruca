@@ -1,4 +1,8 @@
-import { resolveFriendAreaLinkState, canProposeFriendAreaLink } from './friendAreaLinks';
+import {
+  resolveFriendAreaLinkState,
+  canProposeFriendAreaLink,
+  computeUnmonitoredLinkedAreaIds,
+} from './friendAreaLinks';
 import { FriendAreaLink } from '../mocks/presence';
 
 const ME = 'user-me';
@@ -76,5 +80,43 @@ describe('canProposeFriendAreaLink', () => {
     expect(canProposeFriendAreaLink({ kind: 'pending_sent', link })).toBe(false);
     expect(canProposeFriendAreaLink({ kind: 'pending_received', link })).toBe(false);
     expect(canProposeFriendAreaLink({ kind: 'approved', link })).toBe(false);
+  });
+});
+
+describe('computeUnmonitoredLinkedAreaIds', () => {
+  it('この友達との紐づけが指す未監視エリアのIDを返す', () => {
+    const link = buildLink({ area_id: 'area-unmonitored', initiator_id: FRIEND, friend_id: ME });
+    expect(computeUnmonitoredLinkedAreaIds([link], ME, FRIEND, new Set())).toEqual(['area-unmonitored']);
+  });
+
+  it('既にmonitoredAreaIdsに含まれるエリアは除外する', () => {
+    const link = buildLink({ area_id: 'area-monitored', initiator_id: FRIEND, friend_id: ME });
+    expect(
+      computeUnmonitoredLinkedAreaIds([link], ME, FRIEND, new Set(['area-monitored']))
+    ).toEqual([]);
+  });
+
+  it('他の相手との紐づけは対象外', () => {
+    const link = buildLink({ area_id: 'area-x', initiator_id: 'user-other', friend_id: ME });
+    expect(computeUnmonitoredLinkedAreaIds([link], ME, FRIEND, new Set())).toEqual([]);
+  });
+
+  it('提案方向（自分発・相手発）どちらでも拾う', () => {
+    const fromMe = buildLink({ id: 'link-a', area_id: 'area-a', initiator_id: ME, friend_id: FRIEND });
+    const fromFriend = buildLink({ id: 'link-b', area_id: 'area-b', initiator_id: FRIEND, friend_id: ME });
+    expect(computeUnmonitoredLinkedAreaIds([fromMe, fromFriend], ME, FRIEND, new Set()).sort()).toEqual([
+      'area-a',
+      'area-b',
+    ]);
+  });
+
+  it('同じエリアを指す複数行があっても重複しない', () => {
+    const a = buildLink({ id: 'link-a', area_id: 'area-dup', status: 'rejected' });
+    const b = buildLink({ id: 'link-b', area_id: 'area-dup', status: 'pending' });
+    expect(computeUnmonitoredLinkedAreaIds([a, b], ME, FRIEND, new Set())).toEqual(['area-dup']);
+  });
+
+  it('紐づけが無ければ空配列を返す', () => {
+    expect(computeUnmonitoredLinkedAreaIds([], ME, FRIEND, new Set())).toEqual([]);
   });
 });

@@ -35,7 +35,11 @@ import {
   rejectFriendAreaLink,
 } from '../../lib/friendAreaLinks';
 import { fetchAllVisibleAreaSchedules, fetchAllVisibleAreaScheduleOverrides } from '../../lib/schedules';
-import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
+import {
+  canProposeFriendAreaLink,
+  computeUnmonitoredLinkedAreaIds,
+  resolveFriendAreaLinkState,
+} from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
 import { friendIdsWithVisibleNotes } from '../../utils/schedules';
 import { todayDateString } from '../../utils/format';
@@ -116,19 +120,13 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setLinks(fetchedLinks);
 
     // この友達との紐づけが指すエリアのうち、まだmonitoredAreasに入っていない
-    // （＝自分が未監視の）ものを別途取得する（Issue #340）。提案者側の提案は
-    // 必ず自分が所有・監視中のエリアに限られるため、ここに出てくるのは
-    // 「相手から提案された、自分が未監視のエリア」のみのはず
+    // （＝自分が未監視の）ものを別途取得する（Issue #340）
     const monitoredAreaIds = new Set(areas.map((a) => a.id));
-    const linkedAreaIdsWithThisFriend = fetchedLinks
-      .filter(
-        (link) =>
-          (link.initiator_id === signedInUserId && link.friend_id === friendId) ||
-          (link.initiator_id === friendId && link.friend_id === signedInUserId)
-      )
-      .map((link) => link.area_id);
-    const unmonitoredAreaIds = [...new Set(linkedAreaIdsWithThisFriend)].filter(
-      (areaId) => !monitoredAreaIds.has(areaId)
+    const unmonitoredAreaIds = computeUnmonitoredLinkedAreaIds(
+      fetchedLinks,
+      signedInUserId,
+      friendId,
+      monitoredAreaIds
     );
     const unmonitoredAreas = await fetchAreasByIds(unmonitoredAreaIds);
     setUnmonitoredLinkedAreas(unmonitoredAreas);
