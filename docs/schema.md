@@ -21,10 +21,6 @@ erDiagram
   USERS ||--o{ GROUP_MEMBERS : "user_id (参加者)"
   USERS ||--o{ GROUP_MEMBERS : "invited_by (招待者)"
   GROUPS ||--o{ GROUP_MEMBERS : has
-  USERS ||--o{ AREA_SCHEDULES : sets
-  AREAS ||--o{ AREA_SCHEDULES : scheduled_in
-  USERS ||--o{ AREA_SCHEDULE_OVERRIDES : sets
-  AREAS ||--o{ AREA_SCHEDULE_OVERRIDES : scheduled_in
   USERS ||--o{ NOTIFICATIONS : "user_id (受信者)"
   USERS ||--o{ NOTIFICATIONS : "related_user_id (入室した友達・招待者等)"
   AREAS ||--o{ NOTIFICATIONS : concerns
@@ -35,6 +31,8 @@ erDiagram
     string name
     string icon_url
     string status
+    string schedule_note
+    string status_message
     boolean is_anonymous
     boolean allow_entry_notifications
     string push_token
@@ -65,7 +63,6 @@ erDiagram
     uuid friend_id FK
     boolean notify_enabled
     boolean muted
-    boolean notify_only_when_copresent
     boolean want_to_meet
     boolean location_hidden
     string status
@@ -110,23 +107,6 @@ erDiagram
     timestamp created_at
     timestamp updated_at
   }
-  AREA_SCHEDULES {
-    uuid id PK
-    uuid user_id FK
-    uuid area_id FK
-    string note
-    timestamp created_at
-    timestamp updated_at
-  }
-  AREA_SCHEDULE_OVERRIDES {
-    uuid id PK
-    uuid user_id FK
-    uuid area_id FK
-    date date
-    string note
-    timestamp created_at
-    timestamp updated_at
-  }
   PRESENCE_LOGS {
     uuid id PK
     uuid user_id FK
@@ -165,6 +145,17 @@ erDiagram
   方針a）でFRIENDSHIPSベースに変更した。`FRIEND_AREA_LINKS`は「エリア単位の
   名前公開合意」という役割に純化し、USERSプロフィール自体の閲覧可否には
   関与しない
+  `schedule_note`はUS-011（滞在予定の共有）用の自由記述欄（例：「月　学校／
+  すい　研究室」）。2026-10-03開発者確認：エリアごとの個別入力（旧
+  `AREA_SCHEDULES`/`AREA_SCHEDULE_OVERRIDES`、ユーザー×エリアごとに入力が
+  必要で手間だった）を廃止し、ユーザー1人につき1つの自由記述欄に統合した。
+  当日限定の上書き予定という概念も廃止し、その役割は`status_message`に
+  一本化した。公開範囲は名前・ステータスと同じ（`FRIENDSHIPS.status =
+  'active'`の相手全員、エリアの共有有無は問わない）。
+  `status_message`はdeveloper指示（2026-10-03）で新設した、ひとこと
+  ステータス（例：「今日は学校にいる！」「誰か作業しよう！」）の自由記述欄。
+  `status`（US-014の4択）・`schedule_note`とは別物。公開範囲は同様に
+  `FRIENDSHIPS.status = 'active'`の相手全員。
   `is_anonymous`はUS-013（一時的な匿名モード、Issue #13）用のフラグ。
   エリア単位ではなくアカウント全体で1つのON/OFF（2026-09-22、開発者確認済み）。
   `true`の間は`FRIENDSHIPS`の関係に関わらず、友達に対して名前だけで
@@ -174,7 +165,10 @@ erDiagram
   開発者確認済み）。「自分の入室を、自分を`FRIENDSHIPS.want_to_meet`で
   登録している相手に通知してよいか」。デフォルト`true`（オプトアウト方式、
   `notify_enabled`と同じ）。既存の友達ごとの`notify_enabled`（US-007/016）
-  とは別物で、通常の入室通知には影響しない。
+  とは別物で、通常の入室通知には影響しない。2026-10-03開発者確認：この
+  許可設定（UI・判定ロジック）自体をIssue #360で廃止する。匿名モード
+  （`is_anonymous`、Issue #352で修正済み）で同等のケースをカバーできるため。
+  カラムはDB上に残すが、常に許可されている前提で扱う（未使用カラム）。
   `push_token`はIssue #131（プッシュ通知の実配信基盤）用。`expo-notifications`の
   `getExpoPushTokenAsync()`で取得したExpoPushToken文字列を、ログイン中の端末で
   最後に取得した1件だけ保存する（複数端末対応は将来課題）。本人のみ更新可能
@@ -189,7 +183,15 @@ erDiagram
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
   上限はオフィス・部室規模を想定。学校のような広い敷地は複数エリアに分けて
-  登録する前提。値は最も近い整数に丸める）。`is_public`は「既存の公開エリアを
+  登録する前提。値は最も近い整数に丸める）。
+  RLS上、`areas`を読めるのは所有者と`USER_AREAS`で監視登録済みの人のみだが、
+  例外として**自分宛の`FRIEND_AREA_LINKS`（pending/approved）が存在する
+  エリア**も読める（2026-10-03開発者確認）。提案者は自分が知っている
+  （所有または監視中の）エリアしか提案できないが、提案を受け取る相手は
+  事前にそのエリアを監視していなくても、提案の内容を見て承認・拒否を判断
+  できる。承認した場合は、相手の`USER_AREAS`にもそのエリアを自動登録し、
+  以後の在席検知・表示の対象に含める（オープングループ参加時の自動登録
+  [Issue #190] と同じ考え方）。`is_public`は「既存の公開エリアを
   検索して選択し、新規作成の代わりに監視対象へ追加する」機能
   （`AreaRegistrationScreen`の検索UI、2026-08-16追加）用。`true`のエリアのみ
   検索対象になる。`GROUPS.is_public`（Issue #202で廃止）とは別物で、こちらは
@@ -198,22 +200,37 @@ erDiagram
   タスク、2026-08-16合意）点に注意
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
-  `notify_enabled`（US-007）・`muted`（US-008）・`notify_only_when_copresent`
-  （US-016、Issue #14。デフォルトfalse。trueの間は、自分がその友達の入室先
-  エリアに在席している時だけ入室通知を受け取る。`muted`と同様、受信側が
-  自分の行に設定する値）・`want_to_meet`（US-017、Issue #15。デフォルト
-  false。trueの間は、`notify_only_when_copresent`の制限を上書きし、共在
-  していなくても入室通知を受け取る。ただし相手（friend_id）の
-  `USERS.allow_entry_notifications`がfalseなら通知しない。優先度は
-  `muted`（最優先）→`want_to_meet`（共在制限を上書き）の順。`muted`と同様、
-  受信側が自分の行に設定する値）・`location_hidden`（Issue #121。一方向
-  ブロック。デフォルトfalse。自分の行でtrueにすると、相手（friend_id）は
-  自分の`presence_logs`を閲覧できなくなる。他の3列と違い「情報を隠す側」が
-  自分の行に設定する点に注意。友達関係自体は残る（`status`は変更しない）。
-  クライアント側フィルタではなくDBレベルで強制するため、`presence_logs`の
-  SELECTポリシーにブロック確認を組み込む、2026-09-29、開発者確認済み）を
-  関係ごとに個別管理できる。実際の通知イベント自体の記録・既読管理は
-  別Issueで検討する（2026-09-23、開発者確認済み）
+  `notify_enabled`（US-007。入室通知全体のON/OFFマスタースイッチ。デフォルト
+  true。受信側が自分の行に設定する値）・`muted`（通知の一時ミュート。US-008
+  とは無関係、タグ付けミスだったため訂正。受信側が自分の行に設定する値）・
+  `want_to_meet`（US-017、Issue #15。デフォルトfalse。trueの間は、共在して
+  いなくても入室通知を受け取る。受信側が自分の行に設定する値）を持つ。
+  実際に入室通知を送るかどうかは
+  `notify_enabled AND NOT muted AND (want_to_meet OR 自分も同じエリアに在席中)`
+  で判定する（2026-10-02、開発者確認済み。旧`notify_only_when_copresent`列
+  [US-016、Issue #14] は「共在時のみ通知を絞る」トグルだったが、「共在して
+  いれば`want_to_meet`に関わらず誰でも通知」という常時有効のルールに統合され
+  廃止。`want_to_meet`は独立した別ルールとして残り、共在していなくても通知
+  する役割に専念する）。`USERS.allow_entry_notifications`のfalseチェックは
+  `want_to_meet`由来の通知にのみ適用し、共在ルール由来の通知には影響しない
+  （2026-09-24確認済みの既存方針を維持。2026-10-02のロジック統合でも
+  この適用範囲は変更しない）。
+  `location_hidden`（Issue #121。US-008
+  「ブロック・個別制御」の実体。一方向ブロック。デフォルトfalse。自分の
+  行でtrueにすると、相手（friend_id）からは自分に関する以下がすべて
+  見えなくなる：`presence_logs`（在席情報）、滞在時間・ステータスなどの
+  詳細情報、所属グループ内での在席表示。友達一覧上の名前・アイコンなど
+  最小限の表示は維持する（US-008の「プロフィール自体の完全非表示は避ける」
+  方針に基づく）。他の3列と違い「情報を隠す側」が自分の行に設定する点に
+  注意。友達関係自体は残る（`status`は変更しない。双方向の「削除」とは
+  別機能）。相手には通知されない。クライアント側フィルタではなくDBレベルで
+  強制するため、`presence_logs`等の関連SELECTポリシー・クエリすべてに
+  ブロック確認を組み込む。列名・DB構造は変更せず適用範囲のみ拡張
+  （2026-10-02、開発者確認済み。UI文言は「位置情報を隠す」ではなく
+  「ブロックする」に統一。元は2026-09-29に`presence_logs`のみの範囲で
+  承認済みだったものを拡張）を関係ごとに個別管理できる。実際の通知
+  イベント自体の記録・既読管理は別Issueで検討する
+  （2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）
@@ -251,13 +268,6 @@ erDiagram
   そのグループ内限定で`USERS.name`/`icon_url`を上書きする任意項目。未設定時は
   `USERS`側にフォールバックする（Issue #150、本名・普段のアイコンを知らない
   相手が多いオープングループ向け）
-- **AREA_SCHEDULES**：US-011の基本滞在予定。ユーザー×エリアごとに1件
-  （`unique(user_id, area_id)`）。時刻・曜日は構造化せず`note`に自由記述で
-  登録する（2026-09-19、開発者確認済み。詳細な構造化は今後の検討課題）
-- **AREA_SCHEDULE_OVERRIDES**：US-011の当日上書き予定。ユーザー×エリア×
-  日付ごとに1件（`unique(user_id, area_id, date)`）。`AREA_SCHEDULES`と同様
-  `note`は自由記述。友達への公開条件は名前表示と同じく
-  `FRIEND_AREA_LINKS.status = 'approved'`（原則2参照）
 - **PRESENCE_LOGS**：入退室記録。`exited_at`がnullの間は在席中を意味する。
   `lat`/`lng`はエリア内にいる間の現在地（2026-08-17、開発者の希望でエリア内の
   正確な位置を友達に共有する方針に決定）。更新頻度（リアルタイム更新か否か）・
@@ -291,6 +301,12 @@ erDiagram
    一方、友達解除・グループ退会のような通常操作（アカウント自体は残る）は、
    ソフトデリート（`status`列の変更など）で構わない。実装はIssue #228
    （Edge Function`delete-account`、`auth.admin.deleteUser()`）。
+   ただし**友達解除（PRD US-008の「削除」）は例外的に物理削除とする**
+   （2026-10-02、開発者確認済み）。`FRIENDSHIPS`は片方向2行構成のため、
+   自分の行だけをRLSで消しても相手の行が残ってしまう。
+   `transfer_group_ownership`と同様のSECURITY DEFINER RPCで両方の行を
+   一括物理削除する（Issue #276）。削除後に再度友達になるにはOTPでの
+   再追加が必要になる。
    `USERS.id`が`auth.users(id)`への外部キー（`on delete cascade`）のため、
    `auth.users`の削除だけで`USERS`配下のほぼ全テーブルが連動して物理削除
    される（`avatars`バケットのアイコン画像のみ、PostgreSQLの外部キーの
