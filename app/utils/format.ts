@@ -13,6 +13,14 @@ export function formatPresenceCount(count: number): string {
   return `${count}人在席中`;
 }
 
+// "YYYY/MM/DD"形式の日付表示（Issue #263、オープングループの公開期限表示で使う）
+export function formatDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+  const d = date.getDate().toString().padStart(2, '0');
+  return `${y}/${m}/${d}`;
+}
+
 // "YYYY-MM-DD"形式の今日の日付（US-011の当日上書き予定で使う）。
 // toISOString()はUTC基準のため、日本時間の深夜0時台に日付がずれる
 // ことがある。ローカルタイムゾーンの暦日をそのまま使う
