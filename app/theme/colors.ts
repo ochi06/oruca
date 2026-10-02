@@ -9,7 +9,7 @@ export const lightColors = {
   bg: '#F2F5F7',
   surface: '#FFFFFF',
   green: '#6FA96C',
-  coral: '#E37B7B',
+  coral: '#B04848',
   sand: '#F5CC6E',
   sandTint: '#FBF0D9',
 };
