@@ -35,7 +35,25 @@ export function RootTabNavigator() {
         component={FriendsGroupsStackNavigator}
         options={{ title: '友達・グループ' }}
       />
-      <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: 'マップ' }} />
+      <Tab.Screen
+        name="MapTab"
+        component={MapStackNavigator}
+        options={{ title: 'マップ' }}
+        // Issue #280: 友達/グループ一覧からの絞り込み遷移（filterAreaId/origin）は
+        // route.paramsに乗るが、React Navigationのタブナビゲータはタブ切り替えだけでは
+        // 自動的にparamsをクリアしない。そのため一度絞り込み経由で開くと、以後タブを
+        // 普通にタップしただけでも戻るボタン・絞り込みが残り続けてしまっていた。
+        // タブボタンを直接タップした時（プログラムからのnavigateとは別のtabPress）だけ、
+        // 明示的にparamsをクリアする
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('MapTab', {
+              screen: 'Map',
+              params: { filterAreaId: undefined, origin: undefined },
+            });
+          },
+        })}
+      />
       <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: 'プロフィール' }} />
     </Tab.Navigator>
   );
