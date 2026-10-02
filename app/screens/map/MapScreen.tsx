@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -13,7 +14,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
 import { Input } from '../../components/Input';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
-import { Screen } from '../../components/Screen';
+import { BACK_BUTTON_RESERVED_HEIGHT, Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/useTheme';
 import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -132,6 +133,7 @@ type Props = NativeStackScreenProps<MapStackParamList, 'Map'> & {
 
 export default function MapScreen({ navigation, route }: Props) {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [state, setState] = useState<LoadState>('loading');
   const [data, setData] = useState<PresenceMapData>({
     currentUserId: '',
@@ -288,76 +290,84 @@ export default function MapScreen({ navigation, route }: Props) {
     });
   };
 
+  // 地図を画面いっぱいに敷くため（Issue #275）、戻るボタン・検索欄・浮動
+  // ボタンはすべてセーフエリアに重ならない位置の絶対配置オーバーレイにする。
+  // 戻るボタンが出る場合（origin指定時）は、Screen側が確保する分と同じ高さを
+  // 検索欄側でも空けて重なりを避ける
+  const overlayTop = insets.top + spacing.sm + (origin ? BACK_BUTTON_RESERVED_HEIGHT : 0);
+
   return (
-    <Screen style={styles.container} onBack={origin ? () => navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList', params: { initialSegment: origin } }) : undefined}>
-      {activeArea ? (
-        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
-          <Ionicons name="location-outline" size={18} color={colors.blue} />
-          <Text style={[styles.filterChipLabel, { color: colors.text }]} numberOfLines={1}>
-            {activeArea.name}
-          </Text>
-          <IconButton
-            name="close-outline"
-            variant="secondary"
-            size={16}
-            accessibilityLabel="絞り込みを解除"
-            onPress={handleClearFilter}
-          />
-        </View>
-      ) : (
-        <View>
+    <Screen style={styles.mapContainer} disableSafeAreaPadding onBack={origin ? () => navigation.navigate('FriendsGroupsTab', { screen: 'FriendsGroupsList', params: { initialSegment: origin } }) : undefined}>
+      <View style={[styles.searchOverlay, { top: overlayTop }]}>
+        {activeArea ? (
           <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
-            <View style={[styles.searchModeToggle, { borderColor: colors.lightblue }]}>
-              <Pressable
-                style={[styles.searchModeButton, searchMode === 'area' && { backgroundColor: colors.blue }]}
-                onPress={() => setSearchMode('area')}
-              >
-                <Text style={[typography.caption, { color: searchMode === 'area' ? '#FFFFFF' : colors.text }]}>
-                  エリア名
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.searchModeButton, searchMode === 'group' && { backgroundColor: colors.blue }]}
-                onPress={() => setSearchMode('group')}
-              >
-                <Text style={[typography.caption, { color: searchMode === 'group' ? '#FFFFFF' : colors.text }]}>
-                  グループ名
-                </Text>
-              </Pressable>
-            </View>
-            <Input
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={searchMode === 'area' ? 'エリア名で検索' : 'グループ名で検索'}
-              autoCapitalize="none"
-              autoCorrect={false}
+            <Ionicons name="location-outline" size={18} color={colors.blue} />
+            <Text style={[styles.filterChipLabel, { color: colors.text }]} numberOfLines={1}>
+              {activeArea.name}
+            </Text>
+            <IconButton
+              name="close-outline"
+              variant="secondary"
+              size={16}
+              accessibilityLabel="絞り込みを解除"
+              onPress={handleClearFilter}
             />
-            {searchQuery.length > 0 && (
-              <IconButton
-                name="close-outline"
-                variant="secondary"
-                size={16}
-                accessibilityLabel="検索を閉じる"
-                onPress={handleClearFilter}
+          </View>
+        ) : (
+          <View>
+            <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+              <View style={[styles.searchModeToggle, { borderColor: colors.lightblue }]}>
+                <Pressable
+                  style={[styles.searchModeButton, searchMode === 'area' && { backgroundColor: colors.blue }]}
+                  onPress={() => setSearchMode('area')}
+                >
+                  <Text style={[typography.caption, { color: searchMode === 'area' ? '#FFFFFF' : colors.text }]}>
+                    エリア名
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.searchModeButton, searchMode === 'group' && { backgroundColor: colors.blue }]}
+                  onPress={() => setSearchMode('group')}
+                >
+                  <Text style={[typography.caption, { color: searchMode === 'group' ? '#FFFFFF' : colors.text }]}>
+                    グループ名
+                  </Text>
+                </Pressable>
+              </View>
+              <Input
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchMode === 'area' ? 'エリア名で検索' : 'グループ名で検索'}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
+              {searchQuery.length > 0 && (
+                <IconButton
+                  name="close-outline"
+                  variant="secondary"
+                  size={16}
+                  accessibilityLabel="検索を閉じる"
+                  onPress={handleClearFilter}
+                />
+              )}
+            </View>
+            {searchResults.length > 0 && (
+              <View style={[styles.searchDropdown, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
+                {searchResults.map((result) => (
+                  <Pressable
+                    key={result.id}
+                    style={styles.searchResultRow}
+                    onPress={() => handleSelectSearchResult(result)}
+                  >
+                    <Text style={[typography.body, { color: colors.text }]}>{result.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
             )}
           </View>
-          {searchResults.length > 0 && (
-            <View style={[styles.searchDropdown, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
-              {searchResults.map((result) => (
-                <Pressable
-                  key={result.id}
-                  style={styles.searchResultRow}
-                  onPress={() => handleSelectSearchResult(result)}
-                >
-                  <Text style={[typography.body, { color: colors.text }]}>{result.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
+        )}
+      </View>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -402,7 +412,7 @@ export default function MapScreen({ navigation, route }: Props) {
           );
         })}
       </MapView>
-      <View style={styles.mapActions}>
+      <View style={[styles.mapActions, { bottom: insets.bottom + spacing.lg }]}>
         <IconButton
           name="settings-outline"
           variant="secondary"
@@ -439,10 +449,17 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
   },
+  mapContainer: {
+    flex: 1,
+  },
   map: {
     flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
+  },
+  searchOverlay: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    zIndex: 1,
   },
   namedMarker: {
     alignItems: 'center',

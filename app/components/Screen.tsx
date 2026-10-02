@@ -14,7 +14,9 @@ import { spacing } from '../theme/spacing';
 // 左上の戻る矢印（IconButton、size=20+内部padding spacing.sm*2）が、
 // 画面側のタイトル等の先頭コンテンツと重ならないよう確保する高さ
 // （矢印の上オフセットspacing.sm＋ボタン自体の高さ＋下の余白spacing.sm）
-const BACK_BUTTON_RESERVED_HEIGHT = spacing.sm + 36 + spacing.sm;
+// disableSafeAreaPadding時に画面側で戻るボタンとの重なりを自前で避ける
+// 必要がある場合（Issue #275のMapScreen等）のためexportする
+export const BACK_BUTTON_RESERVED_HEIGHT = spacing.sm + 36 + spacing.sm;
 
 type Props = ViewProps & {
   // 入力欄がある画面（OTP入力・検索など）ではtrueにして、キーボードが
@@ -24,11 +26,23 @@ type Props = ViewProps & {
   // 渡すと左上に小さい矢印の戻るボタンをオーバーレイ表示する（Issue #239、
   // 画面下部の大きい「戻る」ボタンを置き換える形に統一）
   onBack?: () => void;
+  // trueの間、セーフエリアinsetsを外側Viewのpaddingとして適用しない（Issue #275）。
+  // 地図をステータスバー下まで画面いっぱいに表示したいMapScreenなど、画面側で
+  // 独自にinsetsを扱いたい場合に使う（戻るボタンの位置自体は変わらず、
+  // 常にinsets分オフセットする）
+  disableSafeAreaPadding?: boolean;
 };
 
 // 各画面のルートで使う共通レイアウト。ノッチ・ホームバー等を避けるセーフエリア
 // 対応を画面ごとに個別実装せず、ここに集約する（docs/design-system.md参照）。
-export function Screen({ children, style, avoidKeyboard = false, onBack, ...rest }: Props) {
+export function Screen({
+  children,
+  style,
+  avoidKeyboard = false,
+  onBack,
+  disableSafeAreaPadding = false,
+  ...rest
+}: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
@@ -43,10 +57,10 @@ export function Screen({ children, style, avoidKeyboard = false, onBack, ...rest
         styles.base,
         {
           backgroundColor: colors.bg,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-          paddingLeft: insets.left,
-          paddingRight: insets.right,
+          paddingTop: disableSafeAreaPadding ? 0 : insets.top,
+          paddingBottom: disableSafeAreaPadding ? 0 : insets.bottom,
+          paddingLeft: disableSafeAreaPadding ? 0 : insets.left,
+          paddingRight: disableSafeAreaPadding ? 0 : insets.right,
         },
       ]}
     >
