@@ -239,14 +239,16 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                     <View style={styles.actions}>
                       <IconButton
                         name="checkmark"
-                        variant="secondary"
+                        variant="ghost"
+                        color={colors.green}
                         size={16}
                         accessibilityLabel={`${display.name}の参加を承認`}
                         onPress={() => handleApprove(member.id)}
                       />
                       <IconButton
                         name="close"
-                        variant="secondary"
+                        variant="ghost"
+                        color={colors.coral}
                         size={16}
                         accessibilityLabel={`${display.name}の参加を拒否`}
                         onPress={() => handleReject(member.id)}
