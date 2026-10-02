@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
@@ -27,8 +28,11 @@ import {
   proposeFriendAreaLink,
   rejectFriendAreaLink,
 } from '../../lib/friendAreaLinks';
+import { fetchAllVisibleAreaSchedules, fetchAllVisibleAreaScheduleOverrides } from '../../lib/schedules';
 import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
+import { friendIdsWithVisibleNotes } from '../../utils/schedules';
+import { todayDateString } from '../../utils/format';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -60,7 +64,11 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     state.friendships.find((f) => f.friend_id === friendId)
   );
   const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
+  const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
   const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
+  // 滞在予定・ステータスメッセージが設定されているか（Issue #274）。一覧画面と
+  // 同じ判定を使い、見た目・意味を整合させる
+  const [friendIdsWithNotes, setFriendIdsWithNotes] = useState<Set<string>>(new Set());
 
   function handleToggleBlock() {
     toggleLocationHidden(friendId);
@@ -91,9 +99,15 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   }
 
   useEffect(() => {
-    ensureSignedIn().then((signedInUserId) => {
+    ensureSignedIn().then(async (signedInUserId) => {
       setUserId(signedInUserId);
       loadAreaLinks(signedInUserId);
+      const today = todayDateString(new Date());
+      const [schedules, overrides] = await Promise.all([
+        fetchAllVisibleAreaSchedules(),
+        fetchAllVisibleAreaScheduleOverrides(today),
+      ]);
+      setFriendIdsWithNotes(friendIdsWithVisibleNotes(signedInUserId, schedules, overrides));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -162,7 +176,34 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   return (
     <Screen style={styles.container} onBack={() => navigation.goBack()} onMenu={() => setIsMenuVisible(true)}>
       <ScrollView showsVerticalScrollIndicator={false}>
-      <ProfileHeader name={friend.name} iconUrl={friend.icon_url} />
+      <ProfileHeader
+        name={friend.name}
+        iconUrl={friend.icon_url}
+        bottomRightBadge={
+          friendship ? (
+            <Pressable
+              onPress={() => toggleWantToMeet(friendId)}
+              style={[styles.heartBadge, { backgroundColor: colors.surface, borderColor: colors.coral }]}
+              accessibilityLabel={
+                friendship.want_to_meet ? '会いたい人から外す' : '会いたい人に登録'
+              }
+            >
+              <Ionicons
+                name={friendship.want_to_meet ? 'heart' : 'heart-outline'}
+                size={14}
+                color={colors.coral}
+              />
+            </Pressable>
+          ) : undefined
+        }
+        topRightBadge={
+          friendIdsWithNotes.has(friendId) ? (
+            <View style={[styles.noteBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={10} color={colors.blue} />
+            </View>
+          ) : undefined
+        }
+      />
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>プライバシー設定</Text>
@@ -335,6 +376,22 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
+  },
+  heartBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     marginBottom: spacing.lg,

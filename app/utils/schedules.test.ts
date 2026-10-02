@@ -1,4 +1,4 @@
-import { resolveFriendSchedule, AreaSchedule, AreaScheduleOverride } from './schedules';
+import { resolveFriendSchedule, friendIdsWithVisibleNotes, AreaSchedule, AreaScheduleOverride } from './schedules';
 import { FriendAreaLink } from '../mocks/presence';
 
 const now = '2026-09-19T00:00:00.000Z';
@@ -95,5 +95,38 @@ describe('resolveFriendSchedule', () => {
       note: '平日10-18時',
       overrideNote: null,
     });
+  });
+});
+
+describe('friendIdsWithVisibleNotes', () => {
+  test('noteが空でないarea_schedulesのuser_idを含む', () => {
+    const result = friendIdsWithVisibleNotes(CURRENT_USER_ID, schedules, []);
+    expect(result.has('user-a')).toBe(true);
+  });
+
+  test('noteが空でないarea_schedule_overridesのuser_idを含む', () => {
+    const result = friendIdsWithVisibleNotes(CURRENT_USER_ID, [], overrides);
+    expect(result.has('user-a')).toBe(true);
+  });
+
+  test('noteが空文字（トリムして空）の場合は含まない', () => {
+    const emptySchedules: AreaSchedule[] = [
+      { id: 's-b', user_id: 'user-b', area_id: AREA_ID, note: '   ', created_at: now, updated_at: now },
+    ];
+    const result = friendIdsWithVisibleNotes(CURRENT_USER_ID, emptySchedules, []);
+    expect(result.has('user-b')).toBe(false);
+  });
+
+  test('自分自身の行は含まない', () => {
+    const selfSchedules: AreaSchedule[] = [
+      { id: 's-me', user_id: CURRENT_USER_ID, area_id: AREA_ID, note: '平日', created_at: now, updated_at: now },
+    ];
+    const result = friendIdsWithVisibleNotes(CURRENT_USER_ID, selfSchedules, []);
+    expect(result.has(CURRENT_USER_ID)).toBe(false);
+  });
+
+  test('該当者がいなければ空のSetを返す', () => {
+    const result = friendIdsWithVisibleNotes(CURRENT_USER_ID, [], []);
+    expect(result.size).toBe(0);
   });
 });

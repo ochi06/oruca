@@ -64,3 +64,26 @@ export function resolveFriendSchedule(
     overrideNote: override?.note ?? null,
   };
 }
+
+// 友達一覧・詳細画面のステータスアイコン表示用（Issue #274）。area_schedules/
+// area_schedule_overridesはRLSで「自分の行＋承認済みFRIEND_AREA_LINKSの
+// 相手の行」のみ返るため、呼び出し側はarea_idで絞り込まず全件取得して渡せばよい。
+// 空文字（保存はされているが未入力扱い）のnoteは「設定あり」に含めない
+export function friendIdsWithVisibleNotes(
+  currentUserId: string,
+  schedules: AreaSchedule[],
+  overrides: AreaScheduleOverride[]
+): Set<string> {
+  const ids = new Set<string>();
+  for (const schedule of schedules) {
+    if (schedule.user_id !== currentUserId && schedule.note.trim().length > 0) {
+      ids.add(schedule.user_id);
+    }
+  }
+  for (const override of overrides) {
+    if (override.user_id !== currentUserId && override.note.trim().length > 0) {
+      ids.add(override.user_id);
+    }
+  }
+  return ids;
+}

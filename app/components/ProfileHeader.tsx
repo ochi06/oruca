@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Modal as RNModal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from './Avatar';
@@ -26,6 +27,12 @@ type Props = {
   // 保存に失敗した場合はrejectする。resolveすると編集モードを閉じる
   // （成功/失敗のトースト文言は画面ごとに異なりうるため呼び出し側の責務とする）
   onSaveName?: (trimmedName: string) => Promise<void>;
+  // Issue #274：FriendDetailScreenの会いたい人ハート・ステータスアイコンを
+  // アバターの右下/右上に重ねて表示するための汎用スロット。editable画面
+  // （ProfileScreen）はアイコン編集ボタンが右下を使うため、bottomRightBadge
+  // とeditableは同時に渡さない想定
+  topRightBadge?: ReactNode;
+  bottomRightBadge?: ReactNode;
 };
 
 export function ProfileHeader({
@@ -35,6 +42,8 @@ export function ProfileHeader({
   onEditIcon,
   iconUploading = false,
   onSaveName,
+  topRightBadge,
+  bottomRightBadge,
 }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -87,7 +96,10 @@ export function ProfileHeader({
             onPress={onEditIcon}
             disabled={iconUploading}
           />
+        ) : bottomRightBadge ? (
+          <View style={styles.avatarEditButton}>{bottomRightBadge}</View>
         ) : null}
+        {topRightBadge ? <View style={styles.avatarTopBadge}>{topRightBadge}</View> : null}
       </View>
 
       {editable && editingName ? (
@@ -164,6 +176,11 @@ const styles = StyleSheet.create({
     bottom: -4,
     right: -4,
     borderRadius: radius.lg,
+  },
+  avatarTopBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
   },
   name: {
     ...typography.title,
