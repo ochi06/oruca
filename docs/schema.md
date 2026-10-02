@@ -157,11 +157,17 @@ erDiagram
   `status`はUS-014（ステータス表示機能、Issue #10）用の任意項目で、
   `working`（作業中）／`want_to_join`（合流したい）／`away`（離席中）／
   `focus`（集中）のいずれか、またはnull（未設定）。名前・アイコンと同じ
-  可視性ルール（`FRIEND_AREA_LINKS.status = 'approved'`の相手にのみ公開）が
+  可視性ルール（`FRIENDSHIPS.status = 'active'`の相手にのみ公開）が
   RLSポリシー上そのまま適用される（USERSの行全体に対するポリシーのため）。
+  以前は`FRIEND_AREA_LINKS.status = 'approved'`を条件にしていたが、OTP交換で
+  `FRIENDSHIPS`行を作っただけでは`FRIEND_AREA_LINKS`行が作られず、友達追加
+  直後に名前が見えない不具合があったため、Issue #219（2026-10-02開発者確認、
+  方針a）でFRIENDSHIPSベースに変更した。`FRIEND_AREA_LINKS`は「エリア単位の
+  名前公開合意」という役割に純化し、USERSプロフィール自体の閲覧可否には
+  関与しない
   `is_anonymous`はUS-013（一時的な匿名モード、Issue #13）用のフラグ。
   エリア単位ではなくアカウント全体で1つのON/OFF（2026-09-22、開発者確認済み）。
-  `true`の間は`FRIEND_AREA_LINKS`の承認状態に関わらず、友達に対して名前だけで
+  `true`の間は`FRIENDSHIPS`の関係に関わらず、友達に対して名前だけで
   なく在席（`PRESENCE_LOGS`由来のisPresent）も非表示にする。デフォルトは
   `false`。`allow_entry_notifications`はUS-017（会いたい人の入室通知、
   Issue #15）専用のグローバル許可（アカウント全体で1つ、2026-09-24、
@@ -273,10 +279,13 @@ erDiagram
 1. 「個人がエリアを使う（USER_AREAS）」と「友達に名前を見せる
    （FRIEND_AREA_LINKS）」は必ず分離する。混同するとプライバシー事故の
    原因になる
-2. 名前表示のロジックは、必ず `FRIEND_AREA_LINKS.status = 'approved'`
-   をチェックしてから行うこと。`PRESENCE_LOGS`だけを見て名前を出す実装は
+2. **エリア内の在席表示**（マップのマーカー等、`PRESENCE_LOGS`由来の表示）で
+   名前を出すロジックは、必ず `FRIEND_AREA_LINKS.status = 'approved'`を
+   チェックしてから行うこと。`PRESENCE_LOGS`だけを見て名前を出す実装は
    禁止（エリア同士が重なっている場合に、紐づいていない相手の名前が
-   誤って見えてしまう）
+   誤って見えてしまう）。これは「USERSの行自体を読めるか」（RLS、
+   Issue #219以降は`FRIENDSHIPS`ベース）とは別の、クライアント側の
+   表示ロジックの話である点に注意
 3. 物理削除が必須なのは**アカウント退会時**。退会時は位置情報・友達関係など
    機微データを含め、すべて物理削除する（PRDのプライバシー方針に基づく）。
    一方、友達解除・グループ退会のような通常操作（アカウント自体は残る）は、
