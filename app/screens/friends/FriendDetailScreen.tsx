@@ -343,7 +343,8 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         />
         <Button
           label="削除する"
-          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          variant="destructive"
+          style={styles.menuButton}
           onPress={() => {
             setIsMenuVisible(false);
             setIsDeleteConfirmVisible(true);
@@ -369,9 +370,10 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           />
           <Button
             label={deleting ? '削除中…' : '削除する'}
+            variant="destructive"
             onPress={handleConfirmDelete}
             disabled={deleting}
-            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+            style={styles.modalButton}
           />
         </View>
       </Modal>

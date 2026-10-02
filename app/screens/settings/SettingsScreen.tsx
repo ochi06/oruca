@@ -358,9 +358,8 @@ export default function SettingsScreen({ navigation }: Props) {
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>危険な操作</Text>
         <Button
           label="アカウントを削除する"
-          variant="secondary"
+          variant="destructive"
           onPress={() => setDeleteConfirmVisible(true)}
-          style={{ backgroundColor: colors.coral }}
         />
       </View>
       </ScrollView>
@@ -418,9 +417,10 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Button
             label={deleting ? '削除中…' : '削除する'}
+            variant="destructive"
             onPress={handleConfirmDeleteAccount}
             disabled={deleting}
-            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+            style={styles.modalButton}
           />
         </View>
       </Modal>
