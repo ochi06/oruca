@@ -1,5 +1,6 @@
 import { JoinOpenGroupResult } from '../../store/useGroupStore';
 import { AddFriendResult } from '../../store/useFriendAddStore';
+import { isNetworkError } from '../../utils/network';
 
 export type RedeemResult =
   | { source: 'group'; status: 'success'; groupName: string; memberId: string }
@@ -10,7 +11,10 @@ export type RedeemResult =
   // 匿名セッションからの友達追加は拒否される（Issue #200）
   | { source: 'friend'; status: 'forbidden' }
   | { status: 'not_found' }
-  | { status: 'error' };
+  // isNetworkErrorは「コードが見つからない」等の確定的な失敗と区別し、
+  // 会場Wi-Fi等の不安定な回線での一時的な失敗なら再試行を促すために使う
+  // （Issue #314）
+  | { status: 'error'; isNetworkError: boolean };
 
 export type RedeemCodeDeps = {
   joinOpenGroupByInviteCode: (inviteCode: string, userId: string) => Promise<JoinOpenGroupResult>;
@@ -46,8 +50,8 @@ export async function redeemCode(
       return { source: 'group', status: 'already_member' };
     }
     // not_found → グループの招待コードではなかったので、友達OTPとして試す
-  } catch {
-    return { status: 'error' };
+  } catch (error) {
+    return { status: 'error', isNetworkError: isNetworkError(error) };
   }
 
   const friendResult = await deps.verifyFriendCode(trimmedCode);
@@ -58,7 +62,7 @@ export async function redeemCode(
     return { source: 'friend', status: friendResult.status };
   }
   if (friendResult.status === 'error') {
-    return { status: 'error' };
+    return { status: 'error', isNetworkError: friendResult.isNetworkError };
   }
   return { status: 'not_found' };
 }
