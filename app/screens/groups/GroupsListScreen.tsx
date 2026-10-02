@@ -130,7 +130,7 @@ export default function GroupsListScreen({ searchQuery }: Props) {
               onPress={() => handlePressGroup(group)}
               trailing={
                 <IconButton
-                  name="ellipsis-horizontal"
+                  name="ellipsis-vertical"
                   variant="secondary"
                   size={16}
                   accessibilityLabel={`${group.name}の詳細`}
