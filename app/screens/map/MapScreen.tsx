@@ -16,6 +16,7 @@ import { IconButton } from '../../components/IconButton';
 import { Input } from '../../components/Input';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { BACK_BUTTON_RESERVED_HEIGHT, Screen } from '../../components/Screen';
+import { SegmentedControl } from '../../components/SegmentedControl';
 import { useTheme } from '../../theme/useTheme';
 import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -294,24 +295,16 @@ export default function MapScreen({ navigation, route }: Props) {
         {searchOpen && (
           <View>
             <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.lightblue }]}>
-              <View style={[styles.searchModeToggle, { borderColor: colors.lightblue }]}>
-                <Pressable
-                  style={[styles.searchModeButton, searchMode === 'area' && { backgroundColor: colors.blue }]}
-                  onPress={() => setSearchMode('area')}
-                >
-                  <Text style={[typography.caption, { color: searchMode === 'area' ? '#FFFFFF' : colors.text }]}>
-                    エリア名
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.searchModeButton, searchMode === 'group' && { backgroundColor: colors.blue }]}
-                  onPress={() => setSearchMode('group')}
-                >
-                  <Text style={[typography.caption, { color: searchMode === 'group' ? '#FFFFFF' : colors.text }]}>
-                    グループ名
-                  </Text>
-                </Pressable>
-              </View>
+              <SegmentedControl
+                size="sm"
+                fillWidth={false}
+                options={[
+                  { value: 'area', label: 'エリア名' },
+                  { value: 'group', label: 'グループ名' },
+                ]}
+                value={searchMode}
+                onChange={setSearchMode}
+              />
               <Input
                 style={styles.searchInput}
                 value={searchQuery}
@@ -502,16 +495,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  searchModeToggle: {
-    flexDirection: 'row',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
-  searchModeButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
   },
   searchInput: {
     flex: 1,
