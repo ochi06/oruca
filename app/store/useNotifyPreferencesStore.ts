@@ -18,9 +18,6 @@ type NotifyPreferencesState = {
   status: LoadStatus;
   errorMessage: string | null;
   initialize: () => Promise<void>;
-  toggleNotifyEnabled: (friendId: string) => Promise<void>;
-  // 特定の相手からの通知をミュートする（US-008、受信側の設定）
-  toggleMuted: (friendId: string) => Promise<void>;
   // この友達を「会いたい人」に登録する。共在していなくても入室通知を
   // 受け取る（US-017、受信側の設定）
   toggleWantToMeet: (friendId: string) => Promise<void>;
@@ -32,7 +29,7 @@ type NotifyPreferencesState = {
   removeFriend: (friendId: string) => Promise<void>;
 };
 
-type ToggleableField = 'notify_enabled' | 'muted' | 'want_to_meet' | 'location_hidden';
+type ToggleableField = 'want_to_meet' | 'location_hidden';
 
 // 楽観的更新→永続化を行う共通ヘルパー。永続化に失敗した場合は表示を戻す
 async function toggleField(
@@ -83,10 +80,6 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set, ge
       });
     }
   },
-
-  toggleNotifyEnabled: (friendId) => toggleField(get, set, friendId, 'notify_enabled'),
-
-  toggleMuted: (friendId) => toggleField(get, set, friendId, 'muted'),
 
   toggleWantToMeet: (friendId) => toggleField(get, set, friendId, 'want_to_meet'),
 
