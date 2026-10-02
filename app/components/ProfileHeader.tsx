@@ -18,7 +18,7 @@ const DISPLAY_NAME_MAX_LENGTH = 30;
 type Props = {
   name: string;
   iconUrl: string | null;
-  // Issue #266：ProfileScreen（編集可能）・FriendDetailScreen（読み取り専用）の
+  // Issue #266：SettingsScreen（編集可能）・FriendDetailScreen（読み取り専用）の
   // アイコン＋名前表示部分（タップでの拡大表示モーダル含む）を共通化した。
   // editableがtrueの間のみ、アイコン変更・名前変更の編集導線を表示する
   editable?: boolean;
@@ -29,7 +29,7 @@ type Props = {
   onSaveName?: (trimmedName: string) => Promise<void>;
   // Issue #274：FriendDetailScreenの会いたい人ハート・ステータスアイコンを
   // アバターの右下/右上に重ねて表示するための汎用スロット。editable画面
-  // （ProfileScreen）はアイコン編集ボタンが右下を使うため、bottomRightBadge
+  // （SettingsScreen）はアイコン編集ボタンが右下を使うため、bottomRightBadge
   // とeditableは同時に渡さない想定
   topRightBadge?: ReactNode;
   bottomRightBadge?: ReactNode;
