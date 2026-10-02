@@ -1,25 +1,38 @@
 import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { IconButton } from '../../components/IconButton';
 import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useGroupStore } from '../../store/useGroupStore';
+import { Group } from '../../mocks/groups';
 import { ensureSignedIn } from '../../lib/auth';
 import { matchesSearchQuery } from '../../utils/search';
-import { FriendsGroupsStackParamList } from '../../navigation/types';
+import { FriendsGroupsStackParamList, RootTabParamList } from '../../navigation/types';
+
+// タブをまたいでマップ画面（絞り込み表示）へ直接遷移できるように、
+// FriendsGroupsStackとRootTabの両方のnavigation型を合成する（MapScreen.tsxと対称のパターン）
+type GroupsListNavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<FriendsGroupsStackParamList>,
+  BottomTabNavigationProp<RootTabParamList>
+>;
 
 export default function GroupsListScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<FriendsGroupsStackParamList>>();
+  const navigation = useNavigation<GroupsListNavigationProp>();
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const allGroups = useGroupStore((state) => state.groups);
   const members = useGroupStore((state) => state.members);
   const status = useGroupStore((state) => state.status);
@@ -61,6 +74,15 @@ export default function GroupsListScreen() {
   // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
   const [searchQuery, setSearchQuery] = useState('');
   const visibleGroups = groups.filter((group) => matchesSearchQuery(group.name, searchQuery));
+
+  // 行タップでそのグループのエリアに絞ったマップへ遷移する（Issue #261）
+  function handlePressGroup(group: Group) {
+    if (!group.area_id) {
+      showToast('このグループにはエリアが設定されていません');
+      return;
+    }
+    navigation.navigate('MapTab', { screen: 'Map', params: { filterAreaId: group.area_id, origin: 'groups' } });
+  }
 
   if (authError) {
     return (
@@ -112,7 +134,16 @@ export default function GroupsListScreen() {
           renderItem={({ item: group }) => (
             <ListItem
               title={group.name}
-              onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
+              onPress={() => handlePressGroup(group)}
+              trailing={
+                <IconButton
+                  name="ellipsis-horizontal"
+                  variant="secondary"
+                  size={16}
+                  accessibilityLabel={`${group.name}の詳細`}
+                  onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
+                />
+              }
             />
           )}
         />

@@ -1,26 +1,39 @@
 import { useState } from 'react';
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { IconButton } from '../../components/IconButton';
 import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
+import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
+import { fetchOpenPresenceLogs } from '../../lib/presence';
 import { matchesSearchQuery } from '../../utils/search';
-import { FriendsGroupsStackParamList } from '../../navigation/types';
+import { FriendsGroupsStackParamList, RootTabParamList } from '../../navigation/types';
+
+// タブをまたいでマップ画面（絞り込み表示）へ直接遷移できるように、
+// FriendsGroupsStackとRootTabの両方のnavigation型を合成する（MapScreen.tsxと対称のパターン）
+type FriendsListNavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<FriendsGroupsStackParamList>,
+  BottomTabNavigationProp<RootTabParamList>
+>;
 
 export default function FriendsListScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<FriendsGroupsStackParamList>>();
+  const navigation = useNavigation<FriendsListNavigationProp>();
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const status = useNotifyPreferencesStore((state) => state.status);
   const initialize = useNotifyPreferencesStore((state) => state.initialize);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
@@ -33,6 +46,24 @@ export default function FriendsListScreen() {
   // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
   const [searchQuery, setSearchQuery] = useState('');
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
+
+  // 行タップでその友達が現在在席しているエリアに絞ったマップへ遷移する（Issue #261）。
+  // 在席中かどうかはpresence_logsの未退室（exited_at is null）行で判定する
+  // （lib/presence.tsのfetchOpenPresenceLogsを流用、Issue #178で既にある処理の再利用）
+  async function handlePressFriend(friendId: string, friendName: string) {
+    try {
+      const logs = await fetchOpenPresenceLogs(friendId);
+      const areaId = logs[0]?.area_id ?? null;
+      if (!areaId) {
+        showToast(`${friendName}さんは現在在席していません`);
+        return;
+      }
+      navigation.navigate('MapTab', { screen: 'Map', params: { filterAreaId: areaId, origin: 'friends' } });
+    } catch (error) {
+      console.error('fetchOpenPresenceLogs failed:', error);
+      showToast('在席状況の取得に失敗しました');
+    }
+  }
 
   if (status === 'loading' || status === 'idle') {
     return (
@@ -80,31 +111,40 @@ export default function FriendsListScreen() {
             return (
               <ListItem
                 title={user.name}
-                onPress={() => navigation.navigate('FriendDetail', { friendId: user.id })}
+                onPress={() => handlePressFriend(user.id, user.name)}
                 leading={<Avatar name={user.name} iconUrl={user.icon_url} />}
                 trailing={
-                  friendship ? (
-                    <View style={styles.toggles}>
-                      <View style={styles.toggleRow}>
-                        <Text style={[styles.toggleLabel, { color: colors.textSub }]}>通知</Text>
-                        <Switch
-                          value={friendship.notify_enabled}
-                          onValueChange={() => toggleNotifyEnabled(user.id)}
-                          trackColor={{ true: colors.blue, false: colors.lightblue }}
-                          accessibilityLabel={`${user.name}への入室通知`}
-                        />
+                  <View style={styles.trailingRow}>
+                    {friendship ? (
+                      <View style={styles.toggles}>
+                        <View style={styles.toggleRow}>
+                          <Text style={[styles.toggleLabel, { color: colors.textSub }]}>通知</Text>
+                          <Switch
+                            value={friendship.notify_enabled}
+                            onValueChange={() => toggleNotifyEnabled(user.id)}
+                            trackColor={{ true: colors.blue, false: colors.lightblue }}
+                            accessibilityLabel={`${user.name}への入室通知`}
+                          />
+                        </View>
+                        <View style={styles.toggleRow}>
+                          <Text style={[styles.toggleLabel, { color: colors.textSub }]}>ミュート</Text>
+                          <Switch
+                            value={friendship.muted}
+                            onValueChange={() => toggleMuted(user.id)}
+                            trackColor={{ true: colors.coral, false: colors.lightblue }}
+                            accessibilityLabel={`${user.name}からの通知をミュート`}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.toggleRow}>
-                        <Text style={[styles.toggleLabel, { color: colors.textSub }]}>ミュート</Text>
-                        <Switch
-                          value={friendship.muted}
-                          onValueChange={() => toggleMuted(user.id)}
-                          trackColor={{ true: colors.coral, false: colors.lightblue }}
-                          accessibilityLabel={`${user.name}からの通知をミュート`}
-                        />
-                      </View>
-                    </View>
-                  ) : null
+                    ) : null}
+                    <IconButton
+                      name="ellipsis-horizontal"
+                      variant="secondary"
+                      size={16}
+                      accessibilityLabel={`${user.name}の詳細`}
+                      onPress={() => navigation.navigate('FriendDetail', { friendId: user.id })}
+                    />
+                  </View>
                 }
               />
             );
@@ -125,6 +165,11 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     marginBottom: spacing.md,
+  },
+  trailingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   toggles: {
     gap: spacing.xs,
