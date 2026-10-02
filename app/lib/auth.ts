@@ -58,6 +58,26 @@ export async function isCurrentSessionAnonymous(): Promise<boolean> {
   return data.session?.user.is_anonymous ?? false;
 }
 
+// 匿名セッションに本登録用のメールアドレスを紐づけ、確認コードを送信する
+// （Issue #168）。updateUser({ email })はauth.uidを変えずにセッションへ
+// メールを紐づけ、verifyUpgradeEmailCodeでの確認が完了するまでis_anonymous
+// はtrueのまま維持される
+export async function sendUpgradeEmailCode(email: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) {
+    throw error;
+  }
+}
+
+// メールに届いた6桁のコードで本登録を完了させる（Issue #168）。
+// 確認が成功するとauth.uidを維持したままis_anonymousがfalseになる
+export async function verifyUpgradeEmailCode(email: string, code: string): Promise<void> {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email_change' });
+  if (error || !data.session) {
+    throw error ?? new Error('アカウント登録に失敗しました');
+  }
+}
+
 // USERSテーブルにも自分の行を用意する（初回ログイン時のみ必要）。
 // nameは後でプロフィール画面から変更できる前提の仮の値。
 export async function ensureUserRow(userId: string, defaultName: string): Promise<void> {

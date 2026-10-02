@@ -15,6 +15,7 @@ import {
   ensureSignedIn,
   fetchUserEntryVibrationEnabled,
   fetchUserIsAnonymous,
+  isCurrentSessionAnonymous,
   updateUserEntryVibrationEnabled,
   updateUserIsAnonymous,
 } from '../../lib/auth';
@@ -33,7 +34,7 @@ type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 // Issue #176: docs/architecture.md（2026-09-27決定）通り、プロフィール画面の
 // 歯車アイコンから遷移する詳細設定画面。何を置くかは未確定（docs L185）だが、
 // 現時点では表示モード・入室通知の振動設定を置く
-export default function SettingsScreen({}: Props) {
+export default function SettingsScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const themeMode = useThemeModeStore((state) => state.mode);
@@ -41,17 +42,23 @@ export default function SettingsScreen({}: Props) {
   const [state, setState] = useState<LoadState>('loading');
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  // auth.uidの匿名セッション（signInAnonymously由来）かどうか。USERS.is_anonymous
+  // （匿名モード設定、上のisAnonymous）とは別物（Issue #168）
+  const [isAnonymousSession, setIsAnonymousSession] = useState(false);
 
   function load() {
     setState('loading');
     ensureSignedIn()
       .then(async (userId) => {
-        const [fetchedEntryVibrationEnabled, fetchedIsAnonymous] = await Promise.all([
-          fetchUserEntryVibrationEnabled(userId),
-          fetchUserIsAnonymous(userId),
-        ]);
+        const [fetchedEntryVibrationEnabled, fetchedIsAnonymous, fetchedIsAnonymousSession] =
+          await Promise.all([
+            fetchUserEntryVibrationEnabled(userId),
+            fetchUserIsAnonymous(userId),
+            isCurrentSessionAnonymous(),
+          ]);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
         setIsAnonymous(fetchedIsAnonymous);
+        setIsAnonymousSession(fetchedIsAnonymousSession);
         setState('loaded');
       })
       .catch(() => {
@@ -139,6 +146,13 @@ export default function SettingsScreen({}: Props) {
           />
         </View>
       </View>
+
+      {isAnonymousSession ? (
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSub }]}>アカウント</Text>
+          <Button label="アカウント登録する" onPress={() => navigation.navigate('AccountUpgrade')} />
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>匿名モード</Text>
