@@ -25,7 +25,7 @@ import {
   WANT_TO_MEET_BADGE_ICON_SIZE,
   WANT_TO_MEET_BADGE_SIZE,
 } from '../../constants/wantToMeetBadge';
-import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
+import { isWantToMeetLimitError, useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
 import { fetchMonitoredAreas } from '../../lib/areas';
@@ -172,6 +172,15 @@ export default function FriendsListScreen({ searchQuery }: Props) {
     setMenuTargetId(null);
   }
 
+  // 会いたい人は5人まで（Issue #330、DBトリガーで強制）
+  async function handleToggleWantToMeet(friendId: string) {
+    try {
+      await toggleWantToMeet(friendId);
+    } catch (error) {
+      showToast(isWantToMeetLimitError(error) ? '会いたい人は5人まで登録できます' : '操作に失敗しました');
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!deleteConfirmId) return;
     setDeleting(true);
@@ -285,7 +294,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                     <Avatar name={user.name} iconUrl={user.icon_url} />
                     {friendship ? (
                       <Pressable
-                        onPress={() => toggleWantToMeet(user.id)}
+                        onPress={() => handleToggleWantToMeet(user.id)}
                         hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
                         style={styles.heartBadge}
                         accessibilityLabel={

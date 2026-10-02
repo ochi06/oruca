@@ -204,6 +204,11 @@ erDiagram
   とは無関係、タグ付けミスだったため訂正。受信側が自分の行に設定する値）・
   `want_to_meet`（US-017、Issue #15。デフォルトfalse。trueの間は、共在して
   いなくても入室通知を受け取る。受信側が自分の行に設定する値）を持つ。
+  `want_to_meet`は恒久的なウォッチリスト化を防ぐため、1人あたり同時にtrueに
+  できるのは5人までにDBトリガー（`enforce_want_to_meet_limit`）で強制し、
+  毎日24時（JST）にpg_cron（`reset_want_to_meet_daily`）で全ユーザー分を
+  falseにリセットする（Issue #330、
+  `supabase/migrations/20261003020000_want_to_meet_limit_and_reset.sql`）。
   実際に入室通知を送るかどうかは
   `notify_enabled AND NOT muted AND (want_to_meet OR 自分も同じエリアに在席中)`
   で判定する（2026-10-02、開発者確認済み。旧`notify_only_when_copresent`列

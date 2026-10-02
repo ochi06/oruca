@@ -24,7 +24,7 @@ import {
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
+import { isWantToMeetLimitError, useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
 import { fetchAreasByIds, fetchMonitoredAreas } from '../../lib/areas';
@@ -82,6 +82,15 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   function handleToggleBlock() {
     toggleLocationHidden(friendId);
     setIsMenuVisible(false);
+  }
+
+  // 会いたい人は5人まで（Issue #330、DBトリガーで強制）
+  async function handleToggleWantToMeet() {
+    try {
+      await toggleWantToMeet(friendId);
+    } catch (error) {
+      showToast(isWantToMeetLimitError(error) ? '会いたい人は5人まで登録できます' : '操作に失敗しました');
+    }
   }
 
   async function handleConfirmDelete() {
@@ -213,7 +222,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         bottomLeftBadge={
           friendship ? (
             <Pressable
-              onPress={() => toggleWantToMeet(friendId)}
+              onPress={handleToggleWantToMeet}
               hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
               style={styles.heartBadge}
               accessibilityLabel={
