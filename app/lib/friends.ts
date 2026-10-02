@@ -46,6 +46,20 @@ export async function updateFriendshipField(
   }
 }
 
+// 友達関係を双方向に解消する（US-008「削除」、Issue #276）。FRIENDSHIPSは
+// 片方向2行構成のため、クライアントから自分の行だけをDELETEしても相手の行が
+// 残ってしまう。transferOwnership（lib/groups.ts）と同様のSECURITY DEFINER
+// RPC（remove_friendship）で両方の行を一括・物理削除する
+// （supabase/migrations/20261002180000_remove_friendship.sql参照）。
+// ソフトデリートではなく物理削除のため、再度友達になるには通常のOTP追加
+// フローが必要（2026-10-02、開発者確認済み）
+export async function removeFriendship(friendId: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_friendship', { p_friend_id: friendId });
+  if (error) {
+    throw error;
+  }
+}
+
 // 未失効のコード同士はDBレベルでユニーク（supabase/migrations/
 // 20261001120000_friend_otp_redeem_fix.sql、otp_codes_code_active_idx）。
 // 衝突した場合のPostgresのunique violationエラーコード

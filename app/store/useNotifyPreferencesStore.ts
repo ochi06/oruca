@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { ensureSignedIn } from '../lib/auth';
-import { fetchFriendships, fetchUsersByIds, updateFriendshipField } from '../lib/friends';
+import { fetchFriendships, fetchUsersByIds, removeFriendship, updateFriendshipField } from '../lib/friends';
 import { Friendship, User } from '../mocks/presence';
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -27,6 +27,9 @@ type NotifyPreferencesState = {
   // この友達に自分の位置情報（presence_logs）を見せない（Issue #121、
   // 一方向ブロック。他の3つと違い「情報を隠す側」の設定）
   toggleLocationHidden: (friendId: string) => Promise<void>;
+  // 友達関係を双方向に解消する（US-008「削除」、Issue #276）。成功したら
+  // ローカルのfriendships/usersからも取り除き、一覧に残らないようにする
+  removeFriend: (friendId: string) => Promise<void>;
 };
 
 type ToggleableField = 'notify_enabled' | 'muted' | 'want_to_meet' | 'location_hidden';
@@ -88,4 +91,12 @@ export const useNotifyPreferencesStore = create<NotifyPreferencesState>((set, ge
   toggleWantToMeet: (friendId) => toggleField(get, set, friendId, 'want_to_meet'),
 
   toggleLocationHidden: (friendId) => toggleField(get, set, friendId, 'location_hidden'),
+
+  removeFriend: async (friendId) => {
+    await removeFriendship(friendId);
+    set({
+      friendships: get().friendships.filter((f) => f.friend_id !== friendId),
+      users: get().users.filter((u) => u.id !== friendId),
+    });
+  },
 }));

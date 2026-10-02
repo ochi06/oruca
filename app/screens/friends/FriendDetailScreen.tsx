@@ -17,6 +17,7 @@ import { WantToMeetToggle } from '../../components/WantToMeetToggle';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
 import { fetchMonitoredAreas } from '../../lib/areas';
@@ -51,6 +52,34 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   // （resolveFriendAreaLinkStateが'none'の）エリアのみを検索・選択できる
   const [isPickerVisible, setIsPickerVisible] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
+  // 「…」メニュー（ブロック・削除、Issue #276）
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const friendship = useNotifyPreferencesStore((state) =>
+    state.friendships.find((f) => f.friend_id === friendId)
+  );
+  const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
+  const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
+
+  function handleToggleBlock() {
+    toggleLocationHidden(friendId);
+    setIsMenuVisible(false);
+  }
+
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    try {
+      await removeFriend(friendId);
+      showToast('友達を削除しました');
+      navigation.goBack();
+    } catch (error) {
+      console.error('removeFriend failed:', error);
+      setDeleting(false);
+      setIsDeleteConfirmVisible(false);
+      showToast('友達の削除に失敗しました');
+    }
+  }
 
   function loadAreaLinks(signedInUserId: string) {
     Promise.all([fetchMonitoredAreas(signedInUserId), fetchMyFriendAreaLinks(signedInUserId)]).then(
@@ -131,7 +160,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const pickableAreas = areaStates.filter(({ state }) => state.kind === 'none').map(({ area }) => area);
 
   return (
-    <Screen style={styles.container} onBack={() => navigation.goBack()}>
+    <Screen style={styles.container} onBack={() => navigation.goBack()} onMenu={() => setIsMenuVisible(true)}>
       <ScrollView showsVerticalScrollIndicator={false}>
       <ProfileHeader name={friend.name} iconUrl={friend.icon_url} />
 
@@ -257,6 +286,48 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           })()
         )}
       </Modal>
+
+      <Modal visible={isMenuVisible} onClose={() => setIsMenuVisible(false)} title={friend.name}>
+        <Button
+          label={friendship?.location_hidden ? 'ブロックを解除する' : 'ブロックする'}
+          variant="secondary"
+          onPress={handleToggleBlock}
+          style={styles.menuButton}
+        />
+        <Button
+          label="削除する"
+          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          onPress={() => {
+            setIsMenuVisible(false);
+            setIsDeleteConfirmVisible(true);
+          }}
+        />
+      </Modal>
+
+      <Modal
+        visible={isDeleteConfirmVisible}
+        onClose={() => (deleting ? undefined : setIsDeleteConfirmVisible(false))}
+        title="友達を削除しますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          {friend.name}さんとの友達関係を解消します。この操作は取り消せません。再度友達になるには、OTPコードでの追加が必要です。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setIsDeleteConfirmVisible(false)}
+            disabled={deleting}
+            style={styles.modalButton}
+          />
+          <Button
+            label={deleting ? '削除中…' : '削除する'}
+            onPress={handleConfirmDelete}
+            disabled={deleting}
+            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+          />
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -293,5 +364,15 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     marginBottom: spacing.sm,
+  },
+  menuButton: {
+    marginBottom: spacing.sm,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
