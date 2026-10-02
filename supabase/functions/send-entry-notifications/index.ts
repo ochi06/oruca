@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     await Promise.all([
       supabase
         .from('users')
-        .select('name, allow_entry_notifications')
+        .select('name, allow_entry_notifications, is_anonymous')
         .eq('id', enteringUserId)
         .single(),
       supabase.from('areas').select('name').eq('id', areaId).single(),
@@ -152,7 +152,14 @@ Deno.serve(async (req) => {
     };
     const isRecipientPresent = copresentUserIds.has(friendship.user_id);
 
-    if (shouldSendEntryNotification(friendshipRow, isRecipientPresent, enteringUser.allow_entry_notifications)) {
+    if (
+      shouldSendEntryNotification(
+        friendshipRow,
+        isRecipientPresent,
+        enteringUser.allow_entry_notifications,
+        enteringUser.is_anonymous
+      )
+    ) {
       eligibleRecipients.push({
         userId: friendship.user_id,
         reason: isRecipientPresent ? 'entry' : 'want_to_meet',
