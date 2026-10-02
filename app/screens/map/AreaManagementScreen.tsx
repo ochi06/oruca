@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -101,31 +101,33 @@ export default function AreaManagementScreen({ navigation }: Props) {
       {areas.length === 0 ? (
         <EmptyState icon="map-outline" message="作成したエリアがまだありません" />
       ) : (
-        areas.map((area) => (
-          <ListItem
-            key={area.id}
-            title={area.name}
-            subtitle={`半径 ${area.radius_m}m`}
-            trailing={
-              <View style={styles.rowActions}>
-                <IconButton
-                  name="pencil-outline"
-                  variant="secondary"
-                  accessibilityLabel={`${area.name}を編集`}
-                  onPress={() => navigation.navigate('AreaEdit', { area })}
-                  style={styles.rowActionButton}
-                />
-                <IconButton
-                  name="trash-outline"
-                  variant="secondary"
-                  accessibilityLabel={`${area.name}を削除`}
-                  onPress={() => setDeleteTarget(area)}
-                  style={styles.rowActionButton}
-                />
-              </View>
-            }
-          />
-        ))
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {areas.map((area) => (
+            <ListItem
+              key={area.id}
+              title={area.name}
+              subtitle={`半径 ${area.radius_m}m`}
+              trailing={
+                <View style={styles.rowActions}>
+                  <IconButton
+                    name="pencil-outline"
+                    variant="secondary"
+                    accessibilityLabel={`${area.name}を編集`}
+                    onPress={() => navigation.navigate('AreaEdit', { area })}
+                    style={styles.rowActionButton}
+                  />
+                  <IconButton
+                    name="trash-outline"
+                    variant="secondary"
+                    accessibilityLabel={`${area.name}を削除`}
+                    onPress={() => setDeleteTarget(area)}
+                    style={styles.rowActionButton}
+                  />
+                </View>
+              }
+            />
+          ))}
+        </ScrollView>
       )}
 
       <Modal

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
@@ -161,6 +161,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.container} onBack={() => navigation.goBack()}>
+      <ScrollView showsVerticalScrollIndicator={false}>
       <Text style={[styles.title, { color: colors.text }]}>設定</Text>
 
       <View style={styles.section}>
@@ -229,6 +230,7 @@ export default function SettingsScreen({ navigation }: Props) {
           style={{ backgroundColor: colors.coral }}
         />
       </View>
+      </ScrollView>
 
       <Modal
         visible={deleteConfirmVisible}

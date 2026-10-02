@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -106,31 +106,33 @@ export default function GroupJoinScreen({ navigation }: Props) {
       {invitations.length === 0 ? (
         <EmptyState icon="mail-open-outline" message="届いている招待はありません" />
       ) : (
-        invitations.map((invitation) => {
-          const group = groups.find((g) => g.id === invitation.group_id);
-          return (
-            <ListItem
-              key={invitation.id}
-              title={group?.name ?? '不明なグループ'}
-              subtitle={`${resolveUserName(nameMap, invitation.invited_by!)}からの招待`}
-              trailing={
-                <View style={styles.actions}>
-                  <Button
-                    label="参加する"
-                    onPress={() => handleAccept(invitation.id)}
-                    style={styles.actionButton}
-                  />
-                  <Button
-                    label="辞退する"
-                    variant="secondary"
-                    onPress={() => handleDecline(invitation.id)}
-                    style={styles.actionButton}
-                  />
-                </View>
-              }
-            />
-          );
-        })
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {invitations.map((invitation) => {
+            const group = groups.find((g) => g.id === invitation.group_id);
+            return (
+              <ListItem
+                key={invitation.id}
+                title={group?.name ?? '不明なグループ'}
+                subtitle={`${resolveUserName(nameMap, invitation.invited_by!)}からの招待`}
+                trailing={
+                  <View style={styles.actions}>
+                    <Button
+                      label="参加する"
+                      onPress={() => handleAccept(invitation.id)}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      label="辞退する"
+                      variant="secondary"
+                      onPress={() => handleDecline(invitation.id)}
+                      style={styles.actionButton}
+                    />
+                  </View>
+                }
+              />
+            );
+          })}
+        </ScrollView>
       )}
 
       <GroupDisplayOverrideModal
