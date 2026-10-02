@@ -6,6 +6,15 @@
 // Database Webhookのpayload形式（type/table/record/old_record）に依存する。
 // presence_logsのINSERTイベントのみを購読する設定にすること（UPDATE＝位置更新や
 // 退室では発火させない）。
+//
+// Issue #163：入室した本人向けのarrival_summary（「今会える人」一覧）も
+// あわせて生成する。「会える」判定はFRIEND_AREA_LINKS基準（そのエリアでの
+// 合意がstatus='approved'）に統一する（開発者確認済み、2026-10-01。名前表示
+// 条件と一致させ、「会えると通知が来たのに名前が見えない」という矛盾を無くす
+// ため。FRIENDSHIPSの有無やグループ同席は見ない）。entry/want_to_meetとは
+// 通知の向き（受信者が逆＝入室した本人が受信者）が違うため、別ブロックとして
+// 独立に扱う。プッシュ通知は送らず、通知ボックス（NOTIFICATIONS）行の作成のみ
+// 行う（US-021の要件が「通知ボックスに表示」のため）。
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -63,6 +72,51 @@ Deno.serve(async (req) => {
     ]);
   if (enteringUserError) throw enteringUserError;
   if (areaError) throw areaError;
+
+  // Issue #163：入室した本人向けのarrival_summary。このareaでFRIEND_AREA_LINKS
+  // がstatus='approved'な相手のうち、現在このareaに在席中（exited_at is null）の
+  // 人を「今会える人」として1人1行で作成する
+  const { data: approvedAreaLinks, error: areaLinksError } = await supabase
+    .from('friend_area_links')
+    .select('initiator_id, friend_id')
+    .eq('area_id', areaId)
+    .eq('status', 'approved')
+    .or(`initiator_id.eq.${enteringUserId},friend_id.eq.${enteringUserId}`);
+  if (areaLinksError) throw areaLinksError;
+
+  const meetableCandidateIds = Array.from(
+    new Set(
+      (approvedAreaLinks ?? []).map((link) =>
+        link.initiator_id === enteringUserId ? link.friend_id : link.initiator_id
+      )
+    )
+  );
+
+  if (meetableCandidateIds.length > 0) {
+    const { data: meetablePresenceLogs, error: meetablePresenceError } = await supabase
+      .from('presence_logs')
+      .select('user_id')
+      .eq('area_id', areaId)
+      .is('exited_at', null)
+      .in('user_id', meetableCandidateIds);
+    if (meetablePresenceError) throw meetablePresenceError;
+
+    const meetableUserIds = Array.from(
+      new Set((meetablePresenceLogs ?? []).map((log) => log.user_id))
+    );
+
+    if (meetableUserIds.length > 0) {
+      const { error: arrivalSummaryError } = await supabase.from('notifications').insert(
+        meetableUserIds.map((meetableUserId) => ({
+          user_id: enteringUserId,
+          type: 'arrival_summary',
+          related_user_id: meetableUserId,
+          area_id: areaId,
+        }))
+      );
+      if (arrivalSummaryError) throw arrivalSummaryError;
+    }
+  }
 
   // friend_id = enteringUserId の行＝「入室した本人を友達として持っている人（受信者候補）」の設定
   const { data: friendships, error: friendshipsError } = await supabase

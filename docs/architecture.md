@@ -46,6 +46,23 @@ OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo
   環境（dev/prod）ごとにSupabaseダッシュボードから設定する運用とし、
   マイグレーションには含めていない（Edge FunctionのURLが環境ごとに異なるため）
 
+### 実装済み：通知ボックスの残り2種類（Issue #163、2026-10-02）
+
+- `send-entry-notifications`を拡張し、入室した本人向けの`arrival_summary`
+  （「今会える人」一覧）も同じ入室イベントから生成する。「会える」判定は
+  `FRIEND_AREA_LINKS`基準（そのエリアでの合意がstatus='approved'）に統一
+  した（開発者確認済み。名前表示条件と一致させるため、`FRIENDSHIPS`や
+  グループ同席は見ない）。entry/want_to_meetとは通知の受信者の向きが逆
+  （入室した本人が受信者）のため、別ブロックとして独立に処理する。プッシュ
+  通知は送らず、NOTIFICATIONS行の作成のみ行う
+- `group_members`へのINSERT（＝グループ参加）をDatabase Webhookでフックし、
+  新規Edge Function`send-group-invite-notification`を起動する。
+  `invited_by is not null`の行（既存メンバー/オーナーが友達を招待した場合）
+  のみを対象にし、自己申請・自己参加（招待コード/QR、オーナー自身の初期行）
+  は通知しない
+- このWebhookも`send-entry-notifications`と同様、環境ごとにSupabase
+  ダッシュボードから設定する運用とする
+
 ## 実装方針（この図から導かれる判断基準）
 
 - ジオフェンス判定・PRESENCE_LOGSへの書き込みは**クライアント側**で行う
