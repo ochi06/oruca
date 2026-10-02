@@ -63,6 +63,30 @@ OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo
 - このWebhookも`send-entry-notifications`と同様、環境ごとにSupabase
   ダッシュボードから設定する運用とする
 
+### 実装済み：アプリ内アカウント削除（Issue #228、2026-10-02）
+
+- Apple App Store審査ガイドライン5.1.1(v)・Google Playのアカウント削除
+  ポリシー対応として、設定画面に削除導線を追加した
+- `auth.users`の削除（`auth.admin.deleteUser()`）はservice role権限が
+  必要でクライアントから直接は行えないため、新規Edge Function
+  `delete-account`を追加した。これは既存のWebhookトリガー型（`send-entry-
+  notifications`等）とは異なり、**アプリから直接呼び出す**（`supabase.
+  functions.invoke('delete-account')`）初めてのEdge Functionである
+- 呼び出し元の本人確認は、Authorizationヘッダー（アクセストークン）を
+  anon keyクライアントにそのまま渡して`auth.getUser()`で検証し、
+  トークンの持ち主自身のIDのみを削除対象にする（他人のアカウントを
+  削除できないようにするため、本人確認はservice roleではなくanon+JWTで
+  行う）
+- Web簡易体験版（Issue #190）からの呼び出しはブラウザのCORSチェック対象に
+  なるため、`supabase/functions/_shared/cors.ts`を新設し、プリフライト
+  （OPTIONS）・レスポンスの両方にCORSヘッダーを付与する（既存のWebhook
+  専用Edge Functionsはサーバー間通信のみのため不要だった）
+- `docs/schema.md`「設計上の重要な原則」3.の通り、`USERS.id`が
+  `auth.users(id)`への外部キー（`on delete cascade`）のため、
+  `auth.users`の削除だけで関連テーブルのほぼ全てが連動して物理削除される。
+  `avatars`バケットのアイコン画像のみPostgreSQLの外部キーの対象外のため、
+  Edge Function内で明示的に削除する
+
 ## 実装方針（この図から導かれる判断基準）
 
 - ジオフェンス判定・PRESENCE_LOGSへの書き込みは**クライアント側**で行う

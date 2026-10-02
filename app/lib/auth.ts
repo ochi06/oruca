@@ -217,3 +217,21 @@ export async function updateUserIcon(userId: string, localUri: string): Promise<
 
   return iconUrl;
 }
+
+// アカウントを完全に削除する（Issue #228、Apple 5.1.1(v)・Google Playの
+// アカウント削除ポリシー対応）。クライアントから`auth.users`を直接削除する
+// ことはできない（service role権限が必要）ため、Edge Function
+// （`delete-account`）経由で行う。docs/schema.md「設計上の重要な原則」3.の
+// 通り、位置情報・友達関係など機微データを含め全て物理削除される
+// （外部キーのon delete cascadeで連動）。成功後はローカルセッションも
+// 明示的に破棄し、ログイン画面に戻す
+export async function deleteAccount(): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-account');
+  if (error) {
+    throw error;
+  }
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+  await supabase.auth.signOut();
+}
