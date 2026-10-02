@@ -62,6 +62,52 @@ export async function fetchAreasByIds(areaIds: string[]): Promise<Area[]> {
   return (data ?? []) as Area[];
 }
 
+// 公開済み（is_public=true）のエリアを名前の部分一致で検索する（Issue #333）。
+// AreaRegistrationScreenの「既存の公開エリアを検索して選択する」機能用。
+// RLS側に"public areas are readable by anyone"ポリシーが無いと、他ユーザー
+// 所有のis_public=trueエリアはここでも0件になる点に注意
+// （supabase/migrations/20261003010000_public_areas_readable.sql参照）
+export async function searchPublicAreas(query: string): Promise<Area[]> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from('areas')
+    .select('*')
+    .eq('is_public', true)
+    .ilike('name', `%${trimmed}%`)
+    .order('name', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return (data ?? []) as Area[];
+}
+
+// 指定したエリアが既に自分の監視対象（USER_AREAS）に入っているかを調べる
+// （Issue #333、検索で選んだ既存エリアの重複登録防止用）
+export async function isAreaMonitored(userId: string, areaId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('user_areas')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('area_id', areaId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data !== null;
+}
+
+// 検索で選んだ既存エリアを、自分の監視対象（USER_AREAS）に追加する
+// （Issue #333）。新規にareasをinsertするcreateAreaInBackendとは別物
+export async function monitorExistingArea(userId: string, areaId: string): Promise<void> {
+  const { error } = await supabase.from('user_areas').insert({ user_id: userId, area_id: areaId });
+  if (error) {
+    throw error;
+  }
+}
+
 // ユーザーが実際に参加している（USER_AREASに行がある）エリアを全件取得する
 // （Issue #109）。ジオフェンス監視は複数エリアを同時に見る必要があるため、
 // 「user_areas→areas」の2段階クエリを全件版にしたもの

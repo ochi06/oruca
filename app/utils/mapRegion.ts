@@ -7,7 +7,9 @@ export type Region = {
 
 const MIN_DELTA = 0.01; // 1エリアだけの場合でも狭くなりすぎないようにする下限
 const PADDING_DEG = 0.01; // 全エリアの中心が収まるよう周囲に持たせる余白（簡易対応）
-const FALLBACK_REGION: Region = {
+// エリア未登録時など、表示すべき中心座標が無い場合の既定値（Issue #333で
+// AreaRegistrationScreen.tsxのdefaultCenterからも参照するためexportした）
+export const FALLBACK_REGION: Region = {
   latitude: 34.7025,
   longitude: 135.4959,
   latitudeDelta: MIN_DELTA,

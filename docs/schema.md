@@ -195,9 +195,8 @@ erDiagram
   検索して選択し、新規作成の代わりに監視対象へ追加する」機能
   （`AreaRegistrationScreen`の検索UI、2026-08-16追加）用。`true`のエリアのみ
   検索対象になる。`GROUPS.is_public`（Issue #202で廃止）とは別物で、こちらは
-  廃止されていない。ただし検索機能自体は`mocks/areas.ts`のモックデータの
-  ままで、まだSupabase接続されていない（バックエンド接続後に対応する後続
-  タスク、2026-08-16合意）点に注意
+  廃止されていない。検索機能自体はSupabase接続済み（Issue #333、
+  `is_public = true`へのRLS`"public areas are readable by anyone"`経由）
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
   `notify_enabled`（US-007。入室通知全体のON/OFFマスタースイッチ。デフォルト
