@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
@@ -11,13 +12,15 @@ type Props = {
   areaId: string;
 };
 
-// 友達1人分の滞在予定表示（US-011）。友達詳細画面（Issue #114でreact-navigation
-// 本導入後に配置）から埋め込んで使う想定の単体コンポーネント。ナビゲーション
-// 構成が固まるまでは、まだどの画面からも呼び出されていない
+// 友達1人分の滞在予定表示（US-011）。Issue #242でFriendDetailScreenに配線した
 export function FriendScheduleNote({ friendId, areaId }: Props) {
   const { colors } = useTheme();
   const initialize = useScheduleStore((state) => state.initialize);
-  const schedule = useScheduleStore((state) => state.friendSchedule(friendId, areaId));
+  // friendScheduleは呼び出すたびに新しいオブジェクトを返すため、参照比較の
+  // デフォルトだとgetSnapshotが毎回「変化した」と判定され無限ループになる
+  // （Issue #242で実際に画面に組み込んだ際に発覚）。GroupJoinScreen/
+  // GroupDetailScreenと同じくuseShallowで値の中身を比較するようにする
+  const schedule = useScheduleStore(useShallow((state) => state.friendSchedule(friendId, areaId)));
 
   useEffect(() => {
     initialize(areaId);
