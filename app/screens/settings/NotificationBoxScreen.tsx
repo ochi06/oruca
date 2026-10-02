@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
@@ -195,7 +195,9 @@ export default function NotificationBoxScreen({ navigation }: Props) {
       {items.length === 0 ? (
         <EmptyState icon="notifications-outline" message="通知はありません" />
       ) : (
-        items.map((item) => (item.kind === 'arrival_group' ? renderArrivalGroup(item) : renderSingle(item.notification)))
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {items.map((item) => (item.kind === 'arrival_group' ? renderArrivalGroup(item) : renderSingle(item.notification)))}
+        </ScrollView>
       )}
     </Screen>
   );

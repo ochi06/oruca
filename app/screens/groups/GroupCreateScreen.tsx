@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -96,6 +96,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
   return (
     <Screen style={styles.container} avoidKeyboard onBack={() => navigation.goBack()}>
+      <ScrollView showsVerticalScrollIndicator={false}>
       <Text style={[styles.title, { color: colors.text }]}>グループ作成</Text>
       <Input
         value={name}
@@ -145,6 +146,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
         disabled={creating || !userId}
         style={styles.createButton}
       />
+      </ScrollView>
     </Screen>
   );
 }
