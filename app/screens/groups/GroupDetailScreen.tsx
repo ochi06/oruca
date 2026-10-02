@@ -91,7 +91,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   if (authError) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={onBack}>
         <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
       </Screen>
     );
@@ -99,9 +99,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   if (!group) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={onBack}>
         <EmptyState icon="people-outline" message="グループが見つかりません" />
-        <Button label="戻る" variant="secondary" onPress={onBack} />
       </Screen>
     );
   }
@@ -191,8 +190,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   }
 
   return (
-    <Screen style={styles.container}>
-      <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
+    <Screen style={styles.container} onBack={onBack}>
       <Text style={[styles.title, { color: colors.text }]}>{group.name}</Text>
 
       {group.type === 'open' && isAdmin && (
@@ -354,10 +352,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     paddingHorizontal: spacing.md,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
   },
   inviteButton: {
     marginBottom: spacing.lg,

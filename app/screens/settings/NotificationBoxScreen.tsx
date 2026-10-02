@@ -174,7 +174,7 @@ export default function NotificationBoxScreen({ navigation }: Props) {
 
   if (status === 'loading' || status === 'idle') {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <LoadingIndicator />
       </Screen>
     );
@@ -182,14 +182,14 @@ export default function NotificationBoxScreen({ navigation }: Props) {
 
   if (status === 'error') {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <ErrorState message="通知の取得に失敗しました。" onRetry={initialize} />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>通知ボックス</Text>
 
       {items.length === 0 ? (
@@ -197,8 +197,6 @@ export default function NotificationBoxScreen({ navigation }: Props) {
       ) : (
         items.map((item) => (item.kind === 'arrival_group' ? renderArrivalGroup(item) : renderSingle(item.notification)))
       )}
-
-      <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} style={styles.backButton} />
     </Screen>
   );
 }
@@ -221,8 +219,5 @@ const styles = StyleSheet.create({
   markReadButton: {
     marginTop: spacing.sm,
     alignSelf: 'flex-start',
-  },
-  backButton: {
-    marginTop: spacing.md,
   },
 });

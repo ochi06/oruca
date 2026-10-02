@@ -93,14 +93,14 @@ export default function GroupJoinScreen({ navigation }: Props) {
 
   if (authError) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>グループ参加</Text>
 
       {invitations.length === 0 ? (
@@ -133,8 +133,6 @@ export default function GroupJoinScreen({ navigation }: Props) {
         })
       )}
 
-      <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} style={styles.backButton} />
-
       <GroupDisplayOverrideModal
         visible={acceptedMemberId !== null}
         defaultName={defaultName}
@@ -159,8 +157,5 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     paddingHorizontal: spacing.md,
-  },
-  backButton: {
-    marginTop: spacing.md,
   },
 });

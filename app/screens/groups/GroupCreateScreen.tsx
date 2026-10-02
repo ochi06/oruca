@@ -88,14 +88,14 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
   if (authError) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <ErrorState message="ログイン状態を確認できませんでした。" onRetry={loadUser} />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container} avoidKeyboard>
+    <Screen style={styles.container} avoidKeyboard onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>グループ作成</Text>
       <Input
         value={name}
@@ -145,7 +145,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
         disabled={creating || !userId}
         style={styles.createButton}
       />
-      <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} disabled={creating} />
     </Screen>
   );
 }

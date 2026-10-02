@@ -43,7 +43,7 @@ export default function AddFriendScreen({ navigation }: Props) {
   const secondsLeft = myOtp === null || isOtpExpired(myOtp, now) ? 0 : remainingSeconds(myOtp.expires_at, now);
 
   return (
-    <Screen style={styles.container} avoidKeyboard>
+    <Screen style={styles.container} avoidKeyboard onBack={onBack}>
       <Text style={[styles.title, { color: colors.text }]}>友達追加</Text>
 
       <View style={styles.section}>
@@ -63,7 +63,6 @@ export default function AddFriendScreen({ navigation }: Props) {
       </View>
 
       <Button label="相手のコードを読み取る・入力する" onPress={onRedeemCode} />
-      <Button label="戻る" variant="secondary" onPress={onBack} style={styles.backButton} />
     </Screen>
   );
 }
@@ -91,8 +90,5 @@ const styles = StyleSheet.create({
     ...typography.title,
     textAlign: 'center',
     letterSpacing: 4,
-  },
-  backButton: {
-    marginTop: spacing.sm,
   },
 });
