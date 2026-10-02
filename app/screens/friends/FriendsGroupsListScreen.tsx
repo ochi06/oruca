@@ -6,6 +6,7 @@ import { IconButton } from '../../components/IconButton';
 import { Input } from '../../components/Input';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
+import { SegmentedControl } from '../../components/SegmentedControl';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -55,34 +56,15 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   return (
     <Screen style={styles.container}>
       <View style={styles.headerRow}>
-        <View style={[styles.segmentRow, { borderColor: colors.lightblue }]}>
-          <Pressable
-            style={[styles.segmentButton, segment === 'friends' && { backgroundColor: colors.blue }]}
-            onPress={() => setSegment('friends')}
-          >
-            <Text
-              style={[
-                typography.body,
-                { color: segment === 'friends' ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              友達
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.segmentButton, segment === 'groups' && { backgroundColor: colors.blue }]}
-            onPress={() => setSegment('groups')}
-          >
-            <Text
-              style={[
-                typography.body,
-                { color: segment === 'groups' ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              グループ
-            </Text>
-          </Pressable>
-        </View>
+        <SegmentedControl
+          style={styles.segmentRow}
+          options={[
+            { value: 'friends', label: '友達' },
+            { value: 'groups', label: 'グループ' },
+          ]}
+          value={segment}
+          onChange={setSegment}
+        />
         {!searchOpen && (
           <IconButton
             name="search-outline"
@@ -158,15 +140,6 @@ const styles = StyleSheet.create({
   },
   segmentRow: {
     flex: 1,
-    flexDirection: 'row',
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
   },
   searchRow: {
     flexDirection: 'row',
