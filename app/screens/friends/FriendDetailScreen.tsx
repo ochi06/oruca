@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AreaMapPreview } from '../../components/AreaMapPreview';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { Input } from '../../components/Input';
@@ -26,7 +27,7 @@ import { typography } from '../../theme/typography';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
-import { fetchMonitoredAreas } from '../../lib/areas';
+import { fetchAreasByIds, fetchMonitoredAreas } from '../../lib/areas';
 import {
   approveFriendAreaLink,
   fetchMyFriendAreaLinks,
@@ -55,6 +56,9 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const friend = friends.find((user) => user.id === friendId);
   const [userId, setUserId] = useState<string | null>(null);
   const [monitoredAreas, setMonitoredAreas] = useState<Area[]>([]);
+  // この友達とのFRIEND_AREA_LINKSが指す、自分が監視登録していないエリア
+  // （Issue #340）。RLS上、自分宛のpending/approvedな提案がある限り読める
+  const [unmonitoredLinkedAreas, setUnmonitoredLinkedAreas] = useState<Area[]>([]);
   const [links, setLinks] = useState<FriendAreaLink[]>([]);
   const [busyAreaId, setBusyAreaId] = useState<string | null>(null);
   // エリア紐づけの追加ピッカー（Issue #272）。まだ紐づけ状態のない
@@ -94,19 +98,37 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function loadAreaLinks(signedInUserId: string) {
-    Promise.all([fetchMonitoredAreas(signedInUserId), fetchMyFriendAreaLinks(signedInUserId)]).then(
-      ([areas, fetchedLinks]) => {
-        setMonitoredAreas(areas);
-        setLinks(fetchedLinks);
-      }
+  async function loadAreaLinks(signedInUserId: string) {
+    const [areas, fetchedLinks] = await Promise.all([
+      fetchMonitoredAreas(signedInUserId),
+      fetchMyFriendAreaLinks(signedInUserId),
+    ]);
+    setMonitoredAreas(areas);
+    setLinks(fetchedLinks);
+
+    // この友達との紐づけが指すエリアのうち、まだmonitoredAreasに入っていない
+    // （＝自分が未監視の）ものを別途取得する（Issue #340）。提案者側の提案は
+    // 必ず自分が所有・監視中のエリアに限られるため、ここに出てくるのは
+    // 「相手から提案された、自分が未監視のエリア」のみのはず
+    const monitoredAreaIds = new Set(areas.map((a) => a.id));
+    const linkedAreaIdsWithThisFriend = fetchedLinks
+      .filter(
+        (link) =>
+          (link.initiator_id === signedInUserId && link.friend_id === friendId) ||
+          (link.initiator_id === friendId && link.friend_id === signedInUserId)
+      )
+      .map((link) => link.area_id);
+    const unmonitoredAreaIds = [...new Set(linkedAreaIdsWithThisFriend)].filter(
+      (areaId) => !monitoredAreaIds.has(areaId)
     );
+    const unmonitoredAreas = await fetchAreasByIds(unmonitoredAreaIds);
+    setUnmonitoredLinkedAreas(unmonitoredAreas);
   }
 
   useEffect(() => {
     ensureSignedIn().then(async (signedInUserId) => {
       setUserId(signedInUserId);
-      loadAreaLinks(signedInUserId);
+      await loadAreaLinks(signedInUserId);
       const today = todayDateString(new Date());
       const [schedules, overrides] = await Promise.all([
         fetchAllVisibleAreaSchedules(),
@@ -122,7 +144,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setBusyAreaId(areaId);
     try {
       await proposeFriendAreaLink(userId, friendId, areaId);
-      loadAreaLinks(userId);
+      await loadAreaLinks(userId);
       setIsPickerVisible(false);
       setPickerQuery('');
       showToast('エリアの紐づけを提案しました');
@@ -137,8 +159,8 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     if (!userId) return;
     setBusyAreaId(areaId);
     try {
-      await approveFriendAreaLink(linkId);
-      loadAreaLinks(userId);
+      await approveFriendAreaLink(linkId, userId, areaId);
+      await loadAreaLinks(userId);
       showToast('エリアの紐づけを承認しました');
     } catch {
       showToast('承認に失敗しました');
@@ -152,7 +174,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setBusyAreaId(areaId);
     try {
       await rejectFriendAreaLink(linkId);
-      loadAreaLinks(userId);
+      await loadAreaLinks(userId);
       showToast('提案を拒否しました');
     } catch {
       showToast('拒否に失敗しました');
@@ -169,9 +191,13 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  // 既に何らかの紐づけ状態があるエリアのみ通常表示し（Issue #272）、
-  // まだ紐づけ状態のない（'none'の）エリアは「追加」ピッカー側に回す
-  const areaStates = userId === null ? [] : monitoredAreas.map((area) => ({
+  // 自分が監視中のエリアに加え、この友達との紐づけが指す未監視エリアも
+  // 母集団に含める（Issue #340）。既に何らかの紐づけ状態があるエリアのみ
+  // 通常表示し（Issue #272）、まだ紐づけ状態のない（'none'の）エリアは
+  // 「追加」ピッカー側に回す
+  const monitoredAreaIds = new Set(monitoredAreas.map((area) => area.id));
+  const allRelevantAreas = [...monitoredAreas, ...unmonitoredLinkedAreas];
+  const areaStates = userId === null ? [] : allRelevantAreas.map((area) => ({
     area,
     state: resolveFriendAreaLinkState(links, userId, friendId, area.id),
   }));
@@ -241,6 +267,9 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         ) : (
           linkedAreas.map(({ area, state }) => {
             const busy = busyAreaId === area.id;
+            // 自分が未監視のエリアへのpending_received提案は、名前だけでは
+            // 場所が分からないため地図プレビューを表示する（Issue #340）
+            const showMapPreview = state.kind === 'pending_received' && !monitoredAreaIds.has(area.id);
             let trailing: ReactNode;
             if (state.kind === 'approved') {
               trailing = <Text style={{ color: colors.textSub }}>紐づけ済み</Text>;
@@ -279,6 +308,14 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
             return (
               <View key={area.id}>
                 <ListItem title={area.name} trailing={trailing} />
+                {showMapPreview && (
+                  <AreaMapPreview
+                    centerLat={area.center_lat}
+                    centerLng={area.center_lng}
+                    radiusM={area.radius_m}
+                    style={styles.areaPreview}
+                  />
+                )}
                 <FriendScheduleNote friendId={friendId} areaId={area.id} />
               </View>
             );
@@ -424,6 +461,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     paddingHorizontal: spacing.md,
+  },
+  areaPreview: {
+    marginBottom: spacing.sm,
   },
   searchInput: {
     marginBottom: spacing.sm,
