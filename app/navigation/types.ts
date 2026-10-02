@@ -3,16 +3,15 @@
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import { Area } from '../mocks/areas';
-import { AreaPresentUser } from '../utils/presenceMarkers';
 import { Region } from '../utils/mapRegion';
 
 export type MapStackParamList = {
   // 友達・グループ一覧の行タップからの絞り込み遷移（Issue #261）。
   // originを渡すと左上に戻る矢印を出し、遷移元の一覧（FriendsGroupsList）に戻れるようにする
   Map: { filterAreaId?: string; origin?: 'friends' | 'groups' } | undefined;
-  // マップ画面が既に取得済みのそのエリアの在席者一覧をそのまま渡す
-  // （Issue #120。再フェッチしないためRealtimeでの自動更新はされない点に注意）
-  PresenceList: { areaName: string; users: AreaPresentUser[] };
+  // 在席者一覧はusePresenceStoreから取得するため、areaIdのみ渡す
+  // （Issue #308：Realtime購読の結果がこの画面にも反映されるようにするため）
+  PresenceList: { areaName: string; areaId: string };
   // マップ画面で見ていた表示範囲をそのまま初期表示に引き継ぐ（Issue #186）。
   // 省略時（参加エリアが無い状態からのEmptyState経由等）は既存のフォールバック座標を使う
   AreaRegistration: { initialRegion?: Region } | undefined;

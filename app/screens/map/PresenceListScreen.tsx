@@ -9,16 +9,17 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { formatPresenceCount } from '../../utils/format';
 import { userStatusLabel } from '../../constants/status';
+import { usePresenceStore } from '../../store/usePresenceStore';
 import { MapStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<MapStackParamList, 'PresenceList'>;
 
 // マップのポップアップ「もっと見る」から遷移するフルリスト（Issue #120）。
-// マップ画面が取得済みのそのエリアの在席者一覧をそのまま表示するため、
-// この画面自体は再フェッチせず、開いた時点のスナップショット表示になる
-// （Realtimeでの自動更新はされない。再度マップに戻ってタップし直せば最新化される）
+// 在席者一覧はusePresenceStoreから読む（Issue #308）ため、マップ画面で
+// presence_logsのRealtime購読が動いている限り、この画面も自動で最新化される
 export default function PresenceListScreen({ route, navigation }: Props) {
-  const { areaName, users } = route.params;
+  const { areaName, areaId } = route.params;
+  const users = usePresenceStore((s) => s.areaPresence[areaId] ?? []);
   const { colors } = useTheme();
 
   return (
