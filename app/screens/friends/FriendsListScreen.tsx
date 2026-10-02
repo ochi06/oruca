@@ -16,7 +16,6 @@ import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
-import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
@@ -61,8 +60,6 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   const status = useNotifyPreferencesStore((state) => state.status);
   const initialize = useNotifyPreferencesStore((state) => state.initialize);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
-  const toggleNotifyEnabled = useNotifyPreferencesStore((state) => state.toggleNotifyEnabled);
-  const toggleMuted = useNotifyPreferencesStore((state) => state.toggleMuted);
   const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
   const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
   const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
@@ -313,28 +310,6 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                         <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.textSub} />
                       </View>
                     ) : null}
-                    {friendship ? (
-                      <View style={styles.toggles}>
-                        <View style={styles.toggleRow}>
-                          <Text style={[styles.toggleLabel, { color: colors.textSub }]}>通知</Text>
-                          <Switch
-                            value={friendship.notify_enabled}
-                            onValueChange={() => toggleNotifyEnabled(user.id)}
-                            trackColor={{ true: colors.blue, false: colors.lightblue }}
-                            accessibilityLabel={`${user.name}への入室通知`}
-                          />
-                        </View>
-                        <View style={styles.toggleRow}>
-                          <Text style={[styles.toggleLabel, { color: colors.textSub }]}>ミュート</Text>
-                          <Switch
-                            value={friendship.muted}
-                            onValueChange={() => toggleMuted(user.id)}
-                            trackColor={{ true: colors.coral, false: colors.lightblue }}
-                            accessibilityLabel={`${user.name}からの通知をミュート`}
-                          />
-                        </View>
-                      </View>
-                    ) : null}
                     <IconButton
                       name="ellipsis-vertical"
                       variant="ghost"
@@ -493,17 +468,6 @@ const styles = StyleSheet.create({
     height: WANT_TO_MEET_BADGE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  toggles: {
-    gap: spacing.xs,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  toggleLabel: {
-    ...typography.caption,
   },
   menuButton: {
     marginBottom: spacing.sm,
