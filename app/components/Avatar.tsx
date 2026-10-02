@@ -18,10 +18,7 @@ export function Avatar({ iconUrl, name, size = 40 }: Props) {
     return (
       <Image
         source={{ uri: iconUrl }}
-        style={[
-          styles.image,
-          { width: size, height: size, borderRadius: size / 2 },
-        ]}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.lightblue }}
       />
     );
   }
@@ -52,9 +49,6 @@ export function Avatar({ iconUrl, name, size = 40 }: Props) {
 }
 
 const styles = StyleSheet.create({
-  image: {
-    backgroundColor: '#ccc',
-  },
   placeholder: {
     alignItems: 'center',
     justifyContent: 'center',
