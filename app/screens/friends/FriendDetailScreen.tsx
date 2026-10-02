@@ -103,22 +103,14 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
 
   if (!friend) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <EmptyState icon="person-outline" message="友達が見つかりません" />
-        <Button label="戻る" variant="secondary" onPress={() => navigation.goBack()} />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container}>
-      <Button
-        label="戻る"
-        variant="secondary"
-        onPress={() => navigation.goBack()}
-        style={styles.backButton}
-      />
-
+    <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <View style={styles.header}>
         <Avatar name={friend.name} iconUrl={friend.icon_url} size={64} />
         <Text style={[styles.name, { color: colors.text }]}>{friend.name}</Text>

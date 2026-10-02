@@ -70,13 +70,12 @@ export default function AccountUpgradeScreen({ navigation }: Props) {
 
   if (done) {
     return (
-      <Screen style={styles.container} avoidKeyboard>
+      <Screen style={styles.container} avoidKeyboard onBack={() => navigation.goBack()}>
         <View style={styles.content}>
           <Text style={[styles.title, { color: colors.text }]}>登録が完了しました</Text>
           <Text style={[styles.body, { color: colors.textSub }]}>
             {sentTo} をアカウントのメールアドレスとして登録しました。
           </Text>
-          <Button label="設定にもどる" onPress={() => navigation.goBack()} />
         </View>
       </Screen>
     );
@@ -84,7 +83,7 @@ export default function AccountUpgradeScreen({ navigation }: Props) {
 
   if (sentTo) {
     return (
-      <Screen style={styles.container} avoidKeyboard>
+      <Screen style={styles.container} avoidKeyboard onBack={() => navigation.goBack()}>
         <View style={styles.content}>
           <Text style={[styles.title, { color: colors.text }]}>コードを入力してください</Text>
           <Text style={[styles.body, { color: colors.textSub }]}>
@@ -128,7 +127,7 @@ export default function AccountUpgradeScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen style={styles.container} avoidKeyboard>
+    <Screen style={styles.container} avoidKeyboard onBack={() => navigation.goBack()}>
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.text }]}>アカウントを登録する</Text>
         <Text style={[styles.body, { color: colors.textSub }]}>

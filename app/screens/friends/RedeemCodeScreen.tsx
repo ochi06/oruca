@@ -183,14 +183,14 @@ export default function RedeemCodeScreen({ navigation }: Props) {
 
   if (!userId) {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={onBack}>
         <LoadingIndicator />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container} avoidKeyboard>
+    <Screen style={styles.container} avoidKeyboard onBack={onBack}>
       <Text style={[styles.title, { color: colors.text }]}>コードを読み取る・入力する</Text>
       <Text style={[styles.description, { color: colors.textSub }]}>
         グループの招待コード・友達追加のコードのどちらでも読み取れます。
@@ -232,8 +232,6 @@ export default function RedeemCodeScreen({ navigation }: Props) {
         disabled={submitting || code.trim().length === 0}
         style={styles.submitButton}
       />
-      <Button label="戻る" variant="secondary" onPress={onBack} disabled={submitting} />
-
       <GroupDisplayOverrideModal
         visible={joinedMemberId !== null}
         defaultName={defaultName}

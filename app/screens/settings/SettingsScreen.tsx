@@ -121,7 +121,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
   if (state === 'loading') {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <LoadingIndicator />
       </Screen>
     );
@@ -129,14 +129,14 @@ export default function SettingsScreen({ navigation }: Props) {
 
   if (state === 'error') {
     return (
-      <Screen style={styles.container}>
+      <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <ErrorState message="設定の取得に失敗しました。" onRetry={load} />
       </Screen>
     );
   }
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>設定</Text>
 
       <View style={styles.section}>

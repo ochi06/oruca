@@ -17,12 +17,12 @@ type Props = NativeStackScreenProps<MapStackParamList, 'PresenceList'>;
 // マップ画面が取得済みのそのエリアの在席者一覧をそのまま表示するため、
 // この画面自体は再フェッチせず、開いた時点のスナップショット表示になる
 // （Realtimeでの自動更新はされない。再度マップに戻ってタップし直せば最新化される）
-export default function PresenceListScreen({ route }: Props) {
+export default function PresenceListScreen({ route, navigation }: Props) {
   const { areaName, users } = route.params;
   const { colors } = useTheme();
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>{areaName}</Text>
       <Text style={[styles.count, { color: colors.textSub }]}>
         {formatPresenceCount(users.length)}
