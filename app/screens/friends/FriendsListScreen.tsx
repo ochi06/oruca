@@ -290,10 +290,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                       <Pressable
                         onPress={() => toggleWantToMeet(user.id)}
                         hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
-                        style={[
-                          styles.heartBadge,
-                          { backgroundColor: colors.surface, borderColor: colors.coral },
-                        ]}
+                        style={styles.heartBadge}
                         accessibilityLabel={
                           friendship.want_to_meet
                             ? `${user.name}を会いたい人から外す`
@@ -494,8 +491,6 @@ const styles = StyleSheet.create({
     right: -2,
     width: WANT_TO_MEET_BADGE_SIZE,
     height: WANT_TO_MEET_BADGE_SIZE,
-    borderRadius: WANT_TO_MEET_BADGE_SIZE / 2,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
