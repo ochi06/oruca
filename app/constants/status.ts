@@ -12,7 +12,8 @@ export const USER_STATUS_OPTIONS: {
 }[] = [
   { value: 'working', label: '作業中', icon: 'briefcase-outline' },
   { value: 'want_to_join', label: '合流したい', icon: 'hand-left-outline' },
-  { value: 'away', label: '離席中', icon: 'moon-outline' },
+  // Issue #362：moon-outlineから変更。「丸に斜線」で離席中を示す（絵文字不使用、developer確認済み）
+  { value: 'away', label: '離席中', icon: 'ban-outline' },
   { value: 'focus', label: '集中', icon: 'headset-outline' },
 ];
 
