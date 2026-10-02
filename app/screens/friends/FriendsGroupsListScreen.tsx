@@ -20,10 +20,21 @@ type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendsGroupsL
 // セグメント切替で友達一覧/グループ一覧を出し分け、フローティングボタンから
 // 友達追加・グループ作成・グループ参加・コードを読み取る/入力するの4択に遷移する
 // （Issue #208で友達追加QR/グループ参加QR・コード入力をRedeemCodeScreenに統合）
-export default function FriendsGroupsListScreen({ navigation }: Props) {
+export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
-  const [segment, setSegment] = useState<Segment>('friends');
+  const [segment, setSegment] = useState<Segment>(route.params?.initialSegment ?? 'friends');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // マップ画面の戻る矢印から、タップ時点のセグメント（友達/グループ）で戻ってこられるように
+  // （Issue #261）。この画面自体はスタック内で使い回されるため、useStateの初期値だけでは
+  // 2回目以降のnavigate時に反映されない。レンダー中にstateを更新する公式パターン
+  // （https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes）
+  // を使い、useEffectでの同期は避ける
+  const [prevInitialSegment, setPrevInitialSegment] = useState(route.params?.initialSegment);
+  if (route.params?.initialSegment && route.params.initialSegment !== prevInitialSegment) {
+    setPrevInitialSegment(route.params.initialSegment);
+    setSegment(route.params.initialSegment);
+  }
 
   function navigateFromMenu(screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'RedeemCode') {
     setMenuOpen(false);
