@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
@@ -13,6 +14,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useGroupStore } from '../../store/useGroupStore';
 import { ensureSignedIn } from '../../lib/auth';
+import { matchesSearchQuery } from '../../utils/search';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 export default function GroupsListScreen() {
@@ -55,6 +57,10 @@ export default function GroupsListScreen() {
   const groups = allGroups.filter(
     (group) => group.owner_user_id === userId || myGroupIds.has(group.id)
   );
+  // 名前の部分一致で絞り込む検索欄（Issue #251）。自分が既に参加している
+  // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
+  const [searchQuery, setSearchQuery] = useState('');
+  const visibleGroups = groups.filter((group) => matchesSearchQuery(group.name, searchQuery));
 
   if (authError) {
     return (
@@ -84,11 +90,24 @@ export default function GroupsListScreen() {
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>グループ</Text>
 
+      {groups.length > 0 ? (
+        <Input
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="名前で検索"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      ) : null}
+
       {groups.length === 0 ? (
         <EmptyState icon="people-circle-outline" message="まだグループがありません" />
+      ) : visibleGroups.length === 0 ? (
+        <EmptyState icon="search-outline" message="該当するグループが見つかりません" />
       ) : (
         <FlatList
-          data={groups}
+          data={visibleGroups}
           keyExtractor={(group) => group.id}
           renderItem={({ item: group }) => (
             <ListItem
@@ -105,6 +124,9 @@ export default function GroupsListScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
+  },
+  searchInput: {
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.title,

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -5,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { Input } from '../../components/Input';
 import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Screen } from '../../components/Screen';
@@ -13,6 +15,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
+import { matchesSearchQuery } from '../../utils/search';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 
 export default function FriendsListScreen() {
@@ -26,6 +29,10 @@ export default function FriendsListScreen() {
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
+  // 名前の部分一致で絞り込む検索欄（Issue #251）。自分が既に参加している
+  // 一覧をクライアント側でフィルタするだけで、新規のDB・RLSは不要
+  const [searchQuery, setSearchQuery] = useState('');
+  const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
 
   if (status === 'loading' || status === 'idle') {
     return (
@@ -49,11 +56,24 @@ export default function FriendsListScreen() {
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>友達</Text>
 
+      {friends.length > 0 ? (
+        <Input
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="名前で検索"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      ) : null}
+
       {friends.length === 0 ? (
         <EmptyState icon="people-outline" message="まだ友達がいません" />
+      ) : visibleFriends.length === 0 ? (
+        <EmptyState icon="search-outline" message="該当する友達が見つかりません" />
       ) : (
         <FlatList
-          data={friends}
+          data={visibleFriends}
           keyExtractor={(user) => user.id}
           renderItem={({ item: user }) => {
             const friendship = friendships.find((f) => f.friend_id === user.id);
@@ -98,6 +118,9 @@ export default function FriendsListScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
+  },
+  searchInput: {
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.title,
