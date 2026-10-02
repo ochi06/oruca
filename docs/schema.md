@@ -183,7 +183,13 @@ erDiagram
   `center_lng`は小数点以下6桁に丸める（約11cm精度、地図SDKの生の値をそのまま
   保存しない）。`radius_m`は10〜200mの範囲（下限はGPS精度によるブレを考慮、
   上限はオフィス・部室規模を想定。学校のような広い敷地は複数エリアに分けて
-  登録する前提。値は最も近い整数に丸める）
+  登録する前提。値は最も近い整数に丸める）。`is_public`は「既存の公開エリアを
+  検索して選択し、新規作成の代わりに監視対象へ追加する」機能
+  （`AreaRegistrationScreen`の検索UI、2026-08-16追加）用。`true`のエリアのみ
+  検索対象になる。`GROUPS.is_public`（Issue #202で廃止）とは別物で、こちらは
+  廃止されていない。ただし検索機能自体は`mocks/areas.ts`のモックデータの
+  ままで、まだSupabase接続されていない（バックエンド接続後に対応する後続
+  タスク、2026-08-16合意）点に注意
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
   `notify_enabled`（US-007）・`muted`（US-008）・`notify_only_when_copresent`
@@ -232,8 +238,7 @@ erDiagram
   pending（申請中）→approved（承認済み）／rejected（却下）の二段階。
   `invited_by`は既存メンバーが友達を直接招待した場合の招待者（招待コードでの
   自己申請の場合はnull）。グループ内での名前公開は`status = 'approved'`で
-  あることのみを条件とする（グループとエリアの紐づけ・エリア単位の合意形成は
-  別Issueで検討）。ただし`type = 'open'`のグループでの在席状況の公開は、
+  あることのみを条件とする。ただし`type = 'open'`のグループでの在席状況の公開は、
   RLSではなくクエリ側フィルタとして、自分がその`GROUPS.area_id`に
   現在在籍中（`PRESENCE_LOGS.exited_at IS NULL`）の場合のみ見える
   （Issue #148、2026-10-01開発者確認済み）。`display_name`/`display_icon_url`は
@@ -279,4 +284,5 @@ erDiagram
 4. グループ機能（US-006など）は`GROUPS`・`GROUP_MEMBERS`を新規テーブルとして
    追加し、既存テーブルは変更しない方針とする（2026-09-19、開発者確認済み）。
    グループとエリアの紐づけ（「グループがどのエリアで在席を共有するか」）は
-   US-006のスコープ外とし、別Issueで設計する
+   `GROUPS.area_id`で行う（Issue #148でopen限定必須として導入、Issue #204で
+   closedも含め必須化。2026-10-02時点で設計・実装とも完了）

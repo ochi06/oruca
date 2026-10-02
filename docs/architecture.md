@@ -235,6 +235,31 @@ Tab Navigator（最上位）
   例：`app/utils/geo.ts`（距離計算、US-004・US-018で共有）。重複実装を防ぐため、
   新しい計算処理を書く前に既存の`app/utils/`配下を確認する
 
+### Web版（ブース展示向け簡易体験版、Issue #190、2026-10-01〜）
+
+ネイティブ配布（Android APK・iOS TestFlight）に加え、ブース展示の保険として
+`expo start --web` / `expo export -p web`で動くブラウザ版を用意している。
+ファイル単位の分割ではなく、`Platform.OS === 'web'`による分岐を基本方針とし、
+react-native-mapsやexpo-cameraなど一部のネイティブ専用モジュールに依存する
+箇所だけを置き換える：
+
+- **マップタブ**：`navigation/MapStackNavigator.web.tsx`（`.web.tsx`拡張子で
+  Web版のみバンドル）が、react-native-maps依存の画面を一切マウントせず、
+  「タブを開いたままにしてください」という案内（`WebDemoNotice`）のみを表示する
+- **コードを読み取る・入力する**（Issue #208のRedeemCodeScreen）：カメラQR
+  スキャン部分のみ`Platform.OS`で出し分け、Web版は手入力のみ
+- **ジオフェンス検知**：`useGeofenceMonitor`は無改修で流用。`expo-location`の
+  `watchPositionAsync`が公式にWeb実装（`navigator.geolocation.watchPosition`
+  のラッパー）を提供しているため動く。ただしブラウザのGeolocation APIは
+  `timeInterval`/`distanceInterval`を無視するため、実際の位置変化が無いと
+  コールバックが再発火しない制約がある（デスクトップブラウザ等、位置が
+  完全に静止し続ける環境では検知が遅れうる、既知の制約として記録のみ）
+- Web版は「タブを開いたまま・フォアグラウンドでいる間だけ」動く縮小版で
+  あることを明示する（oruca本来の「アプリを閉じていても検知する」という
+  体験は再現できない）。クローズグループ・友達関連機能はWeb版のスコープ外
+- ホスティングは開発者の既存Vercelアカウントへ`vercel --prod`でデプロイする
+  想定（`app/vercel.json`、static export出力先`dist/`、SPA rewrite設定済み）
+
 ### 未確定・今後決める点
 
 - エリア登録・エリア管理画面の遷移方法（現状はモード切り替え方式。
