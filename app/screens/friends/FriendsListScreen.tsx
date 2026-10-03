@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -31,11 +31,9 @@ import { ensureSignedIn } from '../../lib/auth';
 import { fetchMonitoredAreas } from '../../lib/areas';
 import { fetchMyFriendAreaLinks, proposeFriendAreaLink } from '../../lib/friendAreaLinks';
 import { fetchOpenPresenceLogs } from '../../lib/presence';
-import { fetchAllVisibleAreaSchedules, fetchAllVisibleAreaScheduleOverrides } from '../../lib/schedules';
 import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
 import { friendIdsWithVisibleNotes } from '../../utils/schedules';
-import { todayDateString } from '../../utils/format';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList, RootTabParamList } from '../../navigation/types';
@@ -66,21 +64,10 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
-  // 滞在予定・ステータスメッセージが設定されている友達のidセット（Issue #274）。
-  // エリアを問わず自分が閲覧できる全件をRLSに任せて取得し、クライアント側で
-  // 空文字を除外して判定する
-  const [friendIdsWithNotes, setFriendIdsWithNotes] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    ensureSignedIn().then(async (currentUserId) => {
-      const today = todayDateString(new Date());
-      const [schedules, overrides] = await Promise.all([
-        fetchAllVisibleAreaSchedules(),
-        fetchAllVisibleAreaScheduleOverrides(today),
-      ]);
-      setFriendIdsWithNotes(friendIdsWithVisibleNotes(currentUserId, schedules, overrides));
-    });
-  }, []);
+  // 滞在予定・ひとことメッセージが設定されている友達のidセット（Issue #274、
+  // #367でUSERSのschedule_note/status_messageに統合。friendsは既にRLS経由で
+  // 取得済みのため、追加の通信なしでクライアント側で判定できる）
+  const friendIdsWithNotes = friendIdsWithVisibleNotes(friends);
   // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
   // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));

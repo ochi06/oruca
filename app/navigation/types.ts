@@ -42,10 +42,6 @@ export type SettingsStackParamList = {
   NotificationBox: undefined;
   // Issue #168: 匿名セッション中のみ設定画面から遷移する本登録導線
   AccountUpgrade: undefined;
-  // Issue #244 (US-011): 自分の滞在予定を編集する導線。まず監視中の全エリア
-  // （user_areas、所有エリアに限らない）から対象を選び、ScheduleEditFormを表示する
-  ScheduleAreaList: undefined;
-  ScheduleEdit: { areaId: string; areaName: string };
 };
 
 export type RootTabParamList = {

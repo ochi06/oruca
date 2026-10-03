@@ -140,6 +140,39 @@ export async function updateUserStatus(userId: string, status: UserStatus | null
   }
 }
 
+// 自分の滞在予定（US-011、Issue #367）を取得・更新する。エリアごとの個別入力を
+// 廃止し、ユーザー1人につき1つの自由記述欄に統合した
+export async function fetchUserScheduleNote(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('users').select('schedule_note').eq('id', userId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.schedule_note ?? null;
+}
+
+export async function updateUserScheduleNote(userId: string, scheduleNote: string | null): Promise<void> {
+  const { error } = await supabase.from('users').update({ schedule_note: scheduleNote }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
+// 自分のひとことメッセージ（Issue #367、developer指示で新設）を取得・更新する
+export async function fetchUserStatusMessage(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('users').select('status_message').eq('id', userId).maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.status_message ?? null;
+}
+
+export async function updateUserStatusMessage(userId: string, statusMessage: string | null): Promise<void> {
+  const { error } = await supabase.from('users').update({ status_message: statusMessage }).eq('id', userId);
+  if (error) {
+    throw error;
+  }
+}
+
 // 自分のusers.push_tokenを更新する（Issue #131）。複数端末対応はせず、
 // 最後にログインした端末のExpoPushTokenで上書きする単純な設計
 export async function updateUserPushToken(userId: string, pushToken: string): Promise<void> {

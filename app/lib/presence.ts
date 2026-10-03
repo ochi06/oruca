@@ -69,7 +69,9 @@ export async function fetchPresenceMapData(): Promise<PresenceMapData> {
 
   const { data: users, error: usersError } = await supabase
     .from('users')
-    .select('id, name, icon_url, status, is_anonymous, allow_entry_notifications, created_at, updated_at')
+    .select(
+      'id, name, icon_url, status, schedule_note, status_message, is_anonymous, allow_entry_notifications, created_at, updated_at'
+    )
     .in('id', userIds.length > 0 ? userIds : ['']);
   if (usersError) throw usersError;
 
