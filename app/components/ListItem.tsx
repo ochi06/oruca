@@ -69,7 +69,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
+    // Issue #393：Issue #345でspacing.xs(4)に詰めすぎ、タップしにくいという
+    // developer実機確認を受けてspacing.sm(8)に戻した
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
