@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -44,6 +44,20 @@ export default function GroupsListScreen({ searchQuery }: Props) {
   const initialize = useGroupStore((state) => state.initialize);
   const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
+  // Issue #416: pull-to-refresh。initialize()はstatus==='loading'の間に
+  // 全画面ローディング表示になるため、refreshing中はその分岐を迂回し、
+  // FlatList側のRefreshControlのインジケータのみ表示する
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    if (!userId) return;
+    setRefreshing(true);
+    try {
+      await initialize(userId);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function loadUser() {
     setAuthError(false);
@@ -96,7 +110,7 @@ export default function GroupsListScreen({ searchQuery }: Props) {
     );
   }
 
-  if (status === 'loading' || status === 'idle' || !userId) {
+  if ((status === 'loading' && !refreshing) || status === 'idle' || !userId) {
     return (
       <Screen style={styles.container}>
         <LoadingIndicator />
@@ -116,31 +130,32 @@ export default function GroupsListScreen({ searchQuery }: Props) {
     <Screen style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>グループ</Text>
 
-      {groups.length === 0 ? (
-        <EmptyState icon="people-circle-outline" message="まだグループがありません" />
-      ) : visibleGroups.length === 0 ? (
-        <EmptyState icon="search-outline" message="該当するグループが見つかりません" />
-      ) : (
-        <FlatList
-          data={visibleGroups}
-          keyExtractor={(group) => group.id}
-          renderItem={({ item: group }) => (
-            <ListItem
-              title={group.name}
-              onPress={() => handlePressGroup(group)}
-              trailing={
-                <IconButton
-                  name="ellipsis-vertical"
-                  variant="ghost"
-                  size={16}
-                  accessibilityLabel={`${group.name}の詳細`}
-                  onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
-                />
-              }
-            />
-          )}
-        />
-      )}
+      <FlatList
+        data={visibleGroups}
+        keyExtractor={(group) => group.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        ListEmptyComponent={
+          <EmptyState
+            icon={groups.length === 0 ? 'people-circle-outline' : 'search-outline'}
+            message={groups.length === 0 ? 'まだグループがありません' : '該当するグループが見つかりません'}
+          />
+        }
+        renderItem={({ item: group }) => (
+          <ListItem
+            title={group.name}
+            onPress={() => handlePressGroup(group)}
+            trailing={
+              <IconButton
+                name="ellipsis-vertical"
+                variant="ghost"
+                size={16}
+                accessibilityLabel={`${group.name}の詳細`}
+                onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
+              />
+            }
+          />
+        )}
+      />
     </Screen>
   );
 }
