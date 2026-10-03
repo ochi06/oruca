@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,14 +11,16 @@ import { ListItem } from '../../components/ListItem';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Modal } from '../../components/Modal';
 import { ProfileHeader, ProfileHeaderHandle } from '../../components/ProfileHeader';
+import { ProfileNotesSection } from '../../components/schedule/ProfileNotesSection';
 import { Screen } from '../../components/Screen';
+import { StatusBadge } from '../../components/StatusBadge';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
-import { USER_STATUS_OPTIONS, UserStatus, userStatusIcon } from '../../constants/status';
+import { USER_STATUS_OPTIONS, UserStatus } from '../../constants/status';
 import {
   DEFAULT_USER_NAME,
   deleteAccount,
@@ -27,13 +29,17 @@ import {
   fetchUserIconUrl,
   fetchUserIsAnonymous,
   fetchUserName,
+  fetchUserScheduleNote,
   fetchUserStatus,
+  fetchUserStatusMessage,
   isCurrentSessionAnonymous,
   updateUserEntryVibrationEnabled,
   updateUserIcon,
   updateUserIsAnonymous,
   updateUserName,
+  updateUserScheduleNote,
   updateUserStatus,
+  updateUserStatusMessage,
 } from '../../lib/auth';
 import { SettingsStackParamList } from '../../navigation/types';
 
@@ -64,6 +70,8 @@ export default function SettingsScreen({ navigation }: Props) {
   const [status, setStatus] = useState<UserStatus | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [scheduleNote, setScheduleNote] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -81,6 +89,8 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchedName,
           fetchedIconUrl,
           fetchedStatus,
+          fetchedScheduleNote,
+          fetchedStatusMessage,
           fetchedEntryVibrationEnabled,
           fetchedIsAnonymous,
           fetchedIsAnonymousSession,
@@ -88,6 +98,8 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchUserName(userId),
           fetchUserIconUrl(userId),
           fetchUserStatus(userId),
+          fetchUserScheduleNote(userId),
+          fetchUserStatusMessage(userId),
           fetchUserEntryVibrationEnabled(userId),
           fetchUserIsAnonymous(userId),
           isCurrentSessionAnonymous(),
@@ -95,6 +107,8 @@ export default function SettingsScreen({ navigation }: Props) {
         setName(fetchedName ?? DEFAULT_USER_NAME);
         setIconUrl(fetchedIconUrl);
         setStatus(fetchedStatus);
+        setScheduleNote(fetchedScheduleNote);
+        setStatusMessage(fetchedStatusMessage);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
         setIsAnonymous(fetchedIsAnonymous);
         setIsAnonymousSession(fetchedIsAnonymousSession);
@@ -140,6 +154,20 @@ export default function SettingsScreen({ navigation }: Props) {
       showToast('名前の更新に失敗しました');
       throw error;
     }
+  }
+
+  // Issue #369：滞在予定・ひとことメッセージの保存。失敗時はProfileNotesSection
+  // 側がトーストを出すため、ここでは例外をそのまま投げ返すだけでよい
+  async function handleSaveScheduleNote(note: string) {
+    const userId = await ensureSignedIn();
+    await updateUserScheduleNote(userId, note || null);
+    setScheduleNote(note || null);
+  }
+
+  async function handleSaveStatusMessage(message: string) {
+    const userId = await ensureSignedIn();
+    await updateUserStatusMessage(userId, message || null);
+    setStatusMessage(message || null);
   }
 
   async function handleChangeIcon() {
@@ -232,8 +260,6 @@ export default function SettingsScreen({ navigation }: Props) {
     );
   }
 
-  const currentStatusIcon = status ? userStatusIcon(status) : null;
-
   return (
     <Screen style={styles.container} onMenu={() => setMenuVisible(true)}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -255,19 +281,22 @@ export default function SettingsScreen({ navigation }: Props) {
         editable
         onSaveName={handleSaveName}
         bottomRightBadge={
-          <Pressable
+          <StatusBadge
+            status={status}
             onPress={() => setStatusModalVisible(true)}
             disabled={updatingStatus}
-            style={[styles.statusBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}
-            accessibilityLabel="ステータスを変更する"
-          >
-            <Ionicons
-              name={currentStatusIcon ?? 'ellipse-outline'}
-              size={14}
-              color={currentStatusIcon ? colors.blue : colors.textSub}
-            />
-          </Pressable>
+          />
         }
+      />
+
+      {/* Issue #369：プロフィール画面（自分）・友達詳細画面の共通レイアウト。
+          自分の画面では編集可能にする */}
+      <ProfileNotesSection
+        scheduleNote={scheduleNote}
+        statusMessage={statusMessage}
+        editable
+        onSaveScheduleNote={handleSaveScheduleNote}
+        onSaveStatusMessage={handleSaveStatusMessage}
       />
 
       <View style={styles.section}>
@@ -435,14 +464,6 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: spacing.md,
-  },
-  statusBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Issue #359：匿名モードは使う頻度・とっさ性が高いため、他の設定項目とは
   // 別格の大きいボタンにする。ON時はcolors.sand背景+シャドウで光るような
