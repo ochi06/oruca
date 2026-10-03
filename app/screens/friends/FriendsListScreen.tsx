@@ -58,9 +58,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   const status = useNotifyPreferencesStore((state) => state.status);
   const initialize = useNotifyPreferencesStore((state) => state.initialize);
   const friendships = useNotifyPreferencesStore((state) => state.friendships);
-  const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
   const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
-  const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
   // useFriendUsers自体もstatus==='idle'ならinitialize()を呼ぶため、
   // このスクリーンから先にマウントされた場合もここで取得が始まる
   const friends = useFriendUsers();
@@ -71,16 +69,6 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   // 名前の部分一致で絞り込む（Issue #251）。自分が既に参加している一覧を
   // クライアント側でフィルタするだけで、新規のDB・RLSは不要
   const visibleFriends = friends.filter((user) => matchesSearchQuery(user.name, searchQuery));
-  // 「...」メニュー（ブロック・削除、Issue #276）の対象。選んだ友達のidを
-  // 保持し、メニュー・削除確認の2段階モーダルをこのidの有無で出し分ける
-  const [menuTargetId, setMenuTargetId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const menuTarget = friends.find((user) => user.id === menuTargetId) ?? null;
-  const menuTargetFriendship = menuTargetId
-    ? friendships.find((f) => f.friend_id === menuTargetId) ?? null
-    : null;
-  const deleteTarget = friends.find((user) => user.id === deleteConfirmId) ?? null;
 
   // 複数の友達を選んでまとめてエリア紐づけを提案する（Issue #245、Issue #221の拡張）。
   // 1対1の提案・承認ロジック（proposeFriendAreaLink・resolveFriendAreaLinkState）は
@@ -166,33 +154,12 @@ export default function FriendsListScreen({ searchQuery }: Props) {
     }
   }
 
-  function handleToggleBlock() {
-    if (!menuTargetId) return;
-    toggleLocationHidden(menuTargetId);
-    setMenuTargetId(null);
-  }
-
   // 会いたい人は5人まで（Issue #330、DBトリガーで強制）
   async function handleToggleWantToMeet(friendId: string) {
     try {
       await toggleWantToMeet(friendId);
     } catch (error) {
       showToast(isWantToMeetLimitError(error) ? '会いたい人は5人まで登録できます' : '操作に失敗しました');
-    }
-  }
-
-  async function handleConfirmDelete() {
-    if (!deleteConfirmId) return;
-    setDeleting(true);
-    try {
-      await removeFriend(deleteConfirmId);
-      setDeleteConfirmId(null);
-      showToast('友達を削除しました');
-    } catch (error) {
-      console.error('removeFriend failed:', error);
-      showToast('友達の削除に失敗しました');
-    } finally {
-      setDeleting(false);
     }
   }
 
@@ -290,7 +257,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
             return (
               <ListItem
                 title={user.name}
-                onPress={() => handlePressFriend(user.id, user.name)}
+                onPress={() => navigation.navigate('FriendDetail', { friendId: user.id })}
                 leading={
                   <View style={styles.avatarWrapper}>
                     <Avatar name={user.name} iconUrl={user.icon_url} />
@@ -322,11 +289,11 @@ export default function FriendsListScreen({ searchQuery }: Props) {
                       </View>
                     ) : null}
                     <IconButton
-                      name="ellipsis-vertical"
+                      name="location-outline"
                       variant="ghost"
                       size={16}
-                      accessibilityLabel={`${user.name}のメニュー`}
-                      onPress={() => setMenuTargetId(user.id)}
+                      accessibilityLabel={`${user.name}の在席エリアをマップで見る`}
+                      onPress={() => handlePressFriend(user.id, user.name)}
                     />
                   </View>
                 }
@@ -334,59 +301,6 @@ export default function FriendsListScreen({ searchQuery }: Props) {
             );
           }}
         />
-
-      <Modal visible={menuTarget !== null} onClose={() => setMenuTargetId(null)} title={menuTarget?.name}>
-        <Button
-          label="詳細を見る"
-          variant="secondary"
-          onPress={() => {
-            if (menuTargetId) navigation.navigate('FriendDetail', { friendId: menuTargetId });
-            setMenuTargetId(null);
-          }}
-          style={styles.menuButton}
-        />
-        <Button
-          label={menuTargetFriendship?.location_hidden ? 'ブロックを解除する' : 'ブロックする'}
-          variant="secondary"
-          onPress={handleToggleBlock}
-          style={styles.menuButton}
-        />
-        <Button
-          label="削除する"
-          variant="destructive"
-          style={styles.menuButton}
-          onPress={() => {
-            setDeleteConfirmId(menuTargetId);
-            setMenuTargetId(null);
-          }}
-        />
-      </Modal>
-
-      <Modal
-        visible={deleteTarget !== null}
-        onClose={() => (deleting ? undefined : setDeleteConfirmId(null))}
-        title="友達を削除しますか？"
-      >
-        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
-          {deleteTarget?.name}さんとの友達関係を解消します。この操作は取り消せません。再度友達になるには、OTPコードでの追加が必要です。
-        </Text>
-        <View style={styles.modalButtonRow}>
-          <Button
-            label="キャンセル"
-            variant="secondary"
-            onPress={() => setDeleteConfirmId(null)}
-            disabled={deleting}
-            style={styles.modalButton}
-          />
-          <Button
-            label={deleting ? '削除中…' : '削除する'}
-            variant="destructive"
-            onPress={handleConfirmDelete}
-            disabled={deleting}
-            style={styles.modalButton}
-          />
-        </View>
-      </Modal>
 
       <Modal
         visible={isAreaPickerVisible}
@@ -480,15 +394,5 @@ const styles = StyleSheet.create({
     height: WANT_TO_MEET_BADGE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  menuButton: {
-    marginBottom: spacing.sm,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  modalButton: {
-    flex: 1,
   },
 });
