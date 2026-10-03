@@ -29,25 +29,20 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   const { showToast } = useToast();
   const [segment, setSegment] = useState<Segment>(route.params?.initialSegment ?? 'friends');
   const [menuOpen, setMenuOpen] = useState(false);
-  // ゲスト（匿名）セッションは友達関係を作成できない（RLSで拒否される）ため、
-  // 「友達追加」導線は無効化し説明を出す（Issue #407）
+  // ゲストセッションでは「友達追加」（Issue #407）・「グループ作成」
+  // （Issue #405、closed/open問わずRLSで拒否）の導線をどちらも無効化・
+  // 非表示にするため、一度だけ判定して共有する
   const [isAnonymousSession, setIsAnonymousSession] = useState(false);
-
-  useEffect(() => {
-    isCurrentSessionAnonymous().then(setIsAnonymousSession);
-  }, []);
   // 検索欄はセグメント切替の外側に1つだけ配置し、タップで展開する（Issue #284、
   // Issue #251でセグメントごとに個別実装していたものをここに引き上げた）。
   // 検索対象は常に「現在選択中のセグメントの一覧」のまま（友達・グループ横断はしない）
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // 匿名アカウントはグループ作成不可（Issue #405）。導線自体を出さない
-  const [isAnonymous, setIsAnonymous] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     isCurrentSessionAnonymous().then((anonymous) => {
-      if (!cancelled) setIsAnonymous(anonymous);
+      if (!cancelled) setIsAnonymousSession(anonymous);
     });
     return () => {
       cancelled = true;
@@ -147,7 +142,7 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
               友達追加{isAnonymousSession ? '（ゲストモードでは利用できません）' : ''}
             </Text>
           </Pressable>
-          {!isAnonymous && (
+          {!isAnonymousSession && (
             <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupCreate')}>
               <Text style={[typography.body, { color: colors.text }]}>グループ作成</Text>
             </Pressable>

@@ -13,7 +13,7 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { GROUP_NAME_MAX_LENGTH } from '../../constants/group';
-import { ensureSignedIn, isCurrentSessionAnonymous } from '../../lib/auth';
+import { ensureSignedIn } from '../../lib/auth';
 import { useGroupStore } from '../../store/useGroupStore';
 import { Area } from '../../mocks/areas';
 import { GroupType } from '../../mocks/groups';
@@ -36,10 +36,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
   const [creating, setCreating] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
-  // ゲスト（匿名）セッションはクローズグループを作成できない（RLSで拒否
-  // される）ため、種別選択からクローズを無効化する（Issue #407。オープン
-  // グループの作成自体は引き続き許可される。Issue #405で変更予定）
-  const [isAnonymousSession, setIsAnonymousSession] = useState(false);
 
   function loadUser() {
     setAuthError(false);
@@ -55,12 +51,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
 
   useEffect(() => {
     loadUser();
-    isCurrentSessionAnonymous().then((anonymous) => {
-      setIsAnonymousSession(anonymous);
-      if (anonymous) {
-        setType('open');
-      }
-    });
   }, []);
 
   function handleSelectType(nextType: GroupType) {
@@ -122,7 +112,7 @@ export default function GroupCreateScreen({ navigation }: Props) {
           label="クローズ（友達を招待）"
           variant={type === 'closed' ? 'primary' : 'secondary'}
           onPress={() => handleSelectType('closed')}
-          disabled={creating || isAnonymousSession}
+          disabled={creating}
           style={styles.typeButton}
         />
         <Button
@@ -133,11 +123,6 @@ export default function GroupCreateScreen({ navigation }: Props) {
           style={styles.typeButton}
         />
       </View>
-      {isAnonymousSession && (
-        <Text style={[styles.anonymousNotice, { color: colors.textSub }]}>
-          ゲストモードではクローズグループを作成できません。アカウント登録すると作成できるようになります
-        </Text>
-      )}
 
       <View style={styles.areaSection}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>エリア</Text>
@@ -185,10 +170,6 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-  },
-  anonymousNotice: {
-    ...typography.caption,
-    marginTop: spacing.sm,
   },
   areaSection: {
     marginTop: spacing.sm,
