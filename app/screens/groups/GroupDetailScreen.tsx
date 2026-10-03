@@ -18,6 +18,7 @@ import { useTheme } from '../../theme/useTheme';
 import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
@@ -98,6 +99,34 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       .catch(() => {
         // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
       });
+  }, [members]);
+
+  // Issue #424：メンバー・招待者のUSERS.nameの変更をRealtimeで購読し、
+  // 開いたままのグループ詳細画面にも反映する
+  useEffect(() => {
+    const idsToResolve = Array.from(
+      new Set(members.flatMap((m) => [m.user_id, ...(m.invited_by ? [m.invited_by] : [])]))
+    );
+    if (idsToResolve.length === 0) return;
+
+    const channel = supabase
+      .channel(`users:group-detail:${idsToResolve.slice().sort().join(',')}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=in.(${idsToResolve.join(',')})` },
+        () => {
+          fetchUserNames(idsToResolve)
+            .then(setNameMap)
+            .catch(() => {
+              // 失敗しても既存表示のまま（Realtime経由のサイレント更新のため黙って無視する）
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, [members]);
 
   useEffect(() => {
