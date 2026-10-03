@@ -28,34 +28,48 @@ export type AreaPresentUser = {
 
 // あるエリアに在席中のuserId一覧から、AreaPresentUser[]を組み立てる（Issue #120）。
 // buildPresenceMarkersと同じvisibleUserIds（RLSで返ってきたusersから決めた
-// 「名前を見せてよい相手」の集合）を受け取る形にして、可視性判定ロジックを重複させない
+// 「名前を見せてよい相手」の集合）を受け取る形にして、可視性判定ロジックを重複させない。
+//
+// Issue #437：「名前を隠す」（visibleUserIdsに含まれない＝承認されていない等）と
+// 「存在自体を隠す」（hiddenUserIds＝is_anonymous=trueの相手、自分以外）は性質が
+// 異なる。前者は在席していること自体は見せてよい（色つきドットのみ表示）ため
+// 一覧からは除外しないが、後者は行自体を一覧から除外する
 export function buildAreaPresentUsers(
   currentUserId: string,
   areaUserIds: string[],
   visibleUserIds: Set<string>,
+  hiddenUserIds: Set<string>,
   users: User[]
 ): AreaPresentUser[] {
-  return areaUserIds.map((userId) => {
-    const isVisible = userId === currentUserId || visibleUserIds.has(userId);
-    const user = users.find((u) => u.id === userId);
-    return {
-      userId,
-      displayName: isVisible ? user?.name ?? null : null,
-      iconUrl: isVisible ? user?.icon_url ?? null : null,
-      status: isVisible ? user?.status ?? null : null,
-    };
-  });
+  return areaUserIds
+    .filter((userId) => userId === currentUserId || !hiddenUserIds.has(userId))
+    .map((userId) => {
+      const isVisible = userId === currentUserId || visibleUserIds.has(userId);
+      const user = users.find((u) => u.id === userId);
+      return {
+        userId,
+        displayName: isVisible ? user?.name ?? null : null,
+        iconUrl: isVisible ? user?.icon_url ?? null : null,
+        status: isVisible ? user?.status ?? null : null,
+      };
+    });
 }
 
 // Issue #58：マップ上に表示するマーカー情報を組み立てる。
 // 「誰の名前・アイコンを見せてよいか」はvisibleUserIds（呼び出し側が
 // resolveDisplayNameなどで判定した結果）で受け取る形にし、この関数自体は
 // 可視性の判定ロジックを持たない（テスト・呼び出し側の判断基準の差し替えを
-// しやすくするため）。自分自身は常に表示する
+// しやすくするため）。自分自身は常に表示する。
+//
+// Issue #437：「名前を隠す」（visibleUserIdsに含まれない）と「存在自体を
+// 隠す」（hiddenUserIds＝is_anonymous=trueの相手、自分以外）は性質が異なる。
+// 前者はマーカー自体は残し名前・アイコン・ステータスだけnullにするが、
+// 後者はマーカーごと配列から除外する（地図上に匿名の点すら残さない）
 export function buildPresenceMarkers(
   currentUserId: string,
   presenceLocations: PresenceLocation[],
   visibleUserIds: Set<string>,
+  hiddenUserIds: Set<string>,
   users: User[]
 ): PresenceMarker[] {
   // 同じuser_idが複数のエリアに同時在席している場合（エリアが重なっている等）、
@@ -67,6 +81,7 @@ export function buildPresenceMarkers(
     .filter((location): location is PresenceLocation & { lat: number; lng: number } =>
       location.lat !== null && location.lng !== null
     )
+    .filter((location) => location.user_id === currentUserId || !hiddenUserIds.has(location.user_id))
     .filter((location) => {
       if (seenUserIds.has(location.user_id)) return false;
       seenUserIds.add(location.user_id);

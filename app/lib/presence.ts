@@ -75,14 +75,23 @@ export async function fetchPresenceMapData(): Promise<PresenceMapData> {
     .in('id', userIds.length > 0 ? userIds : ['']);
   if (usersError) throw usersError;
 
-  // usersはRLS（FRIEND_AREA_LINKS.status='approved'の相手、または自分自身）で
-  // 既に絞り込まれているため、ここではその結果をそのまま「表示してよい相手」として扱う。
-  // ただし匿名モード中（is_anonymous）の相手は、自分自身でない限り除外する（US-013）
+  // usersはRLS（FRIEND_AREA_LINKS.status='approved'の相手、同じグループの
+  // メンバー、または自分自身）で既に絞り込まれているため、ここではその結果を
+  // そのまま「表示してよい相手」として扱う。
+  //
+  // Issue #437：匿名モード中（is_anonymous）の相手は、自分自身でない限り
+  // 「名前を隠す」のではなく「存在（マーカー）自体を隠す」必要がある
+  // （docs/schema.md：trueの間は名前だけでなく在席も非表示）。visibleUserIds
+  // （名前を見せてよい相手）とhiddenUserIds（マーカーごと除外する相手）を
+  // 分けて扱う
   const visibleUserIds = new Set(
     users?.filter((user) => user.id === currentUserId || !user.is_anonymous).map((user) => user.id) ?? []
   );
+  const hiddenUserIds = new Set(
+    users?.filter((user) => user.id !== currentUserId && user.is_anonymous).map((user) => user.id) ?? []
+  );
 
-  const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, users ?? []);
+  const markers = buildPresenceMarkers(currentUserId, presenceLocations, visibleUserIds, hiddenUserIds, users ?? []);
 
   const areaPresence: Record<string, AreaPresentUser[]> = {};
   // エリア1件に絞った表示（Issue #261）用に、エリアごとのマーカー（lat/lng付き）も
@@ -91,8 +100,8 @@ export async function fetchPresenceMapData(): Promise<PresenceMapData> {
   for (const areaId of areaIds) {
     const areaLocations = presenceLocations.filter((location) => location.area_id === areaId);
     const areaUserIds = Array.from(new Set(areaLocations.map((location) => location.user_id)));
-    areaPresence[areaId] = buildAreaPresentUsers(currentUserId, areaUserIds, visibleUserIds, users ?? []);
-    markersByArea[areaId] = buildPresenceMarkers(currentUserId, areaLocations, visibleUserIds, users ?? []);
+    areaPresence[areaId] = buildAreaPresentUsers(currentUserId, areaUserIds, visibleUserIds, hiddenUserIds, users ?? []);
+    markersByArea[areaId] = buildPresenceMarkers(currentUserId, areaLocations, visibleUserIds, hiddenUserIds, users ?? []);
   }
 
   return { currentUserId, areas: (areas ?? []) as Area[], markers, areaPresence, markersByArea };
