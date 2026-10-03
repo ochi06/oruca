@@ -126,6 +126,11 @@ erDiagram
     boolean is_read
     timestamptz created_at
   }
+  ANNOUNCEMENTS {
+    uuid id PK
+    string message
+    timestamptz created_at
+  }
 ```
 
 ## 各テーブルの役割
@@ -289,15 +294,17 @@ erDiagram
   （Issue #336、2026-10-03開発者確認済み。現状維持）
 - **NOTIFICATIONS**：通知イベントの記録・既読管理（Issue #126、2026-09-30、
   開発者確認済み）。`type`は`entry`（US-007/016の通常入室通知）・
-  `want_to_meet`（US-017の会いたい人通知）・`arrival_summary`（US-021の
-  会える人一覧、Issue #16）・`group_invite`（グループへの招待、Issue #117）の
-  いずれか。`related_user_id`・`area_id`・`group_member_id`は`type`に応じて
-  使う列だけを埋め、他はnullにする（他テーブルと同じ明示列スタイルを踏襲し、
-  jsonb等の汎用payload列は使わない方針）。`arrival_summary`は「1入室イベントで
-  同時に会える人が複数いる」場合、会える人1人につき1行作る（＝同じarea_id・
-  同じcreated_atの行が複数できる）。表示側（通知ボックス）でarea_id×
-  created_atが一致する行をグループ化し、1枚のカードにまとめる。既読管理は
-  シンプルな`is_read`真偽値のみとし、既読日時は持たない。
+  `want_to_meet`（US-017の会いたい人通知）・`group_invite`（グループへの招待、
+  Issue #117）・`friend_added`（友達追加成立時、2026-10-03新設）・
+  `area_link_proposed`（友達へのエリア紐づけ提案、2026-10-03新設）のいずれか。
+  `related_user_id`・`area_id`・`group_member_id`は`type`に応じて使う列だけを
+  埋め、他はnullにする（他テーブルと同じ明示列スタイルを踏襲し、jsonb等の
+  汎用payload列は使わない方針）。既読管理はシンプルな`is_read`真偽値のみとし、
+  既読日時は持たない。
+  `arrival_summary`（US-021の会える人一覧、Issue #16）は2026-10-03開発者確認
+  により廃止した。リアルタイムのマップ・在席一覧で同じ情報が確認できるため、
+  通知としては冗長と判断。既存の`arrival_summary`型の行がDBに残っていても
+  表示側では扱わない（新規生成は停止する）。
   `send-entry-notifications` Edge Functionは、入室した本人と同じ`GROUPS.
   area_id`に所属する他の承認済みメンバー（open/closed問わず。Issue #204で
   両方area_id必須になったため同じ判定で扱える）にも入室通知を送る
@@ -308,6 +315,13 @@ erDiagram
   いる相手には、同じグループに所属していても送らない。DBの`type`列に
   `group`という値は無いため、グループ経由でも`entry`として記録する
   （push本文のみ「グループメンバーが入室しました」と出し分ける）
+- **ANNOUNCEMENTS**：運営からの全ユーザー向けお知らせ（2026-10-03新設、
+  developer指示）。ユーザー単位の行は持たず、メッセージ1件につき1行。
+  投稿用の管理画面は作らず、developerがSupabaseダッシュボードから直接INSERT
+  する運用。既読管理はDBで持たず、クライアント側（AsyncStorage）で「最後に
+  見たお知らせのid」だけを端末ローカルに保持する簡易方式。通知ボックス表示時、
+  `NOTIFICATIONS`と時系列でマージして表示する。RLSは全ユーザーSELECT許可
+  （公開情報扱い）、INSERT/UPDATE/DELETEはservice role経由のみ
 
 ## 設計上の重要な原則
 
