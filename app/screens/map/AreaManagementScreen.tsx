@@ -92,6 +92,7 @@ export default function AreaManagementScreen({ navigation }: Props) {
         <IconButton
           name="close-outline"
           variant="secondary"
+          size={20}
           accessibilityLabel="エリア管理を閉じる"
           style={styles.headerCloseButton}
           onPress={() => navigation.goBack()}
