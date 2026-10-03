@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
-import { ListItem } from '../../components/ListItem';
 import { Modal } from '../../components/Modal';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
@@ -49,27 +48,42 @@ export function AreaPresencePopup({ areaName, users, friendIds, onClose, onSeeAl
         </View>
       }
     >
-      {preview.map((user) => {
-        // Issue #278：在席者一覧の名前は非表示にし、アイコン＋ステータスのみ表示する。
-        // 友達でない相手はFriendDetailScreenへの遷移先が無いためタップ無効のままにする
-        const isFriend = friendIds.has(user.userId);
-        const avatar = <Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />;
-        return (
-          <ListItem
-            key={user.userId}
-            subtitle={userStatusLabel(user.status) ?? undefined}
-            leading={
-              isFriend ? (
-                <Pressable onPress={() => handlePressUser(user.userId)} accessibilityLabel="友達詳細を見る">
-                  {avatar}
-                </Pressable>
-              ) : (
-                avatar
-              )
-            }
-          />
-        );
-      })}
+      <View style={styles.avatarRow}>
+        {preview.map((user) => {
+          // Issue #278：在席者一覧の名前は非表示にし、アイコン＋ステータスのみ表示する。
+          // 友達でない相手はFriendDetailScreenへの遷移先が無いためタップ無効のままにする
+          // （Issue #394：縦並びのListItemから、アイコンを横に並べる表示に変更）
+          const isFriend = friendIds.has(user.userId);
+          const statusLabel = userStatusLabel(user.status);
+          const content = (
+            <>
+              <Avatar name={user.displayName ?? '?'} iconUrl={user.iconUrl} />
+              {statusLabel ? (
+                <Text
+                  style={[styles.statusLabel, { color: colors.textSub }]}
+                  numberOfLines={1}
+                >
+                  {statusLabel}
+                </Text>
+              ) : null}
+            </>
+          );
+          return isFriend ? (
+            <Pressable
+              key={user.userId}
+              onPress={() => handlePressUser(user.userId)}
+              accessibilityLabel="友達詳細を見る"
+              style={styles.avatarItem}
+            >
+              {content}
+            </Pressable>
+          ) : (
+            <View key={user.userId} style={styles.avatarItem}>
+              {content}
+            </View>
+          );
+        })}
+      </View>
       {users.length > PREVIEW_COUNT && (
         <View style={styles.buttonRow}>
           <Button label="もっと見る" onPress={onSeeAll} style={styles.button} />
@@ -89,6 +103,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: typography.heading.fontSize,
     fontFamily: typography.heading.fontFamily,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginVertical: spacing.sm,
+  },
+  avatarItem: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    width: 64,
+  },
+  statusLabel: {
+    ...typography.caption,
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
