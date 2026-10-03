@@ -8,6 +8,10 @@
 // 見えている大きさを基準に狙うため、視覚サイズ自体を拡大する（badge
 // 28x28・icon 16px）。hitSlopは変更せず維持（badgeが大きくなった分、
 // 実質タップ領域は48x48に拡大し、小さくなることはない）
-export const WANT_TO_MEET_BADGE_SIZE = 28;
-export const WANT_TO_MEET_BADGE_ICON_SIZE = 16;
+//
+// Issue #433：実機確認でまだ押しにくいとの指摘のため、もう2回り拡大する
+// （badge 36x36・icon 20px）。hitSlopは現状維持（実質タップ領域は
+// 56x56に拡大し、小さくなることはない）
+export const WANT_TO_MEET_BADGE_SIZE = 36;
+export const WANT_TO_MEET_BADGE_ICON_SIZE = 20;
 export const WANT_TO_MEET_BADGE_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
