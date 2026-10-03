@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -10,6 +10,7 @@ import { SegmentedControl } from '../../components/SegmentedControl';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { isCurrentSessionAnonymous } from '../../lib/auth';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
 import FriendsListScreen from './FriendsListScreen';
 import GroupsListScreen from '../groups/GroupsListScreen';
@@ -31,6 +32,18 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   // 検索対象は常に「現在選択中のセグメントの一覧」のまま（友達・グループ横断はしない）
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // 匿名アカウントはグループ作成不可（Issue #405）。導線自体を出さない
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    isCurrentSessionAnonymous().then((anonymous) => {
+      if (!cancelled) setIsAnonymous(anonymous);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleCloseSearch() {
     setSearchOpen(false);
@@ -114,9 +127,11 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('AddFriend')}>
             <Text style={[typography.body, { color: colors.text }]}>友達追加</Text>
           </Pressable>
-          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupCreate')}>
-            <Text style={[typography.body, { color: colors.text }]}>グループ作成</Text>
-          </Pressable>
+          {!isAnonymous && (
+            <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupCreate')}>
+              <Text style={[typography.body, { color: colors.text }]}>グループ作成</Text>
+            </Pressable>
+          )}
           <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupJoin')}>
             <Text style={[typography.body, { color: colors.text }]}>グループ参加（招待の承諾）</Text>
           </Pressable>
