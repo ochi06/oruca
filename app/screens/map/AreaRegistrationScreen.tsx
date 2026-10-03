@@ -286,7 +286,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
       </MapView>
       <IconButton
         name="close-outline"
-        variant="secondary"
+        variant="ghost"
         size={20}
         accessibilityLabel="エリア登録モードを閉じる"
         style={styles.closeModeButton}
@@ -317,7 +317,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
             />
             <IconButton
               name="close-outline"
-              variant="secondary"
+              variant="ghost"
               size={20}
               accessibilityLabel="検索を閉じる"
               style={styles.searchToggleButton}

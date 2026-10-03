@@ -109,7 +109,7 @@ export const ProfileHeader = forwardRef<ProfileHeaderHandle, Props>(function Pro
           />
           <IconButton
             name="close-outline"
-            variant="secondary"
+            variant="ghost"
             size={20}
             accessibilityLabel="名前の変更をキャンセル"
             onPress={() => setEditingName(false)}
@@ -137,7 +137,7 @@ export const ProfileHeader = forwardRef<ProfileHeaderHandle, Props>(function Pro
           <View style={styles.zoomCloseButton}>
             <IconButton
               name="close-outline"
-              variant="secondary"
+              variant="ghost"
               size={20}
               accessibilityLabel="閉じる"
               onPress={() => setAvatarZoomVisible(false)}

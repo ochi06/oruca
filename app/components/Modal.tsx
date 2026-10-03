@@ -51,7 +51,7 @@ export function Modal({ visible, onClose, title, children, ...rest }: Props) {
             )}
             <IconButton
               name="close-outline"
-              variant="secondary"
+              variant="ghost"
               size={20}
               accessibilityLabel="閉じる"
               onPress={onClose}

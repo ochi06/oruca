@@ -266,7 +266,7 @@ export default function MapScreen({ navigation, route }: Props) {
           {activeArea && !origin && (
             <IconButton
               name="close-outline"
-              variant="secondary"
+              variant="ghost"
               size={20}
               accessibilityLabel="絞り込みを解除"
               onPress={handleClearFilter}
@@ -317,7 +317,7 @@ export default function MapScreen({ navigation, route }: Props) {
               />
               <IconButton
                 name="close-outline"
-                variant="secondary"
+                variant="ghost"
                 size={20}
                 accessibilityLabel="検索を閉じる"
                 onPress={() => {

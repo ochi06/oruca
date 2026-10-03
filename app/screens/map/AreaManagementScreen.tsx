@@ -91,7 +91,7 @@ export default function AreaManagementScreen({ navigation }: Props) {
       <View style={styles.header}>
         <IconButton
           name="close-outline"
-          variant="secondary"
+          variant="ghost"
           size={20}
           accessibilityLabel="エリア管理を閉じる"
           style={styles.headerCloseButton}

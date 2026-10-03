@@ -88,7 +88,7 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
           />
           <IconButton
             name="close-outline"
-            variant="secondary"
+            variant="ghost"
             size={20}
             accessibilityLabel="検索を閉じる"
             onPress={handleCloseSearch}
