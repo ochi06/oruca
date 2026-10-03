@@ -37,8 +37,8 @@ erDiagram
     boolean allow_entry_notifications
     string push_token
     boolean entry_vibration_enabled
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   AREAS {
     uuid id PK
@@ -48,14 +48,14 @@ erDiagram
     float8 center_lng
     int radius_m
     boolean is_public
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   USER_AREAS {
     uuid id PK
     uuid user_id FK
     uuid area_id FK
-    timestamp created_at
+    timestamptz created_at
   }
   FRIENDSHIPS {
     uuid id PK
@@ -66,8 +66,8 @@ erDiagram
     boolean want_to_meet
     boolean location_hidden
     string status
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   FRIEND_AREA_LINKS {
     uuid id PK
@@ -75,15 +75,15 @@ erDiagram
     uuid friend_id FK
     uuid area_id FK
     string status
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   OTP_CODES {
     uuid id PK
     uuid user_id FK
     string code
-    timestamp expires_at
-    timestamp created_at
+    timestamptz expires_at
+    timestamptz created_at
   }
   GROUPS {
     uuid id PK
@@ -92,9 +92,9 @@ erDiagram
     string invite_code
     string type
     uuid area_id FK
-    timestamp expires_at
-    timestamp created_at
-    timestamp updated_at
+    timestamptz expires_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   GROUP_MEMBERS {
     uuid id PK
@@ -104,15 +104,15 @@ erDiagram
     string status
     string display_name
     string display_icon_url
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   PRESENCE_LOGS {
     uuid id PK
     uuid user_id FK
     uuid area_id FK
-    timestamp entered_at
-    timestamp exited_at
+    timestamptz entered_at
+    timestamptz exited_at
     double lat
     double lng
   }
@@ -124,7 +124,7 @@ erDiagram
     uuid area_id FK
     uuid group_member_id FK
     boolean is_read
-    timestamp created_at
+    timestamptz created_at
   }
 ```
 
