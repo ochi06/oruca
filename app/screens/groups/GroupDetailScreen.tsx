@@ -49,6 +49,13 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const friends = useFriendUsers();
   const [transferTarget, setTransferTarget] = useState<GroupMember | null>(null);
   const [menuTargetMember, setMenuTargetMember] = useState<GroupMember | null>(null);
+  // Issue #413: 退会・強制退会は取り消せない操作のため、他の破壊的操作
+  // （友達削除・アカウント削除・エリア削除）と同じ「確認Modal→説明文→実行」
+  // の二段階にする
+  const [removeTarget, setRemoveTarget] = useState<GroupMember | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [leaveConfirmVisible, setLeaveConfirmVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   // Issue #343: 承認待ち・メンバーの各セクションを折りたたみ可能にする。
   // 承認待ちは見落とし防止のため初期表示は開く、メンバーは人数が多くなり
   // がちなため初期表示は閉じておく（developer確認済み）
@@ -161,28 +168,41 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  async function handleRemove(memberId: string) {
-    if (!userId) return;
-    const result = await removeMember(groupId, memberId, userId);
-    if (result.status === 'forbidden') {
-      showToast('管理者のみ退会させることができます');
-      return;
-    }
-    if (result.status === 'success') {
-      showToast('メンバーを退会させました');
+  async function handleConfirmRemove() {
+    if (!removeTarget || !userId) return;
+    setRemoving(true);
+    try {
+      const result = await removeMember(groupId, removeTarget.id, userId);
+      if (result.status === 'forbidden') {
+        showToast('管理者のみ退会させることができます');
+        return;
+      }
+      if (result.status === 'success') {
+        showToast('メンバーを退会させました');
+      }
+    } finally {
+      setRemoving(false);
+      setRemoveTarget(null);
     }
   }
 
-  async function handleLeave() {
+  async function handleConfirmLeave() {
     if (!userId) return;
-    const result = await leaveGroup(groupId, userId);
-    if (result.status === 'last_admin') {
-      showToast('管理者権限を誰かに譲ってから退会してください');
-      return;
-    }
-    if (result.status === 'success') {
-      showToast('グループを退会しました');
-      onBack();
+    setLeaving(true);
+    try {
+      const result = await leaveGroup(groupId, userId);
+      if (result.status === 'last_admin') {
+        showToast('管理者権限を誰かに譲ってから退会してください');
+        setLeaving(false);
+        setLeaveConfirmVisible(false);
+        return;
+      }
+      if (result.status === 'success') {
+        showToast('グループを退会しました');
+        onBack();
+      }
+    } catch {
+      setLeaving(false);
     }
   }
 
@@ -342,7 +362,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       <Button
         label="グループを退会する"
         variant="secondary"
-        onPress={handleLeave}
+        onPress={() => setLeaveConfirmVisible(true)}
         style={styles.leaveButton}
       />
       </ScrollView>
@@ -366,10 +386,64 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           variant="destructive"
           style={styles.menuButton}
           onPress={() => {
-            if (menuTargetMember) handleRemove(menuTargetMember.id);
+            setRemoveTarget(menuTargetMember);
             setMenuTargetMember(null);
           }}
         />
+      </Modal>
+
+      <Modal
+        visible={removeTarget !== null}
+        onClose={() => (removing ? undefined : setRemoveTarget(null))}
+        title="メンバーを退会させますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          {removeTarget ? resolveUserName(nameMap, removeTarget.user_id) : ''}
+          さんをグループから退会させます。この操作は取り消せません。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setRemoveTarget(null)}
+            disabled={removing}
+            style={styles.modalButton}
+          />
+          <Button
+            label={removing ? '退会させています…' : '退会させる'}
+            variant="destructive"
+            onPress={handleConfirmRemove}
+            disabled={removing}
+            style={styles.modalButton}
+          />
+        </View>
+      </Modal>
+
+      <Modal
+        visible={leaveConfirmVisible}
+        onClose={() => (leaving ? undefined : setLeaveConfirmVisible(false))}
+        title="グループを退会しますか？"
+      >
+        <Text style={{ color: colors.text, marginBottom: spacing.md }}>
+          このグループを退会します。この操作は取り消せません。再度参加するには
+          招待または招待コードが必要です。
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <Button
+            label="キャンセル"
+            variant="secondary"
+            onPress={() => setLeaveConfirmVisible(false)}
+            disabled={leaving}
+            style={styles.modalButton}
+          />
+          <Button
+            label={leaving ? '退会中…' : '退会する'}
+            variant="destructive"
+            onPress={handleConfirmLeave}
+            disabled={leaving}
+            style={styles.modalButton}
+          />
+        </View>
       </Modal>
 
       <Modal
