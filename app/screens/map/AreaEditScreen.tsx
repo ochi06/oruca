@@ -128,7 +128,7 @@ export default function AreaEditScreen({ route, navigation }: Props) {
       </MapView>
       <IconButton
         name="close-outline"
-        variant="secondary"
+        variant="ghost"
         size={20}
         accessibilityLabel="編集をやめる"
         style={styles.closeButton}
