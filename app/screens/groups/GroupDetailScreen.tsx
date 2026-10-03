@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   adminBadge: {
     borderRadius: radius.sm,
