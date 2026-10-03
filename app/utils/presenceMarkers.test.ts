@@ -5,8 +5,8 @@ const now = '2026-08-16T00:00:00.000Z';
 const CURRENT_USER_ID = 'user-me';
 
 const users: User[] = [
-  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', status: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now },
-  { id: 'user-b', name: '鈴木', icon_url: null, status: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now },
+  { id: 'user-a', name: '田中', icon_url: 'https://example.com/a.png', status: null, schedule_note: null, status_message: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now },
+  { id: 'user-b', name: '鈴木', icon_url: null, status: null, schedule_note: null, status_message: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now },
 ];
 
 describe('buildPresenceMarkers', () => {
@@ -36,7 +36,7 @@ describe('buildPresenceMarkers', () => {
   });
 
   test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
-    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now };
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: null, schedule_note: null, status_message: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now };
     const locations: PresenceLocation[] = [
       { user_id: CURRENT_USER_ID, lat: 35.0, lng: 135.0 },
     ];
@@ -95,7 +95,7 @@ describe('buildAreaPresentUsers', () => {
   });
 
   test('自分自身はvisibleUserIdsに無くても常に表示する', () => {
-    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: 'focus', is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now };
+    const selfUser: User = { id: CURRENT_USER_ID, name: '自分', icon_url: null, status: 'focus', schedule_note: null, status_message: null, is_anonymous: false, allow_entry_notifications: true, created_at: now, updated_at: now };
 
     const result = buildAreaPresentUsers(CURRENT_USER_ID, [CURRENT_USER_ID], new Set(), [selfUser]);
 

@@ -34,15 +34,12 @@ import {
   proposeFriendAreaLink,
   rejectFriendAreaLink,
 } from '../../lib/friendAreaLinks';
-import { fetchAllVisibleAreaSchedules, fetchAllVisibleAreaScheduleOverrides } from '../../lib/schedules';
 import {
   canProposeFriendAreaLink,
   computeUnmonitoredLinkedAreaIds,
   resolveFriendAreaLinkState,
 } from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
-import { friendIdsWithVisibleNotes } from '../../utils/schedules';
-import { todayDateString } from '../../utils/format';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
 import { FriendsGroupsStackParamList } from '../../navigation/types';
@@ -79,9 +76,11 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
   const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
   const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
-  // 滞在予定・ステータスメッセージが設定されているか（Issue #274）。一覧画面と
-  // 同じ判定を使い、見た目・意味を整合させる
-  const [friendIdsWithNotes, setFriendIdsWithNotes] = useState<Set<string>>(new Set());
+  // 滞在予定・ひとことメッセージが設定されているか（Issue #274、#367で
+  // friend.schedule_note/status_messageを直接見る形に簡略化）
+  const hasScheduleOrStatusNote = Boolean(
+    friend?.schedule_note?.trim() || friend?.status_message?.trim()
+  );
 
   function handleToggleBlock() {
     toggleLocationHidden(friendId);
@@ -133,15 +132,9 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   }
 
   useEffect(() => {
-    ensureSignedIn().then(async (signedInUserId) => {
+    ensureSignedIn().then((signedInUserId) => {
       setUserId(signedInUserId);
-      await loadAreaLinks(signedInUserId);
-      const today = todayDateString(new Date());
-      const [schedules, overrides] = await Promise.all([
-        fetchAllVisibleAreaSchedules(),
-        fetchAllVisibleAreaScheduleOverrides(today),
-      ]);
-      setFriendIdsWithNotes(friendIdsWithVisibleNotes(signedInUserId, schedules, overrides));
+      loadAreaLinks(signedInUserId);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -236,12 +229,19 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           ) : undefined
         }
         topRightBadge={
-          friendIdsWithNotes.has(friendId) ? (
+          hasScheduleOrStatusNote ? (
             <View style={[styles.noteBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}>
               <Ionicons name="chatbubble-ellipses-outline" size={10} color={colors.blue} />
             </View>
           ) : undefined
         }
+      />
+
+      {/* Issue #367: エリア単位の概念を廃止し、ユーザー1人につき1つの
+          滞在予定・ひとことメッセージを表示する。画面上の配置はIssue #369で見直す */}
+      <FriendScheduleNote
+        scheduleNote={friend.schedule_note}
+        statusMessage={friend.status_message}
       />
 
       <View style={styles.section}>
@@ -323,7 +323,6 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
                     style={styles.areaPreview}
                   />
                 )}
-                <FriendScheduleNote friendId={friendId} areaId={area.id} />
               </View>
             );
           })
