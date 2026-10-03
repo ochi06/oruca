@@ -143,14 +143,14 @@ export default function GroupsListScreen({ searchQuery }: Props) {
         renderItem={({ item: group }) => (
           <ListItem
             title={group.name}
-            onPress={() => handlePressGroup(group)}
+            onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
             trailing={
               <IconButton
-                name="ellipsis-vertical"
+                name="location-outline"
                 variant="ghost"
                 size={16}
-                accessibilityLabel={`${group.name}の詳細`}
-                onPress={() => navigation.navigate('GroupDetail', { groupId: group.id })}
+                accessibilityLabel={`${group.name}のエリアをマップで見る`}
+                onPress={() => handlePressGroup(group)}
               />
             }
           />
