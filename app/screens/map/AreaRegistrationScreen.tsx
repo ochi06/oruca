@@ -287,6 +287,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
       <IconButton
         name="close-outline"
         variant="secondary"
+        size={20}
         accessibilityLabel="エリア登録モードを閉じる"
         style={styles.closeModeButton}
         onPress={() => navigation.goBack()}
@@ -317,6 +318,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
             <IconButton
               name="close-outline"
               variant="secondary"
+              size={20}
               accessibilityLabel="検索を閉じる"
               style={styles.searchToggleButton}
               onPress={closeSearch}

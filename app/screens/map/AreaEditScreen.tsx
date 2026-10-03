@@ -129,6 +129,7 @@ export default function AreaEditScreen({ route, navigation }: Props) {
       <IconButton
         name="close-outline"
         variant="secondary"
+        size={20}
         accessibilityLabel="編集をやめる"
         style={styles.closeButton}
         onPress={() => navigation.goBack()}

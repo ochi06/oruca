@@ -138,6 +138,7 @@ export const ProfileHeader = forwardRef<ProfileHeaderHandle, Props>(function Pro
             <IconButton
               name="close-outline"
               variant="secondary"
+              size={20}
               accessibilityLabel="閉じる"
               onPress={() => setAvatarZoomVisible(false)}
             />
