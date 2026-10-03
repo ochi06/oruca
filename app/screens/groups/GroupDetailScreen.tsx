@@ -56,6 +56,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const [removing, setRemoving] = useState(false);
   const [leaveConfirmVisible, setLeaveConfirmVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  // Issue #414: 連打防止（処理中は対象ボタンをdisabledにする）。
+  // FriendDetailScreenのbusyAreaIdパターンを踏襲する
+  const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
+  const [invitingFriendId, setInvitingFriendId] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
   // Issue #343: 承認待ち・メンバーの各セクションを折りたたみ可能にする。
   // 承認待ちは見落とし防止のため初期表示は開く、メンバーは人数が多くなり
   // がちなため初期表示は閉じておく（developer確認済み）
@@ -133,38 +138,53 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   async function handleInvite(friendId: string) {
     if (!userId) return;
-    const result = await inviteMember(groupId, friendId, userId);
-    if (result.status === 'already_member') {
-      showToast('既に招待済み、またはメンバーです');
-      return;
-    }
-    if (result.status === 'success') {
-      showToast('招待しました');
-      setIsInviting(false);
+    setInvitingFriendId(friendId);
+    try {
+      const result = await inviteMember(groupId, friendId, userId);
+      if (result.status === 'already_member') {
+        showToast('既に招待済み、またはメンバーです');
+        return;
+      }
+      if (result.status === 'success') {
+        showToast('招待しました');
+        setIsInviting(false);
+      }
+    } finally {
+      setInvitingFriendId(null);
     }
   }
 
   async function handleApprove(memberId: string) {
     if (!userId) return;
-    const result = await approveMember(groupId, memberId, userId);
-    if (result.status === 'forbidden') {
-      showToast('管理者のみ承認できます');
-      return;
-    }
-    if (result.status === 'success') {
-      showToast('参加を承認しました');
+    setBusyMemberId(memberId);
+    try {
+      const result = await approveMember(groupId, memberId, userId);
+      if (result.status === 'forbidden') {
+        showToast('管理者のみ承認できます');
+        return;
+      }
+      if (result.status === 'success') {
+        showToast('参加を承認しました');
+      }
+    } finally {
+      setBusyMemberId(null);
     }
   }
 
   async function handleReject(memberId: string) {
     if (!userId) return;
-    const result = await rejectMember(groupId, memberId, userId);
-    if (result.status === 'forbidden') {
-      showToast('管理者のみ拒否できます');
-      return;
-    }
-    if (result.status === 'success') {
-      showToast('参加を拒否しました');
+    setBusyMemberId(memberId);
+    try {
+      const result = await rejectMember(groupId, memberId, userId);
+      if (result.status === 'forbidden') {
+        showToast('管理者のみ拒否できます');
+        return;
+      }
+      if (result.status === 'success') {
+        showToast('参加を拒否しました');
+      }
+    } finally {
+      setBusyMemberId(null);
     }
   }
 
@@ -209,12 +229,17 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   async function handleConfirmTransfer() {
     if (!transferTarget || !userId) return;
     const target = transferTarget;
-    const result = await transferOwnership(groupId, target.user_id, userId);
-    setTransferTarget(null);
-    if (result.status === 'success') {
-      showToast(`${resolveUserName(nameMap, target.user_id)}さんに管理者権限を譲りました`);
-    } else {
-      showToast('管理者権限の譲渡に失敗しました');
+    setTransferring(true);
+    try {
+      const result = await transferOwnership(groupId, target.user_id, userId);
+      if (result.status === 'success') {
+        showToast(`${resolveUserName(nameMap, target.user_id)}さんに管理者権限を譲りました`);
+      } else {
+        showToast('管理者権限の譲渡に失敗しました');
+      }
+    } finally {
+      setTransferring(false);
+      setTransferTarget(null);
     }
   }
 
@@ -269,6 +294,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                   name: resolveUserName(nameMap, member.user_id),
                   iconUrl: null,
                 });
+                const busy = busyMemberId === member.id;
                 return (
                   <ListItem
                     key={member.id}
@@ -284,6 +310,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                           size={16}
                           accessibilityLabel={`${display.name}の参加を承認`}
                           onPress={() => handleApprove(member.id)}
+                          disabled={busy}
                         />
                         <IconButton
                           name="close"
@@ -292,6 +319,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
                           size={16}
                           accessibilityLabel={`${display.name}の参加を拒否`}
                           onPress={() => handleReject(member.id)}
+                          disabled={busy}
                         />
                       </View>
                     }
@@ -448,7 +476,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       <Modal
         visible={transferTarget !== null}
-        onClose={() => setTransferTarget(null)}
+        onClose={() => (transferring ? undefined : setTransferTarget(null))}
         title="管理者権限を譲りますか？"
       >
         <Text style={{ color: colors.text, marginBottom: spacing.md }}>
@@ -460,9 +488,15 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             label="キャンセル"
             variant="secondary"
             onPress={() => setTransferTarget(null)}
+            disabled={transferring}
             style={styles.modalButton}
           />
-          <Button label="譲る" onPress={handleConfirmTransfer} style={styles.modalButton} />
+          <Button
+            label={transferring ? '譲っています…' : '譲る'}
+            onPress={handleConfirmTransfer}
+            disabled={transferring}
+            style={styles.modalButton}
+          />
         </View>
       </Modal>
 
@@ -476,7 +510,12 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
               title={friend.name}
               leading={<Avatar name={friend.name} iconUrl={friend.icon_url} />}
               trailing={
-                <Button label="招待する" onPress={() => handleInvite(friend.id)} style={styles.actionButton} />
+                <Button
+                  label="招待する"
+                  onPress={() => handleInvite(friend.id)}
+                  disabled={invitingFriendId === friend.id}
+                  style={styles.actionButton}
+                />
               }
             />
           ))

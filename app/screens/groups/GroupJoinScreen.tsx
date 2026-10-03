@@ -42,6 +42,8 @@ export default function GroupJoinScreen({ navigation }: Props) {
   const setMemberDisplay = useGroupStore((state) => state.setMemberDisplay);
   const initialize = useGroupStore((state) => state.initialize);
   const [acceptedMemberId, setAcceptedMemberId] = useState<string | null>(null);
+  // Issue #414: 連打防止（処理中は対象行のボタンをdisabledにする）
+  const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
   // Issue #214: 招待者（invited_by）の実際の名前
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
@@ -71,10 +73,15 @@ export default function GroupJoinScreen({ navigation }: Props) {
   }, [invitations]);
 
   async function handleAccept(memberId: string) {
-    const result = await acceptInvitation(memberId);
-    if (result.status === 'success') {
-      showToast('グループに参加しました');
-      setAcceptedMemberId(memberId);
+    setBusyMemberId(memberId);
+    try {
+      const result = await acceptInvitation(memberId);
+      if (result.status === 'success') {
+        showToast('グループに参加しました');
+        setAcceptedMemberId(memberId);
+      }
+    } finally {
+      setBusyMemberId(null);
     }
   }
 
@@ -85,9 +92,14 @@ export default function GroupJoinScreen({ navigation }: Props) {
   }
 
   async function handleDecline(memberId: string) {
-    const result = await declineInvitation(memberId);
-    if (result.status === 'success') {
-      showToast('招待を辞退しました');
+    setBusyMemberId(memberId);
+    try {
+      const result = await declineInvitation(memberId);
+      if (result.status === 'success') {
+        showToast('招待を辞退しました');
+      }
+    } finally {
+      setBusyMemberId(null);
     }
   }
 
@@ -109,6 +121,7 @@ export default function GroupJoinScreen({ navigation }: Props) {
         <ScrollView showsVerticalScrollIndicator={false}>
           {invitations.map((invitation) => {
             const group = groups.find((g) => g.id === invitation.group_id);
+            const busy = busyMemberId === invitation.id;
             return (
               <ListItem
                 key={invitation.id}
@@ -119,12 +132,14 @@ export default function GroupJoinScreen({ navigation }: Props) {
                     <Button
                       label="参加する"
                       onPress={() => handleAccept(invitation.id)}
+                      disabled={busy}
                       style={styles.actionButton}
                     />
                     <Button
                       label="辞退する"
                       variant="secondary"
                       onPress={() => handleDecline(invitation.id)}
+                      disabled={busy}
                       style={styles.actionButton}
                     />
                   </View>
