@@ -7,6 +7,7 @@ import { Input } from '../../components/Input';
 import { Modal } from '../../components/Modal';
 import { Screen } from '../../components/Screen';
 import { SegmentedControl } from '../../components/SegmentedControl';
+import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -25,8 +26,16 @@ type Props = NativeStackScreenProps<FriendsGroupsStackParamList, 'FriendsGroupsL
 // （Issue #208で友達追加QR/グループ参加QR・コード入力をRedeemCodeScreenに統合）
 export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const [segment, setSegment] = useState<Segment>(route.params?.initialSegment ?? 'friends');
   const [menuOpen, setMenuOpen] = useState(false);
+  // ゲスト（匿名）セッションは友達関係を作成できない（RLSで拒否される）ため、
+  // 「友達追加」導線は無効化し説明を出す（Issue #407）
+  const [isAnonymousSession, setIsAnonymousSession] = useState(false);
+
+  useEffect(() => {
+    isCurrentSessionAnonymous().then(setIsAnonymousSession);
+  }, []);
   // 検索欄はセグメント切替の外側に1つだけ配置し、タップで展開する（Issue #284、
   // Issue #251でセグメントごとに個別実装していたものをここに引き上げた）。
   // 検索対象は常に「現在選択中のセグメントの一覧」のまま（友達・グループ横断はしない）
@@ -64,6 +73,15 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
   function navigateFromMenu(screen: 'AddFriend' | 'GroupCreate' | 'GroupJoin' | 'RedeemCode') {
     setMenuOpen(false);
     navigation.navigate(screen);
+  }
+
+  function handlePressAddFriend() {
+    if (isAnonymousSession) {
+      setMenuOpen(false);
+      showToast('ゲストモードでは友達追加はできません。設定画面からアカウント登録すると使えます');
+      return;
+    }
+    navigateFromMenu('AddFriend');
   }
 
   return (
@@ -124,8 +142,10 @@ export default function FriendsGroupsListScreen({ navigation, route }: Props) {
 
       <Modal visible={menuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menu}>
-          <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('AddFriend')}>
-            <Text style={[typography.body, { color: colors.text }]}>友達追加</Text>
+          <Pressable style={styles.menuItem} onPress={handlePressAddFriend}>
+            <Text style={[typography.body, { color: isAnonymousSession ? colors.textSub : colors.text }]}>
+              友達追加{isAnonymousSession ? '（ゲストモードでは利用できません）' : ''}
+            </Text>
           </Pressable>
           {!isAnonymous && (
             <Pressable style={styles.menuItem} onPress={() => navigateFromMenu('GroupCreate')}>
