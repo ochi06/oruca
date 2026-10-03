@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -14,14 +15,24 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { formatTime } from '../../utils/format';
 import { resolveUserName } from '../../utils/users';
+import { isAnnouncementUnread } from '../../utils/announcements';
 import { fetchUserNames } from '../../lib/auth';
 import { fetchAreasByIds } from '../../lib/areas';
+import { fetchAnnouncements } from '../../lib/announcements';
 import { Notification } from '../../mocks/notifications';
+import { Announcement } from '../../mocks/announcements';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useGroupStore } from '../../store/useGroupStore';
+import { useAnnouncementsSeenStore } from '../../store/useAnnouncementsSeenStore';
 import { SettingsStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'NotificationBox'>;
+
+// Issue #422: NOTIFICATIONSとANNOUNCEMENTSを時系列でマージして表示するための
+// 表示用の1件
+type DisplayItem =
+  | { kind: 'notification'; createdAt: string; notification: Notification }
+  | { kind: 'announcement'; createdAt: string; announcement: Announcement };
 
 export default function NotificationBoxScreen({ navigation }: Props) {
   const { colors } = useTheme();
@@ -43,15 +54,30 @@ export default function NotificationBoxScreen({ navigation }: Props) {
   // 全画面ローディング表示になるため、refreshing中はその分岐を迂回し、
   // ScrollView側のRefreshControlのインジケータのみ表示する
   const [refreshing, setRefreshing] = useState(false);
+  // Issue #422: 運営からのお知らせ。NOTIFICATIONSとは別テーブルのため、
+  // 別途取得してからマージする
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const lastSeenAnnouncementId = useAnnouncementsSeenStore((state) => state.lastSeenId);
+  const markAnnouncementSeen = useAnnouncementsSeenStore((state) => state.markSeen);
+
+  function loadAnnouncements() {
+    fetchAnnouncements()
+      .then(setAnnouncements)
+      .catch(() => {
+        // お知らせの取得に失敗しても通知ボックス自体は表示する
+      });
+  }
 
   useEffect(() => {
     initialize();
+    loadAnnouncements();
   }, [initialize]);
 
   async function handleRefresh() {
     setRefreshing(true);
     try {
       await initialize();
+      loadAnnouncements();
     } finally {
       setRefreshing(false);
     }
@@ -86,8 +112,19 @@ export default function NotificationBoxScreen({ navigation }: Props) {
       });
   }, [notifications]);
 
-  // 新しい順に表示する
-  const items = [...notifications].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  // NOTIFICATIONSとANNOUNCEMENTSを時系列（新しい順）でマージして表示する
+  const items: DisplayItem[] = [
+    ...notifications.map((notification): DisplayItem => ({
+      kind: 'notification',
+      createdAt: notification.created_at,
+      notification,
+    })),
+    ...announcements.map((announcement): DisplayItem => ({
+      kind: 'announcement',
+      createdAt: announcement.created_at,
+      announcement,
+    })),
+  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
   function findGroupNameByMemberId(groupMemberId: string): string {
     const member = groupMembers.find((m) => m.id === groupMemberId);
@@ -140,6 +177,28 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     );
   }
 
+  function renderAnnouncement(announcement: Announcement) {
+    const time = formatTime(new Date(announcement.created_at));
+    const unread = isAnnouncementUnread(announcement, announcements, lastSeenAnnouncementId);
+
+    return (
+      <ListItem
+        key={announcement.id}
+        title={`【お知らせ】${announcement.message}（${time}）`}
+        leading={<Ionicons name="megaphone-outline" size={24} color={colors.textSub} />}
+        trailing={
+          unread ? (
+            <Button
+              label="既読にする"
+              variant="secondary"
+              onPress={() => markAnnouncementSeen(announcement.id)}
+            />
+          ) : undefined
+        }
+      />
+    );
+  }
+
   if ((status === 'loading' && !refreshing) || status === 'idle') {
     return (
       <Screen style={styles.container} onBack={() => navigation.goBack()}>
@@ -168,7 +227,9 @@ export default function NotificationBoxScreen({ navigation }: Props) {
         {items.length === 0 ? (
           <EmptyState icon="notifications-outline" message="通知はありません" />
         ) : (
-          items.map((notification) => renderSingle(notification))
+          items.map((item) =>
+            item.kind === 'announcement' ? renderAnnouncement(item.announcement) : renderSingle(item.notification)
+          )
         )}
       </ScrollView>
     </Screen>

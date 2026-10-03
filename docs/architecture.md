@@ -78,6 +78,19 @@ OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo
   採用した。このWebhookも環境ごとにSupabaseダッシュボードから設定する
   運用とする
 
+### 実装済み：運営からのお知らせ（Issue #422、2026-10-03）
+
+- `ANNOUNCEMENTS`テーブル（`id`・`message`・`created_at`のみ、ユーザー単位の
+  行は持たない）を新設。投稿用の管理画面は作らず、developerがSupabase
+  ダッシュボードから直接INSERTする運用。RLSは全ユーザーSELECT許可（公開情報
+  扱い）、INSERT/UPDATE/DELETEはservice role経由のみ
+- 既読管理はDBで持たず、クライアント側（`useAnnouncementsSeenStore`、
+  AsyncStorage）で「最後に見たお知らせのid」だけを端末ローカルに保持する
+  簡易方式。あるお知らせが未読かどうかは、そのidに対応する`created_at`より
+  新しいかどうかで判定する（`app/utils/announcements.ts`
+  `isAnnouncementUnread`、idはuuidで大小比較に意味が無いため）
+- `NotificationBoxScreen`で`NOTIFICATIONS`と時系列でマージして表示する
+
 ### 実装済み：アプリ内アカウント削除（Issue #228、2026-10-02）
 
 - Apple App Store審査ガイドライン5.1.1(v)・Google Playのアカウント削除
