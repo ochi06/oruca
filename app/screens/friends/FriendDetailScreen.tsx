@@ -12,8 +12,9 @@ import { ListItem } from '../../components/ListItem';
 import { LocationHiddenToggle } from '../../components/LocationHiddenToggle';
 import { Modal } from '../../components/Modal';
 import { ProfileHeader } from '../../components/ProfileHeader';
+import { ProfileNotesSection } from '../../components/schedule/ProfileNotesSection';
 import { Screen } from '../../components/Screen';
-import { FriendScheduleNote } from '../../components/schedule/FriendScheduleNote';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useToast } from '../../components/Toast';
 import { WantToMeetToggle } from '../../components/WantToMeetToggle';
 import {
@@ -76,11 +77,6 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const toggleLocationHidden = useNotifyPreferencesStore((state) => state.toggleLocationHidden);
   const toggleWantToMeet = useNotifyPreferencesStore((state) => state.toggleWantToMeet);
   const removeFriend = useNotifyPreferencesStore((state) => state.removeFriend);
-  // 滞在予定・ひとことメッセージが設定されているか（Issue #274、#367で
-  // friend.schedule_note/status_messageを直接見る形に簡略化）
-  const hasScheduleOrStatusNote = Boolean(
-    friend?.schedule_note?.trim() || friend?.status_message?.trim()
-  );
 
   function handleToggleBlock() {
     toggleLocationHidden(friendId);
@@ -228,18 +224,12 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
             </Pressable>
           ) : undefined
         }
-        topRightBadge={
-          hasScheduleOrStatusNote ? (
-            <View style={[styles.noteBadge, { backgroundColor: colors.surface, borderColor: colors.blue }]}>
-              <Ionicons name="chatbubble-ellipses-outline" size={10} color={colors.blue} />
-            </View>
-          ) : undefined
-        }
+        bottomRightBadge={<StatusBadge status={friend.status} />}
       />
 
-      {/* Issue #367: エリア単位の概念を廃止し、ユーザー1人につき1つの
-          滞在予定・ひとことメッセージを表示する。画面上の配置はIssue #369で見直す */}
-      <FriendScheduleNote
+      {/* Issue #369: プロフィール画面（自分）と同じ共通レイアウト。
+          友達詳細画面では閲覧のみ（editable省略） */}
+      <ProfileNotesSection
         scheduleNote={friend.schedule_note}
         statusMessage={friend.status_message}
       />
@@ -431,14 +421,6 @@ const styles = StyleSheet.create({
   heartBadge: {
     width: WANT_TO_MEET_BADGE_SIZE,
     height: WANT_TO_MEET_BADGE_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
