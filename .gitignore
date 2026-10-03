@@ -29,3 +29,10 @@ backups/
 
 # その他
 .note.md
+
+# プレゼン資料・スクリーンショット等（開発とは無関係な成果物）
+*.pptx
+~$*
+/*.png
+!app/assets/*.png
+!docs/screenshots/*.png
