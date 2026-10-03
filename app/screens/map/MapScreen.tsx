@@ -394,7 +394,7 @@ export default function MapScreen({ navigation, route }: Props) {
           );
         })}
       </MapView>
-      <View style={[styles.mapActions, { bottom: tabBarHeight + spacing.lg }]}>
+      <View style={[styles.mapActions, { bottom: tabBarHeight + spacing.sm }]}>
         <IconButton
           name="settings-outline"
           variant="secondary"
