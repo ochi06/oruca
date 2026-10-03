@@ -437,7 +437,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       <Button
         label="グループを退会する"
-        variant="secondary"
+        variant="destructive"
         onPress={() => setLeaveConfirmVisible(true)}
         style={styles.leaveButton}
       />
