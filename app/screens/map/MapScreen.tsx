@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Circle, MapPressEvent, MapStyleElement, Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeNavigationProp } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useShallow } from 'zustand/react/shallow';
@@ -57,6 +58,10 @@ type Props = NativeStackScreenProps<MapStackParamList, 'Map'> & {
 export default function MapScreen({ navigation, route }: Props) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  // Issue #397: insets.bottom（セーフエリアのみ）はタブバー自体の高さを
+  // 含まないため、機種・画面サイズによってタブバーの上に余計な隙間ができたり
+  // 足りなかったりしていた。実際のタブバー高さ（セーフエリア込み）を基準にする
+  const tabBarHeight = useBottomTabBarHeight();
   const presenceStatus = usePresenceStore((s) => s.status);
   const data = usePresenceStore(
     useShallow((s) => ({
@@ -389,7 +394,7 @@ export default function MapScreen({ navigation, route }: Props) {
           );
         })}
       </MapView>
-      <View style={[styles.mapActions, { bottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.mapActions, { bottom: tabBarHeight + spacing.lg }]}>
         <IconButton
           name="settings-outline"
           variant="secondary"
