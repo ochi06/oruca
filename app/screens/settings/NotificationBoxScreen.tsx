@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Avatar } from '../../components/Avatar';
@@ -71,10 +71,23 @@ export default function NotificationBoxScreen({ navigation }: Props) {
   const groupMembers = useGroupStore((state) => state.members);
   // Issue #214: entry/want_to_meet/group_inviteのrelated_user_idの実際の名前
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
+  // Issue #416: pull-to-refresh。initialize()はstatus==='loading'の間に
+  // 全画面ローディング表示になるため、refreshing中はその分岐を迂回し、
+  // ScrollView側のRefreshControlのインジケータのみ表示する
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await initialize();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     const relatedUserIds = notifications
@@ -172,7 +185,7 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     );
   }
 
-  if (status === 'loading' || status === 'idle') {
+  if ((status === 'loading' && !refreshing) || status === 'idle') {
     return (
       <Screen style={styles.container} onBack={() => navigation.goBack()}>
         <LoadingIndicator />
@@ -192,13 +205,17 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     <Screen style={styles.container} onBack={() => navigation.goBack()}>
       <Text style={[styles.title, { color: colors.text }]}>通知ボックス</Text>
 
-      {items.length === 0 ? (
-        <EmptyState icon="notifications-outline" message="通知はありません" />
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {items.map((item) => (item.kind === 'arrival_group' ? renderArrivalGroup(item) : renderSingle(item.notification)))}
-        </ScrollView>
-      )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={items.length === 0 ? styles.emptyContentContainer : undefined}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
+        {items.length === 0 ? (
+          <EmptyState icon="notifications-outline" message="通知はありません" />
+        ) : (
+          items.map((item) => (item.kind === 'arrival_group' ? renderArrivalGroup(item) : renderSingle(item.notification)))
+        )}
+      </ScrollView>
     </Screen>
   );
 }
@@ -210,6 +227,10 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     marginBottom: spacing.md,
+  },
+  emptyContentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   summaryCard: {
     marginBottom: spacing.lg,

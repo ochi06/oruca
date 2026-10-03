@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
@@ -30,6 +30,22 @@ export default function AreaManagementScreen({ navigation }: Props) {
   const [areas, setAreas] = useState<Area[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Area | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Issue #416: pull-to-refresh。load()は全画面ローディング表示（state='loading'）
+  // になるため、refreshingは別stateで管理しScrollView側のインジケータのみ表示する
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const userId = await ensureSignedIn();
+      const result = await fetchOwnedAreas(userId);
+      setAreas(result);
+    } catch {
+      showToast('エリア一覧の取得に失敗しました');
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function load() {
     setState('loading');
@@ -99,11 +115,15 @@ export default function AreaManagementScreen({ navigation }: Props) {
         />
         <Text style={[styles.title, { color: colors.text }]}>エリア管理</Text>
       </View>
-      {areas.length === 0 ? (
-        <EmptyState icon="map-outline" message="作成したエリアがまだありません" />
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {areas.map((area) => (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={areas.length === 0 ? styles.emptyContentContainer : undefined}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
+        {areas.length === 0 ? (
+          <EmptyState icon="map-outline" message="作成したエリアがまだありません" />
+        ) : (
+          areas.map((area) => (
             <ListItem
               key={area.id}
               title={area.name}
@@ -127,9 +147,9 @@ export default function AreaManagementScreen({ navigation }: Props) {
                 </View>
               }
             />
-          ))}
-        </ScrollView>
-      )}
+          ))
+        )}
+      </ScrollView>
 
       <Modal
         visible={deleteTarget !== null}
@@ -171,6 +191,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  emptyContentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   headerCloseButton: {
     marginBottom: spacing.md,

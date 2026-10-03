@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -94,6 +94,19 @@ export default function FriendsListScreen({ searchQuery }: Props) {
   const [isAreaPickerVisible, setIsAreaPickerVisible] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const [proposing, setProposing] = useState(false);
+  // Issue #416: pull-to-refresh。initialize()はstatus==='loading'の間に
+  // 全画面ローディング表示になるため、refreshing中はその分岐を迂回し、
+  // FlatList側のRefreshControlのインジケータのみ表示する
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await initialize();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function handleToggleSelectionMode() {
     if (selectionMode) {
@@ -201,7 +214,7 @@ export default function FriendsListScreen({ searchQuery }: Props) {
     }
   }
 
-  if (status === 'loading' || status === 'idle') {
+  if ((status === 'loading' && !refreshing) || status === 'idle') {
     return (
       <Screen style={styles.container}>
         <Text style={[styles.title, { color: colors.text }]}>友達</Text>
@@ -244,15 +257,17 @@ export default function FriendsListScreen({ searchQuery }: Props) {
         </View>
       )}
 
-      {friends.length === 0 ? (
-        <EmptyState icon="people-outline" message="まだ友達がいません" />
-      ) : visibleFriends.length === 0 ? (
-        <EmptyState icon="search-outline" message="該当する友達が見つかりません" />
-      ) : (
-        <FlatList
-          data={visibleFriends}
-          keyExtractor={(user) => user.id}
-          renderItem={({ item: user }) => {
+      <FlatList
+        data={visibleFriends}
+        keyExtractor={(user) => user.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        ListEmptyComponent={
+          <EmptyState
+            icon={friends.length === 0 ? 'people-outline' : 'search-outline'}
+            message={friends.length === 0 ? 'まだ友達がいません' : '該当する友達が見つかりません'}
+          />
+        }
+        renderItem={({ item: user }) => {
             const friendship = friendships.find((f) => f.friend_id === user.id);
             const isSelected = selectedIds.has(user.id);
             if (selectionMode) {
@@ -319,7 +334,6 @@ export default function FriendsListScreen({ searchQuery }: Props) {
             );
           }}
         />
-      )}
 
       <Modal visible={menuTarget !== null} onClose={() => setMenuTargetId(null)} title={menuTarget?.name}>
         <Button
