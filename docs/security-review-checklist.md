@@ -50,20 +50,23 @@ PR #146）。マージ時に本チェックリストで再確認すること。
       `redeem_friend_otp`が正しい相手のみにマッチするか。Issue #147で
       `used_at`ベースの行ロック方式に修正済み──
       `supabase/migrations/20261001120100_friend_otp_redeem_rpc_v2.sql`参照）
-- [ ] `redeem_friend_otp`に試行回数・レート制限が無い点を許容できるか判断する。
-      現状は「6桁（100万通り）× 60秒TTL」の組み合わせのみが総当たりへの
-      抑止力で、RPC呼び出し自体への回数制限は無い。個人開発・小規模利用が
-      前提のコンペ提出物として許容するか、Supabase側のレート制限
-      （例：Edge Functionでのthrottle）を追加するかを判断する
+- [x] `redeem_friend_otp`に試行回数・レート制限を追加した（Issue #339、
+      2026-10-03開発者確認済み）。新規テーブル`otp_redeem_attempts`で
+      ユーザーごとの失敗回数を記録し、直近60秒間に10回失敗したら
+      `rate_limited`を返す（`supabase/migrations/
+      20261003120000_otp_redeem_rate_limit.sql`参照）。あわせてOTP発行
+      （`otp_codes` insert）にも間隔制限（直近60秒5件まで）を追加した
+      （`supabase/migrations/20261003110000_otp_issue_rate_limit.sql`参照）
 - [ ] 二重redeemで友達関係が重複作成されないか確認する
       （`friendships(user_id, friend_id)`のunique制約＋`on conflict do nothing`。
       Issue #147で対応済み）
 
-### 棚卸し結果（2026-10-01時点）
+### 棚卸し結果（2026-10-03時点）
 
 6桁数字・60秒TTL。`redeem_friend_otp`はIssue #147の修正でコード衝突・多重redeem
 問題を解消済み（行ロック＋`used_at`管理＋`friendships`のunique制約）。
-RPC呼び出し自体のレート制限は未実装（上記の通り、許容するか別途判断が必要）。
+RPC呼び出し自体のレート制限はIssue #339で実装済み（直近60秒間10回失敗で
+`rate_limited`、OTP発行も直近60秒5件まで）。
 
 ## 3. anon keyでの実アクセス確認
 
