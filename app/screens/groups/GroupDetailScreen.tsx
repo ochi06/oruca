@@ -224,7 +224,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       <Button label="友達を招待する" onPress={() => setIsInviting(true)} style={styles.inviteButton} />
 
-      {isAdmin && (
+      {group.type !== 'open' && isAdmin && (
         <View style={styles.section}>
           <Pressable
             style={styles.sectionHeader}
