@@ -15,6 +15,7 @@ import { typography } from '../../theme/typography';
 import { formatTime } from '../../utils/format';
 import { resolveUserName } from '../../utils/users';
 import { fetchUserNames } from '../../lib/auth';
+import { fetchAreasByIds } from '../../lib/areas';
 import { Notification } from '../../mocks/notifications';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useGroupStore } from '../../store/useGroupStore';
@@ -33,6 +34,11 @@ export default function NotificationBoxScreen({ navigation }: Props) {
   const groupMembers = useGroupStore((state) => state.members);
   // Issue #214: entry/want_to_meet/group_inviteのrelated_user_idの実際の名前
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
+  // Issue #420: area_link_proposedのarea_idの実際の名前。受け取る側が
+  // そのエリアを監視していない場合、AREASのRLS上0件になりうる
+  // （docs/must-manual-test-checklist.md「既知の制約」参照）。その場合は
+  // フォールバック表示になる
+  const [areaNameMap, setAreaNameMap] = useState<Map<string, string>>(new Map());
   // Issue #416: pull-to-refresh。initialize()はstatus==='loading'の間に
   // 全画面ローディング表示になるため、refreshing中はその分岐を迂回し、
   // ScrollView側のRefreshControlのインジケータのみ表示する
@@ -58,6 +64,23 @@ export default function NotificationBoxScreen({ navigation }: Props) {
     if (relatedUserIds.length === 0) return;
     fetchUserNames(relatedUserIds)
       .then(setNameMap)
+      .catch(() => {
+        // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
+      });
+  }, [notifications]);
+
+  useEffect(() => {
+    const areaIds = Array.from(
+      new Set(
+        notifications
+          .filter((n) => n.type === 'area_link_proposed')
+          .map((n) => n.area_id)
+          .filter((id): id is string => id !== null && id !== undefined)
+      )
+    );
+    if (areaIds.length === 0) return;
+    fetchAreasByIds(areaIds)
+      .then((areas) => setAreaNameMap(new Map(areas.map((area) => [area.id, area.name]))))
       .catch(() => {
         // 名前解決に失敗しても画面自体は表示する（フォールバック表示になる）
       });
@@ -93,6 +116,12 @@ export default function NotificationBoxScreen({ navigation }: Props) {
         break;
       case 'group_invite':
         text = `${resolveUserName(nameMap, notification.related_user_id!)}さんから「${findGroupNameByMemberId(notification.group_member_id!)}」に招待されました（${time}）`;
+        break;
+      case 'friend_added':
+        text = `${resolveUserName(nameMap, notification.related_user_id!)}さんと友達になりました（${time}）`;
+        break;
+      case 'area_link_proposed':
+        text = `${resolveUserName(nameMap, notification.related_user_id!)}さんから「${areaNameMap.get(notification.area_id!) ?? '不明なエリア'}」での紐づけを提案されました（${time}）`;
         break;
       default:
         text = `通知（${time}）`;

@@ -61,6 +61,23 @@ OS位置情報サービス --(expo-location経由)--> モバイルアプリ(Expo
 - このWebhookも`send-entry-notifications`と同様、環境ごとにSupabase
   ダッシュボードから設定する運用とする
 
+### 実装済み：友達追加・エリア紐づけ提案の通知（Issue #420、2026-10-03）
+
+- `friend_added`（友達追加成立時）：`redeem_friend_otp`（SECURITY DEFINER）
+  内で直接`notifications`にINSERTする。friendshipsは双方向2行を同時に作る
+  ため、Database Webhookでは「どちらが招待する側/される側か」を行だけから
+  判別できない。RPC内は`auth.uid()`（コードを読み取った側）・`v_otp.user_id`
+  （コードを発行した側）の向きが明確なため、ここで直接作成するのが最も確実
+  （group_invite等のWebhook＋Edge Functionパターンは単一方向の挿入イベント
+  が前提のため、この場合は採用しなかった）。受信者は「コードを発行しただけで
+  追加された側」（`v_otp.user_id`）。プッシュ通知は送らない
+- `area_link_proposed`（友達へのエリア紐づけ提案時）：`friend_area_links`への
+  INSERT（status='pending'）をDatabase Webhookでフックし、新規Edge Function
+  `send-area-link-proposed-notification`を起動する。こちらは単一方向の
+  挿入イベントのため、`send-group-invite-notification`と同じパターンを
+  採用した。このWebhookも環境ごとにSupabaseダッシュボードから設定する
+  運用とする
+
 ### 実装済み：アプリ内アカウント削除（Issue #228、2026-10-02）
 
 - Apple App Store審査ガイドライン5.1.1(v)・Google Playのアカウント削除
