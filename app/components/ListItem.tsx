@@ -42,6 +42,9 @@ export function ListItem({
               color: colors.text,
               fontFamily: typography.body.fontFamily,
               fontSize: typography.body.fontSize,
+              // Issue #442：title/subtitle間の行間を詰めるため、デフォルトの
+              // line-height（フォントサイズの約1.2〜1.3倍）より小さい値を明示する
+              lineHeight: typography.body.fontSize + 2,
             }}
           >
             {title}
@@ -54,6 +57,7 @@ export function ListItem({
               color: colors.textSub,
               fontFamily: typography.caption.fontFamily,
               fontSize: typography.caption.fontSize,
+              lineHeight: typography.caption.fontSize + 2,
             }}
           >
             {subtitle}
