@@ -9,6 +9,12 @@ export function resolveUserName(nameMap: Map<string, string>, userId: string): s
   return nameMap.get(userId) ?? '不明なユーザー';
 }
 
+// resolveUserNameと同じ考え方のicon_url版（Issue #430）。呼び出し側が
+// lib/auth.tsのfetchUserIconUrls()でまとめて取得したMapを渡す
+export function resolveUserIconUrl(iconMap: Map<string, string | null>, userId: string): string | null {
+  return iconMap.get(userId) ?? null;
+}
+
 // GROUP_MEMBERS.display_name/display_icon_urlが設定されていれば優先し、
 // 未設定ならUSERS側の値にフォールバックする（Issue #150、グループ内限定の
 // 表示名・アイコン上書き）
