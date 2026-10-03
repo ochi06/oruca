@@ -7,6 +7,19 @@ import { Group, GroupMember } from '../mocks/groups';
 // not_found/already_member）を検証する
 jest.mock('../lib/groups');
 
+// Issue #424でinitialize()がgroup_membersのRealtime購読（supabase.channel）を
+// 張るようになったため、テスト実行時に実際のWebSocket接続を試みて
+// タイムアウトしないようモックする
+jest.mock('../lib/supabase', () => ({
+  supabase: {
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn().mockReturnThis(),
+      unsubscribe: jest.fn(),
+    })),
+  },
+}));
+
 const mockedGroupsApi = groupsApi as jest.Mocked<typeof groupsApi>;
 
 const NOW = '2026-10-02T00:00:00.000Z';
