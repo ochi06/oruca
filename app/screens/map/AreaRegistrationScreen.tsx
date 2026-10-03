@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   LayoutAnimation,
@@ -28,8 +28,8 @@ import { useTheme } from '../../theme/useTheme';
 import { spacing, radius } from '../../theme/spacing';
 import { ensureSignedIn } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
-import { Area, UserArea, mockAreas, mockUserAreas } from '../../mocks/areas';
-import { CURRENT_USER_ID } from '../../mocks/presence';
+import { isAreaMonitored, monitorExistingArea, searchPublicAreas } from '../../lib/areas';
+import { Area } from '../../mocks/areas';
 import {
   AREA_NAME_MAX_LENGTH,
   RADIUS_MIN_M,
@@ -43,15 +43,11 @@ import {
   distanceInMeters,
   roundCoordinate,
 } from '../../utils/geo';
+import { FALLBACK_REGION } from '../../utils/mapRegion';
 import { MapStackParamList } from '../../navigation/types';
 
 const INITIAL_HANDLE_BEARING_DEG = 90; // 初期状態のみ真東
 const EMPTY_MAP_STYLE: MapStyleElement[] = [];
-
-const defaultCenter: LatLng = {
-  latitude: mockAreas[0].center_lat,
-  longitude: mockAreas[0].center_lng,
-};
 
 function clampRadius(m: number): number {
   return Math.round(Math.min(RADIUS_MAX_M, Math.max(RADIUS_MIN_M, m)));
@@ -101,7 +97,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
   const [pin, setPin] = useState<LatLng | null>(null);
   const [areaName, setAreaName] = useState('');
   // 検索から既存エリアを選んだ場合はここに入る。新規作成せず、既存エリアの
-  // 監視登録（mockUserAreas）のみ追加する対象として扱うため。
+  // 監視登録（USER_AREAS）のみ追加する対象として扱うため。
   const [selectedExistingArea, setSelectedExistingArea] = useState<Area | null>(
     null
   );
@@ -114,6 +110,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
   const mapRef = useRef<MapView>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Area[]>([]);
 
   const resetForm = () => {
     setPin(null);
@@ -136,10 +133,24 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
     setHandleBearingDeg(INITIAL_HANDLE_BEARING_DEG);
   };
 
-  const searchResults = mockAreas.filter(
-    (area) =>
-      searchQuery.length > 0 && area.is_public && area.name.includes(searchQuery)
-  );
+  // 検索欄の入力ごとに毎回問い合わせず、入力が止まってから実データを取得する
+  // （Issue #333）
+  useEffect(() => {
+    if (searchQuery.trim().length === 0) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchPublicAreas(searchQuery).then((areas) => {
+        if (!cancelled) setSearchResults(areas);
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   const openSearch = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -179,32 +190,27 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
       return;
     }
 
-    const nowIso = new Date().toISOString();
-
     // 検索で既存の公開エリアを選んでいる場合は、新規エリアを作らず、
     // そのエリアを自分の監視対象に追加するだけにする（重複作成を避けるため）
-    // 検索自体がまだモックデータのままのため、こちらはSupabase接続の対象外
     if (selectedExistingArea) {
-      const alreadyMonitored = mockUserAreas.some(
-        (userArea) =>
-          userArea.user_id === CURRENT_USER_ID &&
-          userArea.area_id === selectedExistingArea.id
-      );
-      if (alreadyMonitored) {
-        showToast(`「${selectedExistingArea.name}」は既に登録済みです`);
-      } else {
-        const newUserArea: UserArea = {
-          id: `user-area-mock-${mockUserAreas.length + 1}`,
-          user_id: CURRENT_USER_ID,
-          area_id: selectedExistingArea.id,
-          created_at: nowIso,
-        };
-        mockUserAreas.push(newUserArea);
-        showToast(`「${selectedExistingArea.name}」を登録しました`);
+      setRegistering(true);
+      try {
+        const userId = await ensureSignedIn();
+        const alreadyMonitored = await isAreaMonitored(userId, selectedExistingArea.id);
+        if (alreadyMonitored) {
+          showToast(`「${selectedExistingArea.name}」は既に登録済みです`);
+        } else {
+          await monitorExistingArea(userId, selectedExistingArea.id);
+          showToast(`「${selectedExistingArea.name}」を登録しました`);
+        }
+        resetForm();
+        navigation.goBack();
+      } catch (error) {
+        console.error('エリアの監視登録に失敗しました', error);
+        showToast('登録に失敗しました');
+      } finally {
+        setRegistering(false);
       }
-
-      resetForm();
-      navigation.goBack();
       return;
     }
 
@@ -244,12 +250,7 @@ export default function AreaRegistrationScreen({ navigation, route }: Props) {
 
   // マップ画面で見ていた表示範囲があればそれを初期表示にする（Issue #186）。
   // 無い場合（参加エリアが無い状態からのEmptyState経由等）は既存のフォールバック座標を使う
-  const initialRegion =
-    route.params?.initialRegion ?? {
-      ...defaultCenter,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    };
+  const initialRegion = route.params?.initialRegion ?? FALLBACK_REGION;
 
   return (
     <Screen style={styles.container} avoidKeyboard>
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: radius.md,
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: '#FFFFFF',
   },
   searchPanel: {
     position: 'absolute',

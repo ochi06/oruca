@@ -11,13 +11,16 @@ type Props = {
 };
 
 // この友達をブロックする（Issue #121・US-008、一方向ブロック）。ONの間、
-// 相手からは自分の在席状況（presence_logs）・滞在予定（area_schedules/
-// area_schedule_overrides）・所属グループ内での在席表示がすべて見えなく
-// なる（各テーブルのSELECTポリシーでDBレベルに強制、supabase/migrations
-// 参照。Issue #271で適用範囲を拡張）。友達一覧上の名前・アイコンなど
-// 最小限の表示は維持する。他の通知系トグルと違い「情報を隠す側」が自分の
-// 行に設定する値で、友達関係自体は解除されない（コンポーネント名・DBの
-// location_hidden列名はリネームしていない）
+// 相手からは自分の在席状況（presence_logs）・所属グループ内での在席表示が
+// 見えなくなる（各テーブルのSELECTポリシーでDBレベルに強制、supabase/
+// migrations参照。Issue #271で適用範囲を拡張）。友達一覧上の名前・アイコン
+// など最小限の表示は維持する。
+// Issue #367（developer確認済み、2026-10-03）：schedule_note・status_message
+// （滞在予定・ひとことメッセージ）はname/icon_urlと同じUSERSの行全体の
+// RLSに乗るため、location_hiddenの影響を受けない（ブロックしても見える）。
+// 他の通知系トグルと違い「情報を隠す側」が自分の行に設定する値で、友達
+// 関係自体は解除されない（コンポーネント名・DBのlocation_hidden列名は
+// リネームしていない）
 export function LocationHiddenToggle({ friendId }: Props) {
   const { colors } = useTheme();
   const friendship = useNotifyPreferencesStore((state) =>

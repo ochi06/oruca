@@ -9,12 +9,21 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 type Slide = {
-  icon: keyof typeof Ionicons.glyphMap;
+  // cover: アプリ名を表示する表紙スライド（Issue #384）。アイコンは
+  // 使わず、文字だけのシンプルな構成にする（アプリアイコン画像自体は
+  // Issue #37が未着手のため使えない）
+  variant?: 'cover';
+  icon?: keyof typeof Ionicons.glyphMap;
   title: string;
   body: string;
 };
 
 const SLIDES: Slide[] = [
+  {
+    variant: 'cover',
+    title: 'oruca',
+    body: 'エリア限定・関係限定の在席可視化アプリ',
+  },
   {
     icon: 'location-outline',
     title: 'エリアに入った時だけ',
@@ -79,13 +88,20 @@ export default function OnboardingScreen({ onDone }: Props) {
         onMomentumScrollEnd={handleScroll}
         style={styles.scrollView}
       >
-        {SLIDES.map((slide) => (
-          <View key={slide.title} style={[styles.slide, { width: SCREEN_WIDTH }]}>
-            <Ionicons name={slide.icon} size={96} color={colors.blue} />
-            <Text style={[styles.title, { color: colors.text }]}>{slide.title}</Text>
-            <Text style={[styles.body, { color: colors.textSub }]}>{slide.body}</Text>
-          </View>
-        ))}
+        {SLIDES.map((slide) =>
+          slide.variant === 'cover' ? (
+            <View key={slide.title} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+              <Text style={[styles.coverTitle, { color: colors.blue }]}>{slide.title}</Text>
+              <Text style={[styles.body, { color: colors.textSub }]}>{slide.body}</Text>
+            </View>
+          ) : (
+            <View key={slide.title} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+              {slide.icon && <Ionicons name={slide.icon} size={96} color={colors.blue} />}
+              <Text style={[styles.title, { color: colors.text }]}>{slide.title}</Text>
+              <Text style={[styles.body, { color: colors.textSub }]}>{slide.body}</Text>
+            </View>
+          )
+        )}
       </ScrollView>
 
       <View style={styles.dotsRow}>
@@ -131,6 +147,12 @@ const styles = StyleSheet.create({
     ...typography.title,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  coverTitle: {
+    fontFamily: typography.title.fontFamily,
+    fontSize: 48,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
   body: {

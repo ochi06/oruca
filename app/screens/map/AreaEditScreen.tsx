@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: radius.md,
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: '#FFFFFF',
   },
   editPanel: {
     position: 'absolute',

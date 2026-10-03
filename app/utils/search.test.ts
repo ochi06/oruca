@@ -25,4 +25,17 @@ describe('matchesSearchQuery', () => {
   it('前後の空白はトリムしてから判定する', () => {
     expect(matchesSearchQuery('田中太郎', '  太郎  ')).toBe(true);
   });
+
+  // Issue #335：ひらがな・カタカナ・全角半角の表記揺れを吸収する
+  it('カタカナ表記の名前をひらがなのクエリで検索できる', () => {
+    expect(matchesSearchQuery('ブシツ', 'ぶしつ')).toBe(true);
+  });
+
+  it('ひらがな表記の名前をカタカナのクエリで検索できる', () => {
+    expect(matchesSearchQuery('ぶしつ', 'ブシツ')).toBe(true);
+  });
+
+  it('全角英数字の名前を半角のクエリで検索できる', () => {
+    expect(matchesSearchQuery('Ａ棟', 'a')).toBe(true);
+  });
 });

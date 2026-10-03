@@ -4,7 +4,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { AllowEntryNotificationsToggle } from '../../components/AllowEntryNotificationsToggle';
 import { Button } from '../../components/Button';
 import { ErrorState } from '../../components/ErrorState';
 import { IconButton } from '../../components/IconButton';
@@ -16,7 +15,7 @@ import { Screen } from '../../components/Screen';
 import { Switch } from '../../components/Switch';
 import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
-import { spacing } from '../../theme/spacing';
+import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemeModeStore, ThemeMode } from '../../store/useThemeModeStore';
 import { USER_STATUS_OPTIONS, UserStatus, userStatusIcon } from '../../constants/status';
@@ -24,14 +23,12 @@ import {
   DEFAULT_USER_NAME,
   deleteAccount,
   ensureSignedIn,
-  fetchUserAllowEntryNotifications,
   fetchUserEntryVibrationEnabled,
   fetchUserIconUrl,
   fetchUserIsAnonymous,
   fetchUserName,
   fetchUserStatus,
   isCurrentSessionAnonymous,
-  updateUserAllowEntryNotifications,
   updateUserEntryVibrationEnabled,
   updateUserIcon,
   updateUserIsAnonymous,
@@ -69,7 +66,6 @@ export default function SettingsScreen({ navigation }: Props) {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [entryVibrationEnabled, setEntryVibrationEnabled] = useState(true);
-  const [allowEntryNotifications, setAllowEntryNotifications] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
   // auth.uidの匿名セッション（signInAnonymously由来）かどうか。USERS.is_anonymous
   // （匿名モード設定、上のisAnonymous）とは別物（Issue #168）
@@ -86,7 +82,6 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchedIconUrl,
           fetchedStatus,
           fetchedEntryVibrationEnabled,
-          fetchedAllowEntryNotifications,
           fetchedIsAnonymous,
           fetchedIsAnonymousSession,
         ] = await Promise.all([
@@ -94,7 +89,6 @@ export default function SettingsScreen({ navigation }: Props) {
           fetchUserIconUrl(userId),
           fetchUserStatus(userId),
           fetchUserEntryVibrationEnabled(userId),
-          fetchUserAllowEntryNotifications(userId),
           fetchUserIsAnonymous(userId),
           isCurrentSessionAnonymous(),
         ]);
@@ -102,7 +96,6 @@ export default function SettingsScreen({ navigation }: Props) {
         setIconUrl(fetchedIconUrl);
         setStatus(fetchedStatus);
         setEntryVibrationEnabled(fetchedEntryVibrationEnabled);
-        setAllowEntryNotifications(fetchedAllowEntryNotifications);
         setIsAnonymous(fetchedIsAnonymous);
         setIsAnonymousSession(fetchedIsAnonymousSession);
         setState('loaded');
@@ -188,20 +181,6 @@ export default function SettingsScreen({ navigation }: Props) {
     } catch (error) {
       console.error('updateUserEntryVibrationEnabled failed:', error);
       setEntryVibrationEnabled(!nextValue);
-      showToast('設定の更新に失敗しました');
-    }
-  }
-
-  // 「会いたい人」への入室通知の許可ワンタップ切替（US-017、Issue #243）
-  async function handleToggleAllowEntryNotifications() {
-    const nextValue = !allowEntryNotifications;
-    setAllowEntryNotifications(nextValue);
-    try {
-      const userId = await ensureSignedIn();
-      await updateUserAllowEntryNotifications(userId, nextValue);
-    } catch (error) {
-      console.error('updateUserAllowEntryNotifications failed:', error);
-      setAllowEntryNotifications(!nextValue);
       showToast('設定の更新に失敗しました');
     }
   }
@@ -317,10 +296,6 @@ export default function SettingsScreen({ navigation }: Props) {
             accessibilityLabel="入室通知の振動"
           />
         </View>
-        <AllowEntryNotificationsToggle
-          value={allowEntryNotifications}
-          onValueChange={handleToggleAllowEntryNotifications}
-        />
       </View>
 
       {isAnonymousSession ? (
@@ -332,29 +307,35 @@ export default function SettingsScreen({ navigation }: Props) {
 
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>匿名モード</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleTextContainer}>
-            <Text style={[styles.toggleLabel, { color: colors.text }]}>匿名モード</Text>
-            <Text style={[styles.toggleSubLabel, { color: colors.textSub }]}>
-              ONの間、友達にも名前・在席が表示されません
-            </Text>
-          </View>
-          <Switch
-            value={isAnonymous}
-            onValueChange={handleToggleAnonymous}
-            trackColor={{ true: colors.blue, false: colors.lightblue }}
-            accessibilityLabel="匿名モード"
-          />
-        </View>
+        <Text style={[styles.toggleSubLabel, { color: colors.textSub, marginBottom: spacing.sm }]}>
+          ONの間、友達にも名前・在席が表示されません
+        </Text>
+        <Button
+          label={isAnonymous ? '匿名モードを解除' : '匿名モードにする'}
+          variant="secondary"
+          onPress={handleToggleAnonymous}
+          style={[
+            styles.anonymousButton,
+            isAnonymous
+              ? {
+                  backgroundColor: colors.sand,
+                  shadowColor: colors.sand,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.8,
+                  shadowRadius: 12,
+                  elevation: 8,
+                }
+              : { backgroundColor: colors.lightblue },
+          ]}
+        />
       </View>
 
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.textSub }]}>危険な操作</Text>
         <Button
           label="アカウントを削除する"
-          variant="secondary"
+          variant="destructive"
           onPress={() => setDeleteConfirmVisible(true)}
-          style={{ backgroundColor: colors.coral }}
         />
       </View>
       </ScrollView>
@@ -412,9 +393,10 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Button
             label={deleting ? '削除中…' : '削除する'}
+            variant="destructive"
             onPress={handleConfirmDeleteAccount}
             disabled={deleting}
-            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+            style={styles.modalButton}
           />
         </View>
       </Modal>
@@ -461,6 +443,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Issue #359：匿名モードは使う頻度・とっさ性が高いため、他の設定項目とは
+  // 別格の大きいボタンにする。ON時はcolors.sand背景+シャドウで光るような
+  // 強調表現にする（developer指示・司令塔チャットで方針確認済み）
+  anonymousButton: {
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
   },
   toggleRow: {
     flexDirection: 'row',

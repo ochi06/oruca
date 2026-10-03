@@ -209,34 +209,6 @@ export async function updateUserEntryVibrationEnabled(userId: string, enabled: b
   }
 }
 
-// 自分の現在のusers.allow_entry_notificationsを取得する（US-017、Issue #15）
-export async function fetchUserAllowEntryNotifications(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('allow_entry_notifications')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) {
-    throw error;
-  }
-  return data?.allow_entry_notifications ?? true;
-}
-
-// 自分のusers.allow_entry_notificationsを更新する（US-017、Issue #15）。
-// 「自分の入室を、自分をFRIENDSHIPS.want_to_meetで登録している相手に通知して
-// よいか」のアカウント全体での許可。OFFの間は、want_to_meet側の設定に関わらず
-// 通知が送られない（utils/notifications.tsのshouldSendEntryNotification
-// で判定、Issue #270で判定ルールを統合）
-export async function updateUserAllowEntryNotifications(userId: string, allowed: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('users')
-    .update({ allow_entry_notifications: allowed })
-    .eq('id', userId);
-  if (error) {
-    throw error;
-  }
-}
-
 // 自分の現在のusers.is_anonymousを取得する（US-013、Issue #184）
 export async function fetchUserIsAnonymous(userId: string): Promise<boolean> {
   const { data, error } = await supabase.from('users').select('is_anonymous').eq('id', userId).maybeSingle();

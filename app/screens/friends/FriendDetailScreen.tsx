@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AreaMapPreview } from '../../components/AreaMapPreview';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { Input } from '../../components/Input';
@@ -23,17 +24,21 @@ import {
 import { useTheme } from '../../theme/useTheme';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
+import { isWantToMeetLimitError, useNotifyPreferencesStore } from '../../store/useNotifyPreferencesStore';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { ensureSignedIn } from '../../lib/auth';
-import { fetchMonitoredAreas } from '../../lib/areas';
+import { fetchAreasByIds, fetchMonitoredAreas } from '../../lib/areas';
 import {
   approveFriendAreaLink,
   fetchMyFriendAreaLinks,
   proposeFriendAreaLink,
   rejectFriendAreaLink,
 } from '../../lib/friendAreaLinks';
-import { canProposeFriendAreaLink, resolveFriendAreaLinkState } from '../../utils/friendAreaLinks';
+import {
+  canProposeFriendAreaLink,
+  computeUnmonitoredLinkedAreaIds,
+  resolveFriendAreaLinkState,
+} from '../../utils/friendAreaLinks';
 import { matchesSearchQuery } from '../../utils/search';
 import { Area } from '../../mocks/areas';
 import { FriendAreaLink } from '../../mocks/presence';
@@ -52,6 +57,9 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
   const friend = friends.find((user) => user.id === friendId);
   const [userId, setUserId] = useState<string | null>(null);
   const [monitoredAreas, setMonitoredAreas] = useState<Area[]>([]);
+  // この友達とのFRIEND_AREA_LINKSが指す、自分が監視登録していないエリア
+  // （Issue #340）。RLS上、自分宛のpending/approvedな提案がある限り読める
+  const [unmonitoredLinkedAreas, setUnmonitoredLinkedAreas] = useState<Area[]>([]);
   const [links, setLinks] = useState<FriendAreaLink[]>([]);
   const [busyAreaId, setBusyAreaId] = useState<string | null>(null);
   // エリア紐づけの追加ピッカー（Issue #272）。まだ紐づけ状態のない
@@ -79,6 +87,15 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setIsMenuVisible(false);
   }
 
+  // 会いたい人は5人まで（Issue #330、DBトリガーで強制）
+  async function handleToggleWantToMeet() {
+    try {
+      await toggleWantToMeet(friendId);
+    } catch (error) {
+      showToast(isWantToMeetLimitError(error) ? '会いたい人は5人まで登録できます' : '操作に失敗しました');
+    }
+  }
+
   async function handleConfirmDelete() {
     setDeleting(true);
     try {
@@ -93,13 +110,25 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     }
   }
 
-  function loadAreaLinks(signedInUserId: string) {
-    Promise.all([fetchMonitoredAreas(signedInUserId), fetchMyFriendAreaLinks(signedInUserId)]).then(
-      ([areas, fetchedLinks]) => {
-        setMonitoredAreas(areas);
-        setLinks(fetchedLinks);
-      }
+  async function loadAreaLinks(signedInUserId: string) {
+    const [areas, fetchedLinks] = await Promise.all([
+      fetchMonitoredAreas(signedInUserId),
+      fetchMyFriendAreaLinks(signedInUserId),
+    ]);
+    setMonitoredAreas(areas);
+    setLinks(fetchedLinks);
+
+    // この友達との紐づけが指すエリアのうち、まだmonitoredAreasに入っていない
+    // （＝自分が未監視の）ものを別途取得する（Issue #340）
+    const monitoredAreaIds = new Set(areas.map((a) => a.id));
+    const unmonitoredAreaIds = computeUnmonitoredLinkedAreaIds(
+      fetchedLinks,
+      signedInUserId,
+      friendId,
+      monitoredAreaIds
     );
+    const unmonitoredAreas = await fetchAreasByIds(unmonitoredAreaIds);
+    setUnmonitoredLinkedAreas(unmonitoredAreas);
   }
 
   useEffect(() => {
@@ -115,7 +144,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setBusyAreaId(areaId);
     try {
       await proposeFriendAreaLink(userId, friendId, areaId);
-      loadAreaLinks(userId);
+      await loadAreaLinks(userId);
       setIsPickerVisible(false);
       setPickerQuery('');
       showToast('エリアの紐づけを提案しました');
@@ -130,8 +159,8 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     if (!userId) return;
     setBusyAreaId(areaId);
     try {
-      await approveFriendAreaLink(linkId);
-      loadAreaLinks(userId);
+      await approveFriendAreaLink(linkId, userId, areaId);
+      await loadAreaLinks(userId);
       showToast('エリアの紐づけを承認しました');
     } catch {
       showToast('承認に失敗しました');
@@ -145,7 +174,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     setBusyAreaId(areaId);
     try {
       await rejectFriendAreaLink(linkId);
-      loadAreaLinks(userId);
+      await loadAreaLinks(userId);
       showToast('提案を拒否しました');
     } catch {
       showToast('拒否に失敗しました');
@@ -162,9 +191,13 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  // 既に何らかの紐づけ状態があるエリアのみ通常表示し（Issue #272）、
-  // まだ紐づけ状態のない（'none'の）エリアは「追加」ピッカー側に回す
-  const areaStates = userId === null ? [] : monitoredAreas.map((area) => ({
+  // 自分が監視中のエリアに加え、この友達との紐づけが指す未監視エリアも
+  // 母集団に含める（Issue #340）。既に何らかの紐づけ状態があるエリアのみ
+  // 通常表示し（Issue #272）、まだ紐づけ状態のない（'none'の）エリアは
+  // 「追加」ピッカー側に回す
+  const monitoredAreaIds = new Set(monitoredAreas.map((area) => area.id));
+  const allRelevantAreas = [...monitoredAreas, ...unmonitoredLinkedAreas];
+  const areaStates = userId === null ? [] : allRelevantAreas.map((area) => ({
     area,
     state: resolveFriendAreaLinkState(links, userId, friendId, area.id),
   }));
@@ -180,7 +213,7 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         bottomLeftBadge={
           friendship ? (
             <Pressable
-              onPress={() => toggleWantToMeet(friendId)}
+              onPress={handleToggleWantToMeet}
               hitSlop={WANT_TO_MEET_BADGE_HIT_SLOP}
               style={styles.heartBadge}
               accessibilityLabel={
@@ -241,6 +274,9 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         ) : (
           linkedAreas.map(({ area, state }) => {
             const busy = busyAreaId === area.id;
+            // 自分が未監視のエリアへのpending_received提案は、名前だけでは
+            // 場所が分からないため地図プレビューを表示する（Issue #340）
+            const showMapPreview = state.kind === 'pending_received' && !monitoredAreaIds.has(area.id);
             let trailing: ReactNode;
             if (state.kind === 'approved') {
               trailing = <Text style={{ color: colors.textSub }}>紐づけ済み</Text>;
@@ -276,7 +312,19 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
                 />
               );
             }
-            return <ListItem key={area.id} title={area.name} trailing={trailing} />;
+            return (
+              <View key={area.id}>
+                <ListItem title={area.name} trailing={trailing} />
+                {showMapPreview && (
+                  <AreaMapPreview
+                    centerLat={area.center_lat}
+                    centerLng={area.center_lng}
+                    radiusM={area.radius_m}
+                    style={styles.areaPreview}
+                  />
+                )}
+              </View>
+            );
           })
         )}
       </View>
@@ -338,7 +386,8 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
         />
         <Button
           label="削除する"
-          style={[styles.menuButton, { backgroundColor: colors.coral }]}
+          variant="destructive"
+          style={styles.menuButton}
           onPress={() => {
             setIsMenuVisible(false);
             setIsDeleteConfirmVisible(true);
@@ -364,9 +413,10 @@ export default function FriendDetailScreen({ route, navigation }: Props) {
           />
           <Button
             label={deleting ? '削除中…' : '削除する'}
+            variant="destructive"
             onPress={handleConfirmDelete}
             disabled={deleting}
-            style={[styles.modalButton, { backgroundColor: colors.coral }]}
+            style={styles.modalButton}
           />
         </View>
       </Modal>
@@ -417,6 +467,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     paddingHorizontal: spacing.md,
+  },
+  areaPreview: {
+    marginBottom: spacing.sm,
   },
   searchInput: {
     marginBottom: spacing.sm,

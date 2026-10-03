@@ -37,8 +37,8 @@ erDiagram
     boolean allow_entry_notifications
     string push_token
     boolean entry_vibration_enabled
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   AREAS {
     uuid id PK
@@ -48,14 +48,14 @@ erDiagram
     float8 center_lng
     int radius_m
     boolean is_public
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   USER_AREAS {
     uuid id PK
     uuid user_id FK
     uuid area_id FK
-    timestamp created_at
+    timestamptz created_at
   }
   FRIENDSHIPS {
     uuid id PK
@@ -66,8 +66,8 @@ erDiagram
     boolean want_to_meet
     boolean location_hidden
     string status
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   FRIEND_AREA_LINKS {
     uuid id PK
@@ -75,15 +75,15 @@ erDiagram
     uuid friend_id FK
     uuid area_id FK
     string status
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   OTP_CODES {
     uuid id PK
     uuid user_id FK
     string code
-    timestamp expires_at
-    timestamp created_at
+    timestamptz expires_at
+    timestamptz created_at
   }
   GROUPS {
     uuid id PK
@@ -92,9 +92,9 @@ erDiagram
     string invite_code
     string type
     uuid area_id FK
-    timestamp expires_at
-    timestamp created_at
-    timestamp updated_at
+    timestamptz expires_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   GROUP_MEMBERS {
     uuid id PK
@@ -104,15 +104,15 @@ erDiagram
     string status
     string display_name
     string display_icon_url
-    timestamp created_at
-    timestamp updated_at
+    timestamptz created_at
+    timestamptz updated_at
   }
   PRESENCE_LOGS {
     uuid id PK
     uuid user_id FK
     uuid area_id FK
-    timestamp entered_at
-    timestamp exited_at
+    timestamptz entered_at
+    timestamptz exited_at
     double lat
     double lng
   }
@@ -124,7 +124,7 @@ erDiagram
     uuid area_id FK
     uuid group_member_id FK
     boolean is_read
-    timestamp created_at
+    timestamptz created_at
   }
 ```
 
@@ -195,9 +195,8 @@ erDiagram
   検索して選択し、新規作成の代わりに監視対象へ追加する」機能
   （`AreaRegistrationScreen`の検索UI、2026-08-16追加）用。`true`のエリアのみ
   検索対象になる。`GROUPS.is_public`（Issue #202で廃止）とは別物で、こちらは
-  廃止されていない。ただし検索機能自体は`mocks/areas.ts`のモックデータの
-  ままで、まだSupabase接続されていない（バックエンド接続後に対応する後続
-  タスク、2026-08-16合意）点に注意
+  廃止されていない。検索機能自体はSupabase接続済み（Issue #333、
+  `is_public = true`へのRLS`"public areas are readable by anyone"`経由）
 - **USER_AREAS**：個人が「このエリアを監視する」ための登録。承認不要
 - **FRIENDSHIPS**：友達関係。片方向（user_id→friend_id）で1関係につき2行。
   `notify_enabled`（US-007。入室通知全体のON/OFFマスタースイッチ。デフォルト
@@ -205,6 +204,11 @@ erDiagram
   とは無関係、タグ付けミスだったため訂正。受信側が自分の行に設定する値）・
   `want_to_meet`（US-017、Issue #15。デフォルトfalse。trueの間は、共在して
   いなくても入室通知を受け取る。受信側が自分の行に設定する値）を持つ。
+  `want_to_meet`は恒久的なウォッチリスト化を防ぐため、1人あたり同時にtrueに
+  できるのは5人までにDBトリガー（`enforce_want_to_meet_limit`）で強制し、
+  毎日24時（JST）にpg_cron（`reset_want_to_meet_daily`）で全ユーザー分を
+  falseにリセットする（Issue #330、
+  `supabase/migrations/20261003020000_want_to_meet_limit_and_reset.sql`）。
   実際に入室通知を送るかどうかは
   `notify_enabled AND NOT muted AND (want_to_meet OR 自分も同じエリアに在席中)`
   で判定する（2026-10-02、開発者確認済み。旧`notify_only_when_copresent`列
@@ -218,19 +222,22 @@ erDiagram
   `location_hidden`（Issue #121。US-008
   「ブロック・個別制御」の実体。一方向ブロック。デフォルトfalse。自分の
   行でtrueにすると、相手（friend_id）からは自分に関する以下がすべて
-  見えなくなる：`presence_logs`（在席情報）、滞在時間・ステータスなどの
-  詳細情報、所属グループ内での在席表示。友達一覧上の名前・アイコンなど
-  最小限の表示は維持する（US-008の「プロフィール自体の完全非表示は避ける」
-  方針に基づく）。他の3列と違い「情報を隠す側」が自分の行に設定する点に
-  注意。友達関係自体は残る（`status`は変更しない。双方向の「削除」とは
-  別機能）。相手には通知されない。クライアント側フィルタではなくDBレベルで
-  強制するため、`presence_logs`等の関連SELECTポリシー・クエリすべてに
-  ブロック確認を組み込む。列名・DB構造は変更せず適用範囲のみ拡張
-  （2026-10-02、開発者確認済み。UI文言は「位置情報を隠す」ではなく
-  「ブロックする」に統一。元は2026-09-29に`presence_logs`のみの範囲で
-  承認済みだったものを拡張）を関係ごとに個別管理できる。実際の通知
-  イベント自体の記録・既読管理は別Issueで検討する
-  （2026-09-23、開発者確認済み）
+  見えなくなる：`presence_logs`（在席情報）、所属グループ内での在席表示。
+  友達一覧上の名前・アイコンなど最小限の表示は維持する（US-008の
+  「プロフィール自体の完全非表示は避ける」方針に基づく）。他の3列と違い
+  「情報を隠す側」が自分の行に設定する点に注意。友達関係自体は残る
+  （`status`は変更しない。双方向の「削除」とは別機能）。相手には通知
+  されない。クライアント側フィルタではなくDBレベルで強制するため、
+  `presence_logs`等の関連SELECTポリシー・クエリすべてにブロック確認を
+  組み込む。列名・DB構造は変更せず適用範囲のみ拡張（2026-10-02、
+  開発者確認済み。UI文言は「位置情報を隠す」ではなく「ブロックする」に
+  統一。元は2026-09-29に`presence_logs`のみの範囲で承認済みだったものを
+  拡張）を関係ごとに個別管理できる。
+  `schedule_note`・`status_message`（滞在予定・ひとことメッセージ）は
+  `location_hidden`の影響を受けない（Issue #367、2026-10-03開発者確認済み：
+  name/icon_urlと同じUSERSの行全体のRLSに乗るため、ブロックしていても
+  相手には見える）。実際の通知イベント自体の記録・既読管理は別Issueで
+  検討する（2026-09-23、開発者確認済み）
 - **FRIEND_AREA_LINKS**：特定の友達との間で「このエリアでは名前つきで
   見せ合う」という合意。提案（pending）→承認（approved）の二段階
 - **OTP_CODES**：US-005のワンタイムパスワード（60秒で失効）

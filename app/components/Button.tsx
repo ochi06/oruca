@@ -7,7 +7,9 @@ import { triggerTapHaptic } from '../utils/haptics';
 
 type Props = PressableProps & {
   label: string;
-  variant?: 'primary' | 'secondary';
+  // destructive: 背景塗りつぶし無し・coral文字・アンダーライン（Issue #357）。
+  // アカウント削除・友達削除・グループ退会など、取り消せない破壊的操作向け
+  variant?: 'primary' | 'secondary' | 'destructive';
   // タップ時の触覚フィードバック（Issue #38）。既定でON。連続操作で鳴らし
   // たくない画面などでは個別にfalseを渡して無効化できる
   hapticsEnabled?: boolean;
@@ -28,6 +30,7 @@ export function Button({
 }: Props) {
   const { colors } = useTheme();
   const isPrimary = variant === 'primary';
+  const isDestructive = variant === 'destructive';
 
   function handlePress(event: GestureResponderEvent) {
     if (hapticsEnabled) {
@@ -41,7 +44,7 @@ export function Button({
       style={[
         styles.base,
         {
-          backgroundColor: isPrimary ? colors.blue : colors.lightblue,
+          backgroundColor: isDestructive ? 'transparent' : isPrimary ? colors.blue : colors.lightblue,
         },
         style as object,
       ]}
@@ -52,7 +55,8 @@ export function Button({
       <Text
         style={[
           styles.label,
-          { color: isPrimary ? '#FFFFFF' : colors.navy },
+          isDestructive && styles.destructiveLabel,
+          { color: isDestructive ? colors.coral : isPrimary ? '#FFFFFF' : colors.navy },
         ]}
       >
         {label}
@@ -71,5 +75,8 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: typography.heading.fontFamily,
     fontSize: typography.body.fontSize,
+  },
+  destructiveLabel: {
+    textDecorationLine: 'underline',
   },
 });
