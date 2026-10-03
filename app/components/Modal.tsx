@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  KeyboardAvoidingView,
   Modal as RNModal,
+  Platform,
   Pressable,
   View,
   Text,
@@ -35,31 +37,39 @@ export function Modal({ visible, onClose, title, children, ...rest }: Props) {
       onRequestClose={onClose}
       {...rest}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        {/* カード部分へのタップがオーバーレイのonCloseまで伝播しないよう、
-            子にもPressable（no-op）を挟んで止める */}
-        <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
-          <View style={styles.header}>
-            {title ? (
-              typeof title === 'string' ? (
-                <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+      {/* Issue #417：Modal内にInputを持つ呼び出し元（FriendDetailScreenの
+          エリア追加ピッカー等）で、検索欄・検索結果がキーボードに隠れない
+          よう、Screen.tsxのavoidKeyboardと同じ考え方でここに一律実装する */}
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Pressable style={styles.overlayPressable} onPress={onClose}>
+          {/* カード部分へのタップがオーバーレイのonCloseまで伝播しないよう、
+              子にもPressable（no-op）を挟んで止める */}
+          <Pressable style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <View style={styles.header}>
+              {title ? (
+                typeof title === 'string' ? (
+                  <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+                ) : (
+                  <View style={styles.titleSpacer}>{title}</View>
+                )
               ) : (
-                <View style={styles.titleSpacer}>{title}</View>
-              )
-            ) : (
-              <View style={styles.titleSpacer} />
-            )}
-            <IconButton
-              name="close-outline"
-              variant="ghost"
-              size={20}
-              accessibilityLabel="閉じる"
-              onPress={onClose}
-            />
-          </View>
-          {children}
+                <View style={styles.titleSpacer} />
+              )}
+              <IconButton
+                name="close-outline"
+                variant="ghost"
+                size={20}
+                accessibilityLabel="閉じる"
+                onPress={onClose}
+              />
+            </View>
+            {children}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </RNModal>
   );
 }
@@ -68,6 +78,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  overlayPressable: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
