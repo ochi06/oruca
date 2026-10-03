@@ -104,7 +104,9 @@ export type RedeemOtpResult =
   // 匿名セッションからの呼び出し（Issue #151でクローズ機能から締め出された
   // 匿名アカウント）。RLSをバイパスするSECURITY DEFINER関数のため、
   // RPC本体で明示チェックしている（Issue #200）
-  | { status: 'forbidden' };
+  | { status: 'forbidden' }
+  // 直近60秒間の失敗試行が規定回数を超えた場合（Issue #339、ブルートフォース対策）
+  | { status: 'rate_limited' };
 
 // 相手が見せたOTPコードを検証し、FRIENDSHIPSを作成する（US-005）。
 // RLSをまたぐ処理のためSupabase側のRPC（redeem_friend_otp、SECURITY DEFINER）
@@ -119,7 +121,13 @@ export async function redeemOtp(code: string): Promise<RedeemOtpResult> {
   if (status === 'success') {
     return { status: 'success', friendId: data.friend_id as string, friendName: data.friend_name as string };
   }
-  if (status === 'expired' || status === 'not_found' || status === 'self' || status === 'forbidden') {
+  if (
+    status === 'expired' ||
+    status === 'not_found' ||
+    status === 'self' ||
+    status === 'forbidden' ||
+    status === 'rate_limited'
+  ) {
     return { status };
   }
   throw new Error('友達追加の検証に失敗しました');

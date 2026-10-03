@@ -58,7 +58,7 @@ describe('redeemCode', () => {
     expect(result).toEqual({ status: 'not_found' });
   });
 
-  test.each([['expired'], ['self'], ['forbidden']] as const)(
+  test.each([['expired'], ['self'], ['forbidden'], ['rate_limited']] as const)(
     '友達OTPが%sの場合はそのままsourceを付けて返す',
     async (status) => {
       const deps = makeDeps({

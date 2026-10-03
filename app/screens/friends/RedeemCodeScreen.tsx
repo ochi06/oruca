@@ -120,6 +120,11 @@ export default function RedeemCodeScreen({ navigation }: Props) {
         if (viaScan) onBack();
         return;
       }
+      if (result.status === 'rate_limited') {
+        showToast('試行回数が多すぎます。しばらく待ってからお試しください');
+        if (viaScan) onBack();
+        return;
+      }
       // self
       showToast(viaScan ? '自分のコードは読み取れません' : '自分のコードは入力できません');
       if (viaScan) onBack();
