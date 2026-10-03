@@ -70,7 +70,15 @@ export function Screen({
       ]}
     >
       <View style={[styles.base, style as object]} {...rest}>
-        {onBack || onMenu ? <View style={{ height: BACK_BUTTON_RESERVED_HEIGHT }} /> : null}
+        {/* Issue #445：disableSafeAreaPadding時は、呼び出し側（MapScreen等）が
+            BACK_BUTTON_RESERVED_HEIGHTを使って自前のオーバーレイ位置を計算し、
+            戻るボタンとの重なりを既に避けている。ここでも同じ高さのスペーサーを
+            通常のflowに挿入すると、flex: 1の子（MapView等）がその分だけ縮み、
+            画面いっぱいに表示されなくなる（二重に高さを確保してしまう）ため、
+            このモードではスペーサーを入れない */}
+        {(onBack || onMenu) && !disableSafeAreaPadding ? (
+          <View style={{ height: BACK_BUTTON_RESERVED_HEIGHT }} />
+        ) : null}
         {children}
       </View>
       {onBack ? (
