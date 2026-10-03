@@ -9,8 +9,10 @@ type Props = {
   size?: number;
 };
 
-// USERS.icon_url が無い場合は、名前の頭文字を丸背景に表示するプレースホルダー
-export function Avatar({ iconUrl, name, size = 40 }: Props) {
+// USERS.icon_url が無い場合は、名前の頭文字を丸背景に表示するプレースホルダー。
+// デフォルトサイズはIssue #393（developer実機確認、Issue #345で一覧行の
+// paddingVerticalを詰めすぎた反動）で40→44に拡大した
+export function Avatar({ iconUrl, name, size = 44 }: Props) {
   const { colors } = useTheme();
   const initial = name.trim().charAt(0) || '?';
 
