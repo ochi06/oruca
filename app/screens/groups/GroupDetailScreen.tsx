@@ -17,13 +17,13 @@ import { useToast } from '../../components/Toast';
 import { useTheme } from '../../theme/useTheme';
 import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { ensureSignedIn, fetchUserNames } from '../../lib/auth';
+import { ensureSignedIn, fetchUserIconUrls, fetchUserNames } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { GroupMember } from '../../mocks/groups';
 import { useGroupStore } from '../../store/useGroupStore';
 import { isGroupAdmin } from '../../utils/groupAuth';
 import { canSeeOpenGroupPresence } from '../../utils/groupOpenType';
-import { resolveGroupMemberDisplay, resolveUserName } from '../../utils/users';
+import { resolveGroupMemberDisplay, resolveUserIconUrl, resolveUserName } from '../../utils/users';
 import { formatDate } from '../../utils/format';
 import { useFriendUsers } from '../../hooks/useFriendUsers';
 import { fetchPresentUserIds } from '../../lib/groups';
@@ -78,6 +78,9 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   // Issue #214: メンバー一覧・招待者表示に使う実際の名前。member.user_id・
   // member.invited_byをまとめて1回のクエリで解決する
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
+  // Issue #430: メンバー一覧の本来のアイコン（GROUP_MEMBERS.display_icon_url
+  // 未設定時のフォールバック先）。招待者はアイコンを表示しないのでuser_idのみ
+  const [iconMap, setIconMap] = useState<Map<string, string | null>>(new Map());
 
   function loadUser() {
     setAuthError(false);
@@ -101,13 +104,24 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       });
   }, [members]);
 
-  // Issue #424：メンバー・招待者のUSERS.nameの変更をRealtimeで購読し、
-  // 開いたままのグループ詳細画面にも反映する
+  useEffect(() => {
+    const memberUserIds = members.map((m) => m.user_id);
+    if (memberUserIds.length === 0) return;
+    fetchUserIconUrls(memberUserIds)
+      .then(setIconMap)
+      .catch(() => {
+        // アイコン解決に失敗しても画面自体は表示する（フォールバック表示になる）
+      });
+  }, [members]);
+
+  // Issue #424：メンバー・招待者のUSERS.name/icon_urlの変更をRealtimeで
+  // 購読し、開いたままのグループ詳細画面にも反映する
   useEffect(() => {
     const idsToResolve = Array.from(
       new Set(members.flatMap((m) => [m.user_id, ...(m.invited_by ? [m.invited_by] : [])]))
     );
     if (idsToResolve.length === 0) return;
+    const memberUserIds = members.map((m) => m.user_id);
 
     const channel = supabase
       .channel(`users:group-detail:${idsToResolve.slice().sort().join(',')}`)
@@ -117,6 +131,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         () => {
           fetchUserNames(idsToResolve)
             .then(setNameMap)
+            .catch(() => {
+              // 失敗しても既存表示のまま（Realtime経由のサイレント更新のため黙って無視する）
+            });
+          fetchUserIconUrls(memberUserIds)
+            .then(setIconMap)
             .catch(() => {
               // 失敗しても既存表示のまま（Realtime経由のサイレント更新のため黙って無視する）
             });
@@ -321,7 +340,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
               pendingMembers.map((member) => {
                 const display = resolveGroupMemberDisplay(member, {
                   name: resolveUserName(nameMap, member.user_id),
-                  iconUrl: null,
+                  iconUrl: resolveUserIconUrl(iconMap, member.user_id),
                 });
                 const busy = busyMemberId === member.id;
                 return (
@@ -381,7 +400,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             approvedMembers.map((member) => {
               const display = resolveGroupMemberDisplay(member, {
                 name: resolveUserName(nameMap, member.user_id),
-                iconUrl: null,
+                iconUrl: resolveUserIconUrl(iconMap, member.user_id),
               });
               return (
                 <ListItem

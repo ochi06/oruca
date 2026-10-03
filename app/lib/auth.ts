@@ -113,6 +113,23 @@ export async function fetchUserNames(userIds: string[]): Promise<Map<string, str
   return new Map((data ?? []).map((row) => [row.id as string, row.name as string]));
 }
 
+// 複数ユーザーのicon_urlをまとめて取得する（Issue #430）。GroupDetailScreenの
+// メンバー一覧が、GROUP_MEMBERS.display_icon_url未設定時のフォールバック先
+// （本来のプロフィール写真）を解決するために使う。fetchUserNamesと同じ構成の
+// 専用関数として分け、名前だけで足りる呼び出し元（通知ボックス等）は
+// 引き続きfetchUserNamesのみで済むようにする
+export async function fetchUserIconUrls(userIds: string[]): Promise<Map<string, string | null>> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+  const { data, error } = await supabase.from('users').select('id, icon_url').in('id', uniqueIds);
+  if (error) {
+    throw error;
+  }
+  return new Map((data ?? []).map((row) => [row.id as string, row.icon_url as string | null]));
+}
+
 // 自分のusers.nameを更新する（Issue #111：Issue #106でAreaJoinScreen経由の
 // 名前設定導線が消え、他に呼び出し元が無くなった際に一度削除されていたが、
 // SettingsScreenでの名前編集用に復活させた）
