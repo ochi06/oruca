@@ -9,16 +9,19 @@ import { fetchOpenPresenceLogs } from '../lib/presence';
 import { supabase } from '../lib/supabase';
 import { Area } from '../mocks/areas';
 import { PresenceLog } from '../mocks/presence';
-import { LatLng } from '../utils/geo';
+import { LatLng, roundCoordinate } from '../utils/geo';
 
-// 入室時：presence_logsに新しい行をinsertする
+// 入室時：presence_logsに新しい行をinsertする。
+// Issue #336：lat/lngはAREASと同じ精度（小数点6桁、約11cm）に丸めて保存する
+// （developer確認済み。プライバシー・バイ・デフォルトの観点で、位置情報は
+// 必要以上の精度を持たせない）
 async function recordEntryInBackend(areaId: string, location: LatLng, enteredAt: string): Promise<void> {
   const userId = await ensureSignedIn();
   const { error } = await supabase.from('presence_logs').insert({
     user_id: userId,
     area_id: areaId,
-    lat: location.latitude,
-    lng: location.longitude,
+    lat: roundCoordinate(location.latitude),
+    lng: roundCoordinate(location.longitude),
     entered_at: enteredAt,
   });
   if (error) {
@@ -42,12 +45,15 @@ async function recordExitInBackend(areaId: string, exitedAt: string): Promise<vo
 
 // 在室中：入室中（exited_atがnull）の行のlat/lngを最新の位置に更新する
 // （Issue #74）。更新頻度は間引かず、watchPositionAsyncのコールバックが
-// 発火するたび（既にtimeInterval/distanceIntervalで間引き済み）に更新する
+// 発火するたび（既にtimeInterval/distanceIntervalで間引き済み）に更新する。
+// Issue #336：insert時と同じくroundCoordinateで丸めてから保存する
+// （丸めないと、入室直後は粗い精度でも数秒後の最初の位置更新で元の精度に
+// 戻ってしまい、精度要件が実質無意味になるため）
 async function recordLocationUpdateInBackend(areaId: string, location: LatLng): Promise<void> {
   const userId = await ensureSignedIn();
   const { error } = await supabase
     .from('presence_logs')
-    .update({ lat: location.latitude, lng: location.longitude })
+    .update({ lat: roundCoordinate(location.latitude), lng: roundCoordinate(location.longitude) })
     .eq('user_id', userId)
     .eq('area_id', areaId)
     .is('exited_at', null);
