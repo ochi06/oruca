@@ -10,6 +10,8 @@ export type RedeemResult =
   | { source: 'friend'; status: 'self' }
   // 匿名セッションからの友達追加は拒否される（Issue #200）
   | { source: 'friend'; status: 'forbidden' }
+  // 直近60秒間の失敗試行が規定回数を超えた場合（Issue #339、ブルートフォース対策）
+  | { source: 'friend'; status: 'rate_limited' }
   | { status: 'not_found' }
   // isNetworkErrorは「コードが見つからない」等の確定的な失敗と区別し、
   // 会場Wi-Fi等の不安定な回線での一時的な失敗なら再試行を促すために使う
@@ -58,7 +60,12 @@ export async function redeemCode(
   if (friendResult.status === 'success') {
     return { source: 'friend', status: 'success', friendName: friendResult.friendName };
   }
-  if (friendResult.status === 'expired' || friendResult.status === 'self' || friendResult.status === 'forbidden') {
+  if (
+    friendResult.status === 'expired' ||
+    friendResult.status === 'self' ||
+    friendResult.status === 'forbidden' ||
+    friendResult.status === 'rate_limited'
+  ) {
     return { source: 'friend', status: friendResult.status };
   }
   if (friendResult.status === 'error') {

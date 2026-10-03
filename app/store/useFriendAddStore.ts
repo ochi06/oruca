@@ -12,6 +12,8 @@ export type AddFriendResult =
   | { status: 'not_found' }
   | { status: 'self' }
   | { status: 'forbidden' }
+  // 直近60秒間の失敗試行が規定回数を超えた場合（Issue #339、ブルートフォース対策）
+  | { status: 'rate_limited' }
   // isNetworkErrorは「入力されたコードの誤り」と区別し、呼び出し側で
   // 再試行を促す案内を出し分けるために使う（Issue #314）
   | { status: 'error'; isNetworkError: boolean };
@@ -37,6 +39,12 @@ export const useFriendAddStore = create<FriendAddState>((set, get) => ({
       const userId = await ensureSignedIn();
       const otp = await issueMyOtp(userId);
       set({ myOtp: otp });
+    } catch (error) {
+      // Issue #339：短時間に大量発行しようとした場合、DB側のトリガーが
+      // insert自体を拒否する（想定内の挙動）。通常利用では60秒TTLごとに
+      // 1回しか発行しないため到達しない想定。myOtpは更新せず、次回の
+      // タイマー（1秒間隔、AddFriendScreen.tsx）で再試行されるのに任せる
+      console.error('issueMyOtp failed:', error);
     } finally {
       set({ isIssuingOtp: false });
     }
