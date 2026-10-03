@@ -90,7 +90,7 @@
 |---|---|---|
 | マップ | `MapStackNavigator`（Webでは`MapStackNavigator.web.tsx`に差し替え） | `MapScreen`（在席者マーカー・エリアタップポップアップ）→`PresenceListScreen`、`AreaRegistrationScreen`、`AreaManagementScreen`、`AreaEditScreen`。Web版は`WebMapPlaceholderScreen`のみ（地図非対応） |
 | 友達・グループ | `FriendsGroupsStackNavigator` | `FriendsGroupsListScreen`（友達一覧／グループ一覧のセグメント切替＋「＋」メニュー）→`FriendDetailScreen`（ブロック設定・エリア紐づけ提案承認）、`AddFriendScreen`（自分のOTP表示のみ）、`GroupDetailScreen`、`GroupCreateScreen`、`GroupJoinScreen`（招待承諾）、`RedeemCodeScreen`（友達OTP・グループ招待コードを1画面で判別、Issue #208で統合） |
-| プロフィール | `SettingsStackNavigator` | `ProfileScreen`（アイコン・表示名・ステータス編集、トップ画面）→歯車アイコンで`SettingsScreen`（表示モード・入室通知振動・匿名モード）、通知アイコンで`NotificationBoxScreen` |
+| プロフィール | `SettingsStackNavigator` | `ProfileScreen`（アイコン・表示名・ステータス編集・滞在予定/ひとことメッセージ・匿名モード、トップ画面）→歯車アイコンで`SettingsScreen`（表示モード・入室通知振動・アカウント登録・アカウント削除）、通知アイコンで`NotificationBoxScreen`（Issue #356で一時統合、Issue #403で再分割） |
 
 ## チェック項目一覧
 
@@ -107,9 +107,9 @@ QR等、Web版の自動確認では検証できない項目を含む）。
 - [ ] プロフィール画面の歯車アイコンから設定画面に遷移し、表示モード
       （ライト/ダーク/システムに従う）が切り替わる（Issue #130）
 - [ ] 設定画面で入室通知の振動ON/OFFが切り替わる（Issue #169）
-- [ ] 設定画面で匿名モードON/OFFが切り替わる。ONの間、承認済みの友達にも
-      自分の名前・在席が見えなくなることを別アカウントから確認する
-      （Issue #184。マップ側の可視性フィルタ自体は実装済み）
+- [ ] プロフィール画面の匿名モードボタンでON/OFFが切り替わる。ONの間、
+      承認済みの友達にも自分の名前・在席が見えなくなることを別アカウント
+      から確認する（Issue #184。マップ側の可視性フィルタ自体は実装済み）
 - [ ] プロフィール画面の通知アイコンから通知ボックスに遷移し、グループ招待
       の通知から直接「承諾」できる
 - [ ] グループに招待されると、招待された本人に`group_invite`通知が作成される

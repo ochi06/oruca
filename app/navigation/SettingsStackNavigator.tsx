@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import ProfileScreen from '../screens/settings/ProfileScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 import NotificationBoxScreen from '../screens/settings/NotificationBoxScreen';
 import AccountUpgradeScreen from '../screens/settings/AccountUpgradeScreen';
@@ -10,8 +11,10 @@ const Stack = createNativeStackNavigator<SettingsStackParamList>();
 export function SettingsStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Issue #356：プロフィール編集と詳細設定を統合したSettingsScreenをタブのトップにする */}
-      <Stack.Screen name="ProfileTop" component={SettingsScreen} />
+      {/* Issue #403：プロフィール画面をタブのトップに戻し、詳細設定は歯車アイコン
+          経由のSettingsScreenに分割した */}
+      <Stack.Screen name="ProfileTop" component={ProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="NotificationBox" component={NotificationBoxScreen} />
       <Stack.Screen name="AccountUpgrade" component={AccountUpgradeScreen} />
     </Stack.Navigator>

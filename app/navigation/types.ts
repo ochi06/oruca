@@ -35,10 +35,13 @@ export type FriendsGroupsStackParamList = {
 };
 
 export type SettingsStackParamList = {
-  // Issue #356：プロフィール編集（アイコン・名前・ステータス）と詳細設定
-  // （テーマ・入室通知・匿名モード等）を1画面に統合した（Issue #176の方針転換）。
-  // 歯車アイコン経由の別画面（旧Settings）は廃止
+  // Issue #356でProfileScreenをSettingsScreenに統合したが、Issue #403で
+  // 再び分割した。ProfileTop（タブのトップ）＝プロフィール編集（アイコン・
+  // 名前・ステータス・滞在予定・ひとことメッセージ・匿名モード）、
+  // Settings（歯車アイコン経由）＝詳細設定（テーマ・入室通知・アカウント
+  // 登録・削除）
   ProfileTop: undefined;
+  Settings: undefined;
   NotificationBox: undefined;
   // Issue #168: 匿名セッション中のみ設定画面から遷移する本登録導線
   AccountUpgrade: undefined;
