@@ -2,9 +2,36 @@ import { create } from 'zustand';
 
 import { Group, GroupMember, GroupType } from '../mocks/groups';
 import * as groupsApi from '../lib/groups';
+import { supabase } from '../lib/supabase';
 import { checkCanJoin, checkCanLeaveGroup, checkCanTransferOwnership, checkIsGroupOwner } from './groupValidation';
 import { useNotificationStore } from './useNotificationStore';
 import { isExpiredOpenGroup } from '../utils/groupOpenType';
+
+// 購読中のチャンネルとその対象group_id集合。集合が変わらない限り購読を
+// 張り直さない（usePresenceStore.tsのIssue #308パターンと同じ方針）
+let membersChannel: ReturnType<typeof supabase.channel> | null = null;
+let subscribedGroupIdsKey: string | null = null;
+
+// Issue #424：GROUP_MEMBERSのdisplay_name/display_icon_url変更をRealtimeで
+// 購読し、開いたままのグループ詳細画面に反映する
+function subscribeToGroupMemberChanges(groupIds: string[], onChange: () => void): void {
+  const key = groupIds.slice().sort().join(',');
+  if (key === subscribedGroupIdsKey) return;
+  subscribedGroupIdsKey = key;
+
+  membersChannel?.unsubscribe();
+  membersChannel = null;
+  if (groupIds.length === 0) return;
+
+  membersChannel = supabase
+    .channel(`group_members:groups:${key}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'group_members', filter: `group_id=in.(${groupIds.join(',')})` },
+      onChange
+    )
+    .subscribe();
+}
 
 // invite_codeでのオープングループQR参加（Issue #148）の結果型。
 // memberIdは参加直後の表示名・アイコン設定（Issue #150）用
@@ -37,6 +64,9 @@ type GroupState = {
   // ownerUserIdを渡すと、そのユーザーが所有する期限切れオープングループの
   // 自動削除（Issue #148）も合わせて行う
   initialize: (ownerUserId?: string) => Promise<void>;
+  // Realtimeでgroup_membersの変更を受けた時に、ローディング表示を出さず
+  // membersだけを裏で取得し直す（Issue #424）
+  refreshMembers: () => Promise<void>;
   createGroup: (
     name: string,
     ownerUserId: string,
@@ -87,8 +117,21 @@ export const useGroupStore = create<GroupState>((set, get) => ({
       // （そのownerがアプリを開くまで残る）、表示上は自分側で除外する
       const visibleGroups = groups.filter((group) => !isExpiredOpenGroup(group, now));
       set({ groups: visibleGroups, members, status: 'ready' });
+      subscribeToGroupMemberChanges(
+        visibleGroups.map((group) => group.id),
+        () => get().refreshMembers()
+      );
     } catch (error) {
       set({ status: 'error', errorMessage: error instanceof Error ? error.message : 'グループ情報の取得に失敗しました' });
+    }
+  },
+
+  refreshMembers: async () => {
+    try {
+      const members = await groupsApi.fetchVisibleGroupMembers();
+      set({ members });
+    } catch {
+      // 失敗しても既存表示のまま（Realtime経由のサイレント更新のため黙って無視する）
     }
   },
 
